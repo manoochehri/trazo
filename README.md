@@ -58,7 +58,7 @@ Two layers. The second is the one that matters.
 | **AI team** | `/pm` and `/eng` switch the session's role. `reviewer`, `security` and `skeptic` are **subagent-only**, Opus. None of them edits a file — but each records its verdict on GitHub, and `/pm` may also reshape the issue graph. See [the team](team.md) |
 | **Commands** | `/trazo` (menu), `/kickoff`, `/start`, `/work`, `/check-pr`, `/pm`, `/eng`, `/wrapup`, `/brief`, `/decide` — or just ask in plain English |
 | **Secrets from day one** | `.gitignore`, `.env.example`, gitleaks (pre-commit + CI), `scripts/put_secret.sh` |
-| **Containers** | Dockerfile (non-root, uv), `compose.yaml` — the toolchain and the tests, no service |
+| **Containers** | Dockerfile (non-root, uv) — the toolchain and the tests, no service |
 | **CI** | GitHub Actions on every PR: secret scan, lint, tests, Docker build, infra lint, docs check |
 | **Guardrails** | CODEOWNERS on safety-critical paths, PR template with doc checkboxes, branch protection at kickoff |
 | **Deploy (optional)** | Pluggable targets: none, Fly.io, AWS (budget alerts + GitHub OIDC + ECR), GCP (stub) |
@@ -198,7 +198,7 @@ docs/                      per-project state: PLAN, STATUS, RUNBOOK, reports
 handbook/                  the published documentation
 scripts/                   helper scripts (put_secret.sh, scan.sh)
 tests/                     guard tests for the overlay itself
-Dockerfile, compose.yaml   containers (toolchain + tests; no service)
+Dockerfile                  container (toolchain + tests; no service)
 Makefile, pyproject.toml   tooling
 ```
 
