@@ -1,6 +1,6 @@
 """The release process must stay mechanical, not advisory (issue #81).
 
-Trazo is consumed by mounting `.trazo/` into a host repo, so a consumer resolves
+Trazo is installed into a host repo from `src/`, so a consumer resolves
 "latest" by reading a git tag. That only works if the tag, `.template/VERSION` and
 `.template/CHANGELOG.md` keep agreeing. All three were hand-maintained and all three
 had drifted: the repository carried a changelog claiming seven released versions and

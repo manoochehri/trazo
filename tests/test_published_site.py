@@ -20,8 +20,9 @@ So these assert the invariants that made the drift possible:
 2. **No published page claims a delivery model that was removed.** "Template" and the
    lesson-flywheel sentence are the two claims that went false, and a substitution cannot
    fix either — they have to be rewritten, which is what this issue did.
-3. **The overlay is actually documented.** `.trazo/` is the product, and before this
-   nothing on the site explained what it was or what contract a mounted repo must satisfy.
+3. **The overlay is actually documented.** `src/overlay/` is the product (installed here as
+   `.trazo/`), and before this nothing on the site explained what it was or what
+   contract a mounted repo must satisfy.
 4. **The logo is not the old pun.** The mark was a seed/sprout, because the repo used to
    be called *semilla*.
 """

@@ -1,4 +1,9 @@
-"""Guards for the `.trazo/` layout (issue #50).
+"""Guards for the `src/` + `.trazo/` layout (issues #50, #92, #96; ADR 0010).
+
+`src/` is the canonical product and `.trazo/` is the installed copy that governs this
+repository. The tests below assert that split, and fail if the old single-directory
+layout (rules edited in place under `.trazo/`, product state mixed into the install) comes
+back.
 
 The move in #50 is the kind of change that looks finished the moment the files are in
 place, and is actually finished weeks later when some doc still points at a path that no
@@ -33,12 +38,23 @@ MOVED = (
     "docs/workstreams/",
 )
 
-# The product tree (#94): everything a host receives, and the only place the canonical
-# copies live. `.trazo/` in this repository is its own governance and is edited here,
-# not generated from this tree.
+# ADR 0010: `src/` is the canonical source and holds everything a host receives. `.trazo/`
+# is the installed copy that governs this repository, and is never hand-edited. The
+# product is edited in `src/` and the installed copy is refreshed from it.
 PRODUCT = "src"
 OVERLAY = "src/overlay"
 ADAPTERS = "src/adapters"
+
+# Installed copy -> canonical source. Every row is a file a host receives; none of them
+# is edited in place on the left-hand side.
+INSTALLED_FROM_SRC = {
+    ".trazo/rules.md": "src/overlay/rules.md",
+    ".trazo/ADVISOR.md": "src/overlay/ADVISOR.md",
+    ".trazo/ARCHITECTURE.md": "src/overlay/ARCHITECTURE.md",
+    "CLAUDE.md": "src/adapters/CLAUDE.md",
+    "AGENTS.md": "src/adapters/AGENTS.md",
+    ".claude/settings.json": "src/adapters/claude/settings.json",
+}
 
 # Deliberately still in docs/: operational and session state, not design records.
 KEPT_IN_DOCS = ("docs/PLAN.md", "docs/STATUS.md", "docs/RUNBOOK.md", "docs/SKEPTIC_BAR.md")
@@ -70,15 +86,14 @@ def _text_files() -> list[Path]:
 
 
 def test_the_overlay_layout_exists() -> None:
-    """The layout from #50 and #94, asserted rather than assumed.
+    """The layout from ADR 0010, asserted rather than assumed.
 
-    The canonical product lives under `src/` (#94). `.trazo/` in this repository is its
-    own governance: it keeps a working copy of the rules this repo is governed by, plus
-    this repo's own charter, decision records and workstreams. The two are deliberately
-    not kept in sync — `src/` is the proposal, `.trazo/` is practice.
+    `src/` is the canonical product. `.trazo/` is the installed copy that governs this
+    repository, plus this repository's own state (charter, decision records, workstreams)
+    until #97 moves that under `.trazo/project/`.
     """
     for rel in (
-        # The product a host receives.
+        # The canonical product a host receives.
         "src/overlay/rules.md",
         "src/overlay/ADVISOR.md",
         "src/overlay/ARCHITECTURE.md",
@@ -87,37 +102,63 @@ def test_the_overlay_layout_exists() -> None:
         "src/adapters/AGENTS.md",
         "src/adapters/CLAUDE.md",
         "src/adapters/claude/settings.json",
-        # What this repository is actually governed by.
+        # The installed copy that governs this repository.
         ".trazo/rules.md",
         ".trazo/ADVISOR.md",
         ".trazo/ARCHITECTURE.md",
+        # This repository's own state.
         ".trazo/charter/charter.md",
     ):
-        assert (REPO_ROOT / rel).exists(), f"{rel} is missing; the move is incomplete"
+        assert (REPO_ROOT / rel).exists(), f"{rel} is missing; the layout is incomplete"
+
+
+def test_the_installed_copy_is_the_product_not_a_fork_of_it() -> None:
+    """ADR 0010's reason for existing: one editable copy, never two that drift.
+
+    The old layout let `.trazo/rules.md` be edited in place, so the rules an agent was
+    given and the rules it was held to were the same mutable file. Under the new one an
+    edit goes to `src/`, and the installed file is refreshed from it. A hand-edit of the
+    installed copy (or an edit to `src/` that nobody installed) makes the two disagree,
+    and this names which file.
+
+    This compares the working trees because no release tag exists yet to pin to (see
+    `.template/CHANGELOG.md`). Once `v0.1.0` is tagged the installed side should be
+    compared with the tagged `src/`, so that `src/` can move ahead of the install -- the
+    frozen-rules cost ADR 0010 states. Until then equality is the accurate claim.
+    """
+    drifted = [
+        f"{installed} != {source}"
+        for installed, source in INSTALLED_FROM_SRC.items()
+        if (REPO_ROOT / installed).read_bytes() != (REPO_ROOT / source).read_bytes()
+    ]
+    assert not drifted, (
+        "the installed copy differs from the canonical source. Edit `src/` (ADR 0010), "
+        "never `.trazo/` directly:\n" + "\n".join(drifted)
+    )
 
 
 def test_the_product_tree_carries_every_adapter() -> None:
-    """`src/adapters/claude/` is the product a host receives, so a new agent or command
-    that ships must exist there too.
+    """`src/adapters/claude/` is the product a host receives, so every live agent and
+    command must exist there, byte for byte.
 
-    The failure this prevents is quiet: someone adds `.claude/commands/foo.md`, the repo
-    works, the tests pass, and the file simply never reaches a host. Asserted by name so
-    a missing one names itself.
+    The failure this prevents is quiet: someone edits `.claude/commands/foo.md`, the repo
+    works, the tests pass, and the change simply never reaches a host. That had already
+    happened to four files by #96: `src/` held the older text of `reviewer.md`, `eng.md`,
+    `start.md` and `work.md`. Asserted by name so a missing or stale one names itself.
     """
-    live_agents = {p.name for p in (REPO_ROOT / ".claude" / "agents").glob("*.md")}
-    live_commands = {p.name for p in (REPO_ROOT / ".claude" / "commands").glob("*.md")}
-    product_agents = {p.name for p in (REPO_ROOT / ADAPTERS / "claude" / "agents").glob("*.md")}
-    product_commands = {p.name for p in (REPO_ROOT / ADAPTERS / "claude" / "commands").glob("*.md")}
-
-    assert live_agents <= product_agents, (
-        f"agents not in the product tree: {sorted(live_agents - product_agents)}"
-    )
-    assert live_commands <= product_commands, (
-        f"commands not in the product tree: {sorted(live_commands - product_commands)}"
-    )
-    assert (REPO_ROOT / ADAPTERS / "claude" / "settings.json").exists(), (
-        "the product tree is missing the Claude permission grants"
-    )
+    stale: list[str] = []
+    for kind in ("agents", "commands"):
+        live = REPO_ROOT / ".claude" / kind
+        product = REPO_ROOT / ADAPTERS / "claude" / kind
+        for path in sorted(live.glob("*.md")):
+            twin = product / path.name
+            if not twin.exists():
+                stale.append(f"{path.name}: not in {ADAPTERS}/claude/{kind}/")
+            elif twin.read_bytes() != path.read_bytes():
+                stale.append(f"{path.name}: differs from {ADAPTERS}/claude/{kind}/{path.name}")
+        shipped_only = {p.name for p in product.glob("*.md")} - {p.name for p in live.glob("*.md")}
+        assert not shipped_only, f"{kind} shipped but not installed: {sorted(shipped_only)}"
+    assert not stale, "the live adapters and the product tree disagree:\n" + "\n".join(stale)
 
 
 def test_the_product_tree_holds_no_trazo_project_state() -> None:

@@ -125,3 +125,24 @@ def test_the_subdirectory_hazard_is_documented():
     assert re.search(r"repository root", claude, re.IGNORECASE), (
         "CLAUDE.md must warn that imports only resolve from the repository root (#38)"
     )
+
+
+def test_the_adapters_a_host_receives_point_at_a_path_a_host_also_has():
+    """`src/adapters/` is what a host is handed, and it must name `.trazo/rules.md` (#96).
+
+    That path is identical here and in a host, which is what keeps `src/` a pure build
+    input: an adapter that named `src/overlay/rules.md` would point a host at a directory
+    it does not have. `CLAUDE.md` imports the file (`@`); `AGENTS.md` names it, since not
+    every tool expands an import. The Claude import must also resolve (silent failure, #38).
+    """
+    claude = (REPO_ROOT / "src/adapters/CLAUDE.md").read_text(encoding="utf-8")
+    agents = (REPO_ROOT / "src/adapters/AGENTS.md").read_text(encoding="utf-8")
+    imports = _imports(claude)
+    assert ".trazo/rules.md" in imports, f"src/adapters/CLAUDE.md must import the rules: {imports}"
+    missing = [i for i in imports if not (REPO_ROOT / i).is_file()]
+    assert not missing, f"src/adapters/CLAUDE.md imports {missing}, which do not exist (#38)"
+    assert ".trazo/rules.md" in agents, "src/adapters/AGENTS.md must point at .trazo/rules.md"
+    for name, text in (("CLAUDE.md", claude), ("AGENTS.md", agents)):
+        assert "src/overlay/rules.md" not in text, (
+            f"src/adapters/{name} names a src/ path; a host has no src/"
+        )
