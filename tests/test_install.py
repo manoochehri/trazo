@@ -67,6 +67,11 @@ def run(host: Path, *args, source: Path | None = None, check=True):
     return r
 
 
+def version(host: Path) -> str:
+    """First line of .trazo/VERSION is the tag; the second records the commit."""
+    return (host / ".trazo" / "VERSION").read_text().splitlines()[0]
+
+
 def snapshot(root: Path) -> dict[str, bytes]:
     return {
         str(p.relative_to(root)): p.read_bytes()
@@ -87,7 +92,7 @@ def host(tmp_path):
 
 def test_fresh_install(host, source):
     out = run(host, "install", "v0.1.0", source=source).stdout
-    assert (host / ".trazo/VERSION").read_text().strip() == "v0.1.0"
+    assert version(host) == "v0.1.0"
     assert (host / ".trazo/rules.md").read_bytes() == (
         REPO_ROOT / "src/overlay/rules.md"
     ).read_bytes()
@@ -178,11 +183,11 @@ def test_upgrade_leaves_project_untouched_and_shows_diff(tmp_path, host):
 
     dry = run(host, "upgrade", "v0.2.0", "--dry-run", source=src)
     assert "new rules" in dry.stdout
-    assert (host / ".trazo/VERSION").read_text().strip() == "v0.1.0"
+    assert version(host) == "v0.1.0"
 
     out = run(host, "upgrade", "v0.2.0", source=src).stdout
     assert "new rules" in out  # the diff was shown
-    assert (host / ".trazo/VERSION").read_text().strip() == "v0.2.0"
+    assert version(host) == "v0.2.0"
     assert (host / ".trazo/rules.md").read_text() == "# new rules\n"
     assert (host / ".trazo" / "NEW.md").is_file()
     assert not (host / ".trazo/ADVISOR.md").exists()
@@ -213,7 +218,11 @@ def test_uninstall_leaves_host_content_intact(host, source):
 
 def test_uninstall_purge_removes_project(host, source):
     run(host, "install", "v0.1.0", source=source)
-    run(host, "uninstall", "--purge")
+    # The project dir is untracked here, so --purge refuses until --force.
+    r = run(host, "uninstall", "--purge", check=False)
+    assert r.returncode != 0 and "uncommitted" in r.stderr
+    assert (host / ".trazo/project/STATUS.md").is_file()
+    run(host, "uninstall", "--purge", "--force")
     assert not (host / ".trazo").exists()
 
 
@@ -238,7 +247,7 @@ def test_branch_name_is_not_a_tag(host, source):
 def test_latest_resolves_to_the_highest_tag(tmp_path, host):
     src = make_source(tmp_path, ("v0.2.0", "v0.10.0", "v0.9.0"))
     run(host, "install", "latest", source=src)
-    assert (host / ".trazo/VERSION").read_text().strip() == "v0.10.0"
+    assert version(host) == "v0.10.0"
 
 
 def test_unbalanced_markers_refuse_without_editing(host, source):
@@ -246,3 +255,134 @@ def test_unbalanced_markers_refuse_without_editing(host, source):
     r = run(host, "install", "v0.1.0", "--adapter", "agents", source=source, check=False)
     assert r.returncode != 0
     assert (host / "AGENTS.md").read_text() == f"# Mine\n{BEGIN}\nhalf a block\n"
+
+
+def manifest_lines(host):
+    return (host / ".trazo" / "INSTALLED").read_text().splitlines()
+
+
+@pytest.mark.parametrize(
+    "bad", ["../x", "/etc/passwd", ".github/CODEOWNERS", ".claude/agents/../../x.md"]
+)
+def test_hostile_manifest_is_refused(host, source, bad):
+    run(host, "install", "v0.1.0", source=source)
+    victim = host / ".github" / "CODEOWNERS"
+    victim.parent.mkdir(parents=True)
+    victim.write_text("owner\n")
+    with (host / ".trazo" / "INSTALLED").open("a") as f:
+        f.write(f"{'0' * 64}  {bad}\n")
+    for args in (("uninstall",), ("install", "v0.1.0"), ("upgrade", "v0.1.0")):
+        r = run(host, *args, source=source if args[0] != "uninstall" else None, check=False)
+        assert r.returncode != 0 and "INSTALLED" in r.stderr, args
+    assert victim.read_text() == "owner\n"
+    assert (host / ".trazo/rules.md").is_file()
+
+
+def test_symlink_in_tag_is_refused(tmp_path, host):
+    def mutate(src, tag):
+        (src / "adapters/claude/agents/leak.md").symlink_to("/etc/hosts")
+
+    src = make_source(tmp_path, ("v0.1.0",), mutate)
+    r = run(host, "install", "v0.1.0", source=src, check=False)
+    assert r.returncode != 0 and "symlink" in r.stderr
+    assert not (host / ".trazo").exists() and not (host / ".claude").exists()
+
+
+def test_uninstall_refuses_unbalanced_markers_and_deletes_nothing(host, source):
+    run(host, "install", "v0.1.0", source=source)
+    broken = f"# top\n{BEGIN}\nstuff\n## my important section\nkeep\n"
+    (host / "AGENTS.md").write_text(broken)
+    r = run(host, "uninstall", check=False)
+    assert r.returncode != 0 and "unbalanced" in r.stderr
+    assert (host / "AGENTS.md").read_text() == broken
+    assert (host / ".trazo/rules.md").is_file()
+    assert (host / ".claude/agents/pm.md").is_file()
+
+
+def test_crlf_markers_are_recognised(host, source):
+    run(host, "install", "v0.1.0", "--adapter", "agents", source=source)
+    p = host / "AGENTS.md"
+    p.write_bytes(p.read_bytes().replace(b"\n", b"\r\n"))
+    run(host, "install", "v0.1.0", "--adapter", "agents", source=source)
+    assert p.read_bytes().count(BEGIN.encode()) == 1
+    run(host, "uninstall")
+    assert not p.exists()
+
+
+@pytest.mark.parametrize(
+    "rel", [".claude/settings.json", ".claude/agents/pm.md", ".claude/commands/work.md"]
+)
+def test_edited_installed_file_survives_upgrade_and_uninstall(tmp_path, host, rel):
+    def mutate(src, tag):
+        if tag == "v0.2.0":
+            for f in (src / "adapters/claude").rglob("*"):
+                if f.is_file():
+                    f.write_text(f.read_text() + "\n")
+
+    src = make_source(tmp_path, ("v0.1.0", "v0.2.0"), mutate)
+    run(host, "install", "v0.1.0", source=src)
+    mine = host / rel
+    mine.write_text("host edit\n")
+    r = run(host, "upgrade", "v0.2.0", source=src)
+    assert mine.read_text() == "host edit\n"
+    assert "edited" in r.stderr and "host edit" in r.stderr  # warning and diff
+    other = host / ".claude/commands/start.md"
+    assert other.read_text().endswith("\n\n")  # untouched files do upgrade
+    r = run(host, "uninstall")
+    assert mine.read_text() == "host edit\n"
+    assert not other.exists()
+
+
+def test_commit_is_printed_recorded_and_pinnable(tmp_path, host, source):
+    sha = subprocess.run(
+        ["git", "rev-parse", "v0.1.0^{commit}"], cwd=source, capture_output=True, text=True
+    ).stdout.strip()
+    r = run(host, "install", "v0.1.0", "--sha", "0" * 40, source=source, check=False)
+    assert r.returncode != 0 and sha in r.stderr and not (host / ".trazo").exists()
+    r = run(host, "install", "v0.1.0", "--sha", "abc", source=source, check=False)
+    assert r.returncode != 0
+    out = run(host, "install", "v0.1.0", "--sha", sha, source=source).stdout
+    assert sha in out
+    assert (host / ".trazo/VERSION").read_text() == f"v0.1.0\ncommit {sha}\n"
+
+
+def test_pre_manifest_layout_refuses(host, source):
+    (host / ".trazo" / "adr").mkdir(parents=True)
+    (host / ".trazo" / "adr" / "0001.md").write_text("mine\n")
+    (host / ".trazo" / "VERSION").write_text("v0.0.1\n")
+    for cmd in ("install", "upgrade"):
+        r = run(host, cmd, "v0.1.0", source=source, check=False)
+        assert r.returncode != 0 and "older layout" in r.stderr
+    assert (host / ".trazo" / "adr" / "0001.md").read_text() == "mine\n"
+
+
+def test_option_like_source_is_refused(host):
+    r = run(host, "install", "v0.1.0", "--source", "--upload-pack=touch pwned", check=False)
+    assert r.returncode != 0
+    assert not (host / "pwned").exists() and not (host / ".trazo").exists()
+
+
+def test_env_source_is_announced(host, source):
+    env = {**GIT_ENV, "TRAZO_SOURCE": str(source)}
+    r = subprocess.run(
+        ["bash", str(INSTALL), "install", "v0.1.0"],
+        cwd=host,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert r.returncode == 0 and "TRAZO_SOURCE overrides" in r.stderr
+
+
+def test_settings_are_printed_on_install(host, source):
+    out = run(host, "install", "v0.1.0", source=source).stdout
+    assert '"deny"' in out
+
+
+def test_shipped_settings_only_deny():
+    """A loosening of the settings every host receives must be loud, so it fails here."""
+    import json
+
+    perms = json.loads((REPO_ROOT / "src/adapters/claude/settings.json").read_text())
+    assert set(perms) == {"permissions"}
+    assert set(perms["permissions"]) == {"deny"}, "shipped settings may only deny"
