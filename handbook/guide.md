@@ -101,34 +101,34 @@ The Claude app can also run scheduled tasks: a fresh session on a timer, with th
 ---
 ## 4. Start a project
 
-Trazo is an overlay, so these are two different jobs: **creating a new repo with Trazo already in it**, and **mounting Trazo onto a repo you already have**. If you have an existing codebase, you want the second — the first is for greenfield.
+Trazo is installed into a repository by one script, from a release tag. It works the same on a brand-new empty repo and on one you already have. If you have an existing codebase, nothing about it changes.
 
 ### Option A: from a Claude chat (recommended for a new project)
 1. Make sure the **project-kickoff** skill is saved in your Claude account.
 2. Start a new chat: *"Let's kick off a new project."*
 3. Answer its interview (idea, success criteria, budget, deadline, constraints, stop rule, UI, where it runs).
 4. Approve the charter and plan it shows you.
-5. It creates the repo and sets things up, or gives you instructions to paste into Claude Code.
+5. It sets things up, or gives you instructions to run in Claude Code.
 
-### Option B: from Claude Code (new repo)
+### Option B: install into a repo, then kick off
+From the root of your git repository:
 ```bash
-gh repo create my-project --private --template <owner>/trazo --clone
-cd my-project
-make setup
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.1.0/scripts/install.sh -o install.sh
+bash install.sh install v0.1.0
 claude
 ```
-Then type `/kickoff`.
+Then type `/kickoff`. Options, upgrade and uninstall are in [Install, upgrade and uninstall](install.md).
 
-### Option C: mounting onto an existing repo
-Your repo keeps its runtime, its build system and its pipeline. You add one directory, optionally an adapter for your agent, and satisfy one contract.
+### Option C: what the installer does to an existing repo
+Your repo keeps its runtime, its build system and its pipeline. The installer adds one directory, optionally an adapter for your agent, and you satisfy one contract.
 
-1. **Declare the environment.** Trazo requires *a one-command, reproducible build/test environment an agent can run hermetically from a fresh worktree*. If you do not have one, this is the only thing to build first — a `Makefile` target, a `docker compose run test`, a nix shell, a devcontainer. See [What is `.trazo/`](overlay.md).
-2. **Copy the overlay in.** `.trazo/` from this repository. It is the whole of it, and it is tool-neutral.
-3. **Add the adapter for your agent.** `.claude/` if you use Claude Code — it holds the commands, subagents and permissions, and nothing portable lives there. Any other agent reads the same `.trazo/rules.md` through its own equivalent; if it reads `AGENTS.md`, the same rules travel with a pointer there. If your repo already has a `.claude/` or a `CLAUDE.md`, **merge into it rather than replacing it**; print what to add and let the owner place it. Trazo does not require an adapter at all — a repo with no agent can take the overlay and decide later. An existing `AGENTS.md` is the host's file: keep it, and see [`AGENTS.md` and Trazo](agents.md) for how the two relate.
-4. **Fill in the charter.** Run `/kickoff` and answer the interview. The stop rule is the part worth taking seriously — it is the only thing that decides whether to keep going, and it has to be written before the results exist.
-5. **Do not copy Trazo's own `.trazo/project/` across.** It is about Trazo, not about your project. `/kickoff` creates yours from the blank templates under `templates/docs/` (STATUS, PLAN, RUNBOOK, SKEPTIC_BAR, reports).
+1. **Declare the environment.** Trazo requires *a one-command, reproducible build/test environment an agent can run hermetically from a fresh worktree*. If you do not have one, this is the only thing to build first, whether a `Makefile` target, a `docker compose run test`, a nix shell or a devcontainer. See [What is `.trazo/`](overlay.md).
+2. **Install.** The framework lands in `.trazo/` (from `src/overlay/` at the release tag), and `.trazo/project/` is created from blank templates only if it does not exist.
+3. **Add the adapter for your agent.** The installer inserts it into `CLAUDE.md` and/or `AGENTS.md` between markers and copies `.claude/` for Claude Code. Any other agent reads the same `.trazo/rules.md` through its own equivalent. If your repo already has these files, everything outside the markers is left untouched; an existing `AGENTS.md` is the host's file, see [`AGENTS.md` and Trazo](agents.md).
+4. **Fill in the charter.** Run `/kickoff` and answer the interview. The stop rule is the part worth taking seriously: it is the only thing that decides whether to keep going, and it has to be written before the results exist.
+5. **Leave `docs/` blank, and do not copy Trazo's own state across.** A repo's Trazo state is in `.trazo/project/`, which `/kickoff` fills from the blank templates. Trazo's own `.trazo/project/` is about Trazo, not about your project.
 
-You do not have to choose one of these forever: start from the template and mount onto something else later, or mount now and keep your own layout.
+You can mount now and keep your own layout; nothing here is a one-way choice.
 
 ### What you'll be asked to do yourself
 - Approve the charter, plan, and any cloud resources (with their monthly cost)
@@ -187,7 +187,7 @@ Better still: have the advisor open GitHub issues with those instructions, then 
 
 - **Never paste a secret into any chat**, including this one. If you do by accident, replace (rotate) that key.
 - **Local:** copy `.env.example` to `.env` and fill it in. It's git-ignored, and Claude Code is blocked from reading it.
-- **Cloud:** use the provider's secret store. AWS: `scripts/put_secret.sh <name>`. Fly.io: `fly secrets set NAME=value`.
+- **Cloud:** use your provider's secret store, and never put a secret in the repo.
 - **Check anytime:** `make scan` searches the whole git history for leaked secrets. CI runs the same check on every pull request.
 
 ---
@@ -211,7 +211,7 @@ Whatever you choose, record these in `.trazo/project/RUNBOOK.md`:
 - the budget alert, and the monthly cost you expect
 - teardown: one command that removes everything
 
-If you deploy from CI, gate it on a GitHub `production` environment so a deploy needs your approval — one click, no cloud login. On AWS, use OIDC so no long-lived cloud keys are stored anywhere.
+If you deploy from CI, gate it on a GitHub `production` environment so a deploy needs your approval — one click, no cloud login.
 
 **Cost tip:** estimates often miss disks, public IP addresses, and storage. Ask for a per-resource price list before approving.
 
@@ -267,7 +267,6 @@ branch, with a row in `.template/LESSONS.md` and a version bump.
 - **Milestone:** a GitHub milestone `vX.Y.Z` is a release: the goal in its description, the scope as its issues. The tag is cut at 0 open issues.
 - **Pinned install:** `.trazo/`, the copy of `src/` that governs a repo; never hand-edited.
 - **Deploy target:** where the project runs; Trazo ships none.
-- **OIDC:** lets GitHub deploy to a cloud without storing cloud passwords or keys.
 - **GitHub Action / workflow:** an automated job defined in `.github/workflows/`, run by GitHub on its own servers.
 - **`@claude`:** mentioning Claude in an issue or pull request, which triggers the engineer workflow.
 - **Stop rule:** the evidence, decided in advance, that means stop or rethink.

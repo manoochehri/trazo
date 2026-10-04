@@ -4,7 +4,7 @@
 
 Trazo is built specifically for **Claude Code**, and it is opinionated in two places: how agents hand work to each other, and whether a result is real. It is deliberately neutral about everything else — language, framework, and where your code runs.
 
-[:material-source-repository: Use this template](https://github.com/manoochehri/trazo/generate){ .md-button .md-button--primary }
+[:material-download: Install](install.md){ .md-button .md-button--primary }
 [:material-book-open-page-variant: Read the playbook](playbook.md){ .md-button }
 [:material-layers-triple: What is `.trazo/`?](overlay.md){ .md-button }
 
@@ -73,18 +73,16 @@ The PM writes issues, the engineer turns issues into pull requests, and you appr
 
 ## Mounting it
 
-Trazo is an overlay, so there are two ways in, and you do not have to start from an empty repo.
-
-**On a new repo.** Create one from the template, run `/kickoff`, and it sets up the charter, the labels and the workflows:
+Trazo is an overlay, so you do not have to start from an empty repo. From the root of any git repository, new or existing, run the installer:
 
 ```bash
-gh repo create my-project --private --template manoochehri/trazo --clone
-cd my-project && make setup
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.1.0/scripts/install.sh -o install.sh
+bash install.sh install v0.1.0
 ```
 
-**On a repo you already have.** Copy `.trazo/` in, then add the adapter for the agent you actually use: `.claude/` if that is Claude Code, your own equivalent otherwise — [the same `.trazo/rules.md` drives any of them](overlay.md). If your repo already has a `.claude/` or a `CLAUDE.md`, merge into it rather than replacing it. If it has an `AGENTS.md`, that stays yours too: it describes your codebase, and Trazo governs the work done on it — see [`AGENTS.md` and Trazo](agents.md). Then read [`What is .trazo/`](overlay.md) for the layout and the one contract your repo has to satisfy. Your runtime, your build system and your pipeline stay exactly as they are — Trazo mandates no tool for a mounted repo, on purpose.
+It copies the framework into `.trazo/`, adds the adapter for the agent you use (`CLAUDE.md` and `.claude/` for Claude Code, `AGENTS.md` for others; [the same `.trazo/rules.md` drives any of them](overlay.md)), and creates `.trazo/project/` for your own state. An existing `AGENTS.md`, `CLAUDE.md` or `.claude/` stays yours: the installer only writes between its own markers. See [Install, upgrade and uninstall](install.md) for options, and [`AGENTS.md` and Trazo](agents.md) for how the two files relate. Your runtime, your build system and your pipeline stay exactly as they are; Trazo mandates no tool for a mounted repo, on purpose.
 
-Either way, the next step is the same: open it in Claude Code and run `/kickoff`. It interviews you (idea, success criteria, budget, deadline, constraints, stop rule), shows you the charter, and sets up the issue graph.
+The next step: open the repo in Claude Code and run `/kickoff`. It interviews you (idea, success criteria, budget, deadline, constraints, stop rule), shows you the charter, and sets up the issue graph.
 
 ## A normal day
 
