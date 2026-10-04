@@ -66,7 +66,7 @@ is never read or written.
 
 ```sh
 bash install.sh uninstall            # keeps .trazo/project/
-bash install.sh uninstall --purge    # removes it too; refuses if it has uncommitted changes
+bash install.sh uninstall --purge    # removes it too; refuses if it has uncommitted, untracked or gitignored files
 bash install.sh uninstall --purge --force   # ...unless you pass --force
 ```
 
