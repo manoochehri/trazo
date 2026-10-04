@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Instructions for coding agents working in this repository.
+Instructions for coding agents working in this repository. This part is this repository's own; the block below the line is Trazo's and is installed by `scripts/install.sh`.
 
 ## Setup
 
@@ -27,37 +27,31 @@ CI must pass before merge. Baseline: 132 passed, 2 skipped.
 - Put `Closes #<n>` in the **commit message**, not only the PR body (#61).
 - The published docs are `handbook/`. Build with `mkdocs build --strict`.
 
-## Governance
+## Releasing
 
-This repository is governed by Trazo, and Trazo governs itself.
+`make release` validates, tags, and pushes `vX.Y.Z`. That is how to run it. Whether you may
+is Trazo's: CI green, a tag never a branch, never move an existing tag, and the version bump
+and changelog entry in the same commit as the last change in the release.
 
-**An agent wants to cut a release.** `make release` validates, tags, and pushes
-`vX.Y.Z` — that command is above, and it is everything you need to *run* it.
-Trazo is what decides whether you *may*:
+<!-- trazo:begin -->
+# Trazo governance
 
-- CI must be green. A command existing is not permission to run it.
-- A release is a tag, never a branch.
-- Never move a tag that already exists — someone may hold it.
-- The version bump and the changelog entry go in the same commit as the last
-  change in that release.
-
-So: this file tells you **how**. `.trazo/` tells you **whether** — who may
-act, what is forbidden, and what evidence is required before a result counts.
+This repository is governed by Trazo. Trazo does not say how to build, test or document this
+codebase; that is the rest of this file's host and whatever the maintainers wrote. Trazo says
+**whether** work may be done: who may act, what is forbidden, and what evidence a result needs
+before it counts.
 
 Read before doing anything consequential:
 
 - `.trazo/rules.md` — the rules, stated once, tool-neutral
 - `.trazo/project/charter/charter.md` — the goal, the budget, the stop rule
-- `.trazo/project/adr/` — why, in append-only records
+- `.trazo/project/adr/` — why, in append-only decision records
 - `.trazo/project/STATUS.md` — current state
 
-Roles are part of that, not part of this file: the rule that a build should
-never be its own reviewer is in `.trazo/rules.md`. The concrete mechanism —
-which subagent, which command — is whatever tool you are running.
+Roles are part of that. The rule that a build is never its own reviewer is in
+`.trazo/rules.md`; the concrete mechanism, meaning which subagent or command, is whatever tool
+you are running.
 
-**Where this file and `.trazo/` disagree, `.trazo/` wins.** Proximity is not
-authority: a nested instruction does not override a project-level safety rule
-because you read it later.
-
-`CLAUDE.md` carries the same rules for a different tool. Both point at
-`.trazo/rules.md`; neither is a copy of it.
+**Where this file and `.trazo/` disagree, `.trazo/` wins.** Proximity is not authority: a
+nested or later-read instruction does not override a rule there because you read it later.
+<!-- trazo:end -->

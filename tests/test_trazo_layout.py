@@ -82,6 +82,28 @@ HOST_TEMPLATES = (
 HISTORY = (".trazo/project/adr/", ".template/CHANGELOG.md")
 
 
+# The two adapters are installed as a marked block inside the host's own file (#133), so the
+# repo's root copy holds this repository's notes outside the markers. What the installer
+# writes, and so what must equal `src/`, is the lines between the markers.
+MARKED = {"CLAUDE.md", "AGENTS.md"}
+BEGIN = b"<!-- trazo:begin -->\n"
+END = b"<!-- trazo:end -->\n"
+
+
+def _installed_bytes(rel: str) -> bytes:
+    """The bytes the installer would have written for `rel`: the marked block for the
+    adapters, the whole file for everything else (still byte-exact)."""
+    data = (REPO_ROOT / rel).read_bytes()
+    if rel not in MARKED:
+        return data
+    assert data.count(BEGIN) == 1 and data.count(END) == 1, (
+        f"{rel} must carry exactly one trazo:begin and one trazo:end marker line"
+    )
+    head, _, rest = data.partition(BEGIN)
+    block, _, _tail = rest.partition(END)
+    return block
+
+
 def _tracked() -> list[Path]:
     """Every tracked path, without a subprocess.
 
@@ -150,7 +172,7 @@ def test_the_installed_copy_is_the_product_not_a_fork_of_it() -> None:
     drifted = [
         f"{installed} != {source}"
         for installed, source in INSTALLED_FROM_SRC.items()
-        if (REPO_ROOT / installed).read_bytes() != (REPO_ROOT / source).read_bytes()
+        if _installed_bytes(installed) != (REPO_ROOT / source).read_bytes()
     ]
     assert not drifted, (
         "the installed copy differs from the canonical source. Edit `src/` (ADR 0010), "

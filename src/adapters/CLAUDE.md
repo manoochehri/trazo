@@ -11,7 +11,7 @@ and how its roles satisfy rules the import already covers.
 
 **Launch every session from the repository root.** An import resolves when the session starts in
 the directory holding `CLAUDE.md`; from a subdirectory this line arrives unexpanded. That is
-runtime-verified, not assumed — see `.trazo/project/workstreams/claude-md-imports.md` (#38).
+verified at runtime, not assumed. An import that does not resolve fails silently: no error, and the session runs with no rules.
 
 **Read first, every session:** [`.trazo/project/charter/charter.md`](.trazo/project/charter/charter.md) and
 [`.trazo/project/STATUS.md`](.trazo/project/STATUS.md). Then open GitHub issues for the current milestone.
@@ -32,12 +32,9 @@ runtime-verified, not assumed — see `.trazo/project/workstreams/claude-md-impo
 | `.trazo/project/SKEPTIC_BAR.md` | The bar a result must clear before the skeptic passes it; filled in per project |
 | GitHub Issues | Tasks. Labels: bug, feature, research, infra, needs-decision, needs-pm, P0, P1, P2, epic |
 
-`.trazo/project/` is the project's own state: charter, decision records, workstreams, STATUS,
-PLAN, RUNBOOK, SKEPTIC_BAR and reports. It is never overwritten when the framework upgrades,
-and it is never shipped to a host. Everything else in `.trazo/` is the installed framework
-and is not hand-edited (ADR 0010). A host receives blank copies of the operational files
-(`templates/docs/`) and `/kickoff` copies them into its own `.trazo/project/`; `docs/` is the
-host's to use however it likes.
+`.trazo/project/` is this project's own state: charter, decision records, workstreams, STATUS,
+PLAN, RUNBOOK, SKEPTIC_BAR and reports. An upgrade never overwrites it. Everything else in
+`.trazo/` is the installed framework and is not hand-edited.
 
 ## The team (subagents in `.claude/agents/`, role commands in `.claude/commands/`)
 Role commands (`/pm`) switch the session's role for the rest of the conversation until another role command is used; `/eng` returns to building. `reviewer`, `security`, and `skeptic` are subagent-only — the engineer role delegates one-off checks to them, invoked ad hoc or as part of the `/work` and `/check-pr` routines. How each satisfies a rule is in the table above.
@@ -56,7 +53,7 @@ The owner shouldn't need to remember commands. Map requests to routines:
 |---|---|
 | "catch me up", "where are we", "what's next" | `/start` routine (or `/pm` for strategy questions) |
 | "what can I do", "help", "menu" | `/trazo` |
-| "work on issue 12", "fix X" | `/work` routine — the commit message carries `Closes #12`, or a squash merge drops it and the issue stays open (#61) |
+| "work on issue 12", "fix X" | `/work` routine; the commit message carries `Closes #12` |
 | "is this PR ok", "review #15", "can I merge" | `/check-pr` routine (or ask the **reviewer** subagent directly) |
 | "is this secure", "check permissions" | ask the **security** subagent |
 | "is this number real?", "poke holes in this analysis", "what would make this wrong?" | ask the **skeptic** subagent |
@@ -74,9 +71,9 @@ disagree, `rules.md` is right and this section is the bug.
 
 | Rule | Where Claude Code answers it |
 |---|---|
-| Secrets (never read, print, log, commit) | Never open `.env` or anything in `secrets/`. The owner enters secrets with `scripts/put_secret.sh`; new config goes in `.env.example` as a placeholder. |
+| Secrets (never read, print, log, commit) | Never open `.env` or anything in `secrets/`. The human enters secrets; new config goes in the env example as a placeholder. |
 | Safety limits are human-only | Anything in `.github/CODEOWNERS` (limits, infra, workflows) changes only with the owner's review. Automation may tighten, never loosen. |
-| Roles are separated | The **reviewer**, **security** and **skeptic** subagents each run in their own context. `reviewer`, `security` and `skeptic` are subagent-only, never role-switch commands — a review that grades the same conversation that produced the work is not a review. See `.trazo/project/adr/0003-review-security-github-tracked.md`. |
+| Roles are separated | The **reviewer**, **security** and **skeptic** subagents each run in their own context. `reviewer`, `security` and `skeptic` are subagent-only, never role-switch commands — a review that grades the same conversation that produced the work is not a review. |
 | A result is not a result until it has been checked | The **skeptic** subagent checks it against [`.trazo/project/SKEPTIC_BAR.md`](.trazo/project/SKEPTIC_BAR.md) and returns *holds* / *holds with caveats* / *does not hold*. If it cannot run, say the result is unverified rather than proceeding. |
-| Hand off through the repo | Every subagent verdict on a pull request posts as a real `gh pr review --comment`, verdict word as the first line. `--approve` / `--request-changes` are refused while the agent and the PR author are the same account, i.e. every PR here (#44). A security finding not tied to a PR becomes a GitHub issue. |
-| Leave state in the repo | End a session with `/wrapup`. A PR that claims to close an issue carries `Closes #<n>` in the **commit message**, not only the body — a squash merge keeps only the commit message, so a body-only keyword links the issue without closing it and `/start` then reports finished work as ready (#61). |
+| Hand off through the repo | Every subagent verdict on a pull request posts as a real `gh pr review --comment`, verdict word as the first line. `--approve` / `--request-changes` are refused when the agent and the PR author are one account. A security finding not tied to a PR becomes a GitHub issue. |
+| Leave state in the repo | End a session with `/wrapup`. A PR that claims to close an issue carries `Closes #<n>` in the **commit message**, not only the body: a squash merge keeps only the commit message. |
