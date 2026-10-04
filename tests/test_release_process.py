@@ -287,12 +287,39 @@ def _git(root: Path, *args: str) -> str:
     ).stdout
 
 
-def _release(root: Path, *args: str) -> subprocess.CompletedProcess:
+def _stub_gh(tmp_bin: Path, *, out: str = "0", rc: int = 0) -> None:
+    """A fake `gh` that prints what the milestone jq filter would, so no network is used."""
+    tmp_bin.mkdir(parents=True, exist_ok=True)
+    gh = tmp_bin / "gh"
+    gh.write_text(f"#!/bin/sh\nprintf '%s' '{out}'\n[ -z '{out}' ] || echo\nexit {rc}\n")
+    gh.chmod(0o755)
+
+
+def _release(
+    root: Path, *args: str, gh_out: str | None = "0", gh_rc: int = 0
+) -> subprocess.CompletedProcess:
+    """Run release.sh with a stubbed gh first on PATH; gh_out=None means no gh at all."""
+    import os
+
+    bin_dir = Path(f"{root}-bin")
+    env = dict(os.environ)
+    if gh_out is None:
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        # Only the tools release.sh needs, no gh.
+        for tool in ("git", "sed", "grep", "tr", "wc", "dirname", "cat", "printf"):
+            found = shutil.which(tool)
+            if found and not (bin_dir / tool).exists():
+                (bin_dir / tool).symlink_to(found)
+        env["PATH"] = str(bin_dir)
+    else:
+        _stub_gh(bin_dir, out=gh_out, rc=gh_rc)
+        env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
     return subprocess.run(  # noqa: S603 - release.sh copy in a throwaway repo
         [SH, "scripts/release.sh", *args],
         capture_output=True,
         text=True,
         cwd=root,
+        env=env,
     )
 
 
@@ -410,3 +437,49 @@ def test_release_refuses_a_non_default_branch():
 
         assert result.returncode != 0, "released from a feature branch"
         assert "cut from" in result.stderr, f"unexpected message: {result.stderr}"
+
+
+def test_release_refuses_while_the_milestone_has_open_issues():
+    """A release is a milestone (ADR 0012): open issues mean the scope is not done."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = _throwaway_repo(tmp)
+        result = _release(root, gh_out="3")
+
+        assert result.returncode != 0, "released with 3 open issues in the milestone"
+        assert "open issue" in result.stderr, f"unexpected message: {result.stderr}"
+        assert "v9.9.9" not in _git(root, "tag", "-l").split(), "a tag was created anyway"
+
+
+def test_release_refuses_when_there_is_no_milestone():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = _throwaway_repo(tmp)
+        result = _release(root, gh_out="")
+
+        assert result.returncode != 0, "released with no milestone for the version"
+        assert "no GitHub milestone" in result.stderr, f"unexpected message: {result.stderr}"
+
+
+def test_release_fails_closed_when_gh_errors():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = _throwaway_repo(tmp)
+        result = _release(root, gh_out="0", gh_rc=1)
+
+        assert result.returncode != 0, "released although the milestone lookup failed"
+        assert "refusing" in result.stderr, f"unexpected message: {result.stderr}"
+        assert "v9.9.9" not in _git(root, "tag", "-l").split(), "a tag was created anyway"
+
+
+def test_release_fails_closed_when_gh_is_missing():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = _throwaway_repo(tmp)
+        result = _release(root, gh_out=None)
+
+        assert result.returncode != 0, "released without gh available"
+        assert "gh not found" in result.stderr, f"unexpected message: {result.stderr}"
+        assert "v9.9.9" not in _git(root, "tag", "-l").split(), "a tag was created anyway"
+
+
+def test_rules_state_a_release_is_a_milestone():
+    rules = " ".join(RULES.read_text().lower().split())
+    assert "a release is a milestone" in rules, "rules.md does not say a release is a milestone"
+    assert "immutable tags" in rules, "the immutable-tags rule must remain"
