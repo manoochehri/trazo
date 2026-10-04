@@ -85,12 +85,18 @@ count_marker() { tr -d '\r' <"$1" | grep -cxF "$2" || true; }
 
 # check_markers <file>: refuse unless the markers are absent or exactly one balanced pair.
 check_markers() {
-  local file="$1" begins ends
+  local file="$1" begins ends bl el
   [ -e "$file" ] || return 0
   begins="$(count_marker "$file" "$BEGIN")"
   ends="$(count_marker "$file" "$END")"
-  if { [ "$begins" = 0 ] && [ "$ends" = 0 ]; } || { [ "$begins" = 1 ] && [ "$ends" = 1 ]; }; then
+  if [ "$begins" = 0 ] && [ "$ends" = 0 ]; then
     return 0
+  fi
+  if [ "$begins" = 1 ] && [ "$ends" = 1 ]; then
+    bl="$(tr -d '\r' <"$file" | grep -nxF "$BEGIN" | cut -d: -f1)"
+    el="$(tr -d '\r' <"$file" | grep -nxF "$END" | cut -d: -f1)"
+    [ "$bl" -lt "$el" ] && return 0
+    die "$file has its trazo markers in the wrong order (end before begin); fix it by hand and retry"
   fi
   die "$file has unbalanced trazo markers ($begins begin, $ends end); fix it by hand and retry"
 }
@@ -192,6 +198,10 @@ place_adapter_file() {
   if [ -e "$dest" ] && ! in_manifest "$dest"; then
     dest="$dir/trazo-$name"
     echo "clash: $dir/$name is yours; installed as $dest" >&2
+    if [ -e "$dest" ] && ! in_manifest "$dest"; then
+      echo "warning: $dest is also yours; skipping $name entirely" >&2
+      return
+    fi
   elif [ ! -e "$dest" ] && in_manifest "$dir/trazo-$name"; then
     dest="$dir/trazo-$name"
   fi
@@ -324,7 +334,9 @@ do_install() {
   if [ -f "$MANIFEST" ]; then
     while IFS= read -r line; do
       f="${line#*  }"
-      if [ -e "$f" ] && ! grep -qF "  $f" "$placed"; then echo "$line" >>"$placed"; fi
+      if [ -e "$f" ] && ! awk -v p="$f" '{ sub(/^[^ ]+  /, ""); if ($0 == p) f = 1 } END { exit !f }' "$placed"; then
+        echo "$line" >>"$placed"
+      fi
     done <"$MANIFEST"
   fi
   sort -u "$placed" >"$MANIFEST"
@@ -345,14 +357,18 @@ EOF
 # ---------------------------------------------------------------- uninstall
 
 do_uninstall() {
-  local purge="$1" force="$2" line f
+  local purge="$1" force="$2" line f st
   [ -d .trazo ] || die "no .trazo/ here; nothing to uninstall"
   check_manifest
   check_markers AGENTS.md
   check_markers CLAUDE.md
-  if [ "$purge" = 1 ] && [ "$force" != 1 ] && [ -d "$P" ] &&
-    [ -n "$(git status --porcelain -- "$P" 2>/dev/null)" ]; then
-    die "$P has uncommitted changes; commit them, or pass --force to delete them anyway"
+  if [ "$purge" = 1 ] && [ "$force" != 1 ] && [ -d "$P" ]; then
+    # Fail closed: an unknowable or ignored state counts as "might lose work".
+    st="$(git status --porcelain -- "$P" 2>/dev/null)" ||
+      die "cannot read git status for $P; pass --force to delete it anyway"
+    [ -z "$st" ] || die "$P has uncommitted changes; commit them, or pass --force to delete them anyway"
+    ! git check-ignore -q -- "$P" ||
+      die "$P is gitignored, so git cannot show what would be lost; pass --force to delete it anyway"
   fi
   if [ -f "$MANIFEST" ]; then
     while IFS= read -r line; do
