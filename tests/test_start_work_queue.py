@@ -96,8 +96,8 @@ def test_start_still_waits_for_the_owners_ok() -> None:
 
 def test_start_flags_a_stale_status_instead_of_reading_it_as_current() -> None:
     """#109, from the #54 root cause: `/wrapup` has told every session to rewrite
-    `docs/STATUS.md` since this repository's first commit (`git log -S 'Rewrite
-    docs/STATUS.md'` -> `7eaf827`), yet STATUS went stale. That was cause (b) --
+    `.trazo/project/STATUS.md` since this repository's first commit (`git log -S 'Rewrite
+    .trazo/project/STATUS.md'` -> `7eaf827`), yet STATUS went stale. That was cause (b) --
     sessions end at merge without running `/wrapup`, and nothing made the omission
     visible.
 
@@ -108,10 +108,10 @@ def test_start_flags_a_stale_status_instead_of_reading_it_as_current() -> None:
     and a tidy rewrite of `/start` would otherwise drop the clause as redundant.
     """
     step = re.search(r"^2\..*?(?=\n3\.)", _text(), re.S | re.MULTILINE)
-    assert step, "start.md no longer has the step that reads docs/STATUS.md"
+    assert step, "start.md no longer has the step that reads .trazo/project/STATUS.md"
     body = step.group(0)
 
-    assert "docs/STATUS.md" in body, "step 2 must still read STATUS"
+    assert ".trazo/project/STATUS.md" in body, "step 2 must still read STATUS"
     assert "**Updated:**" in body, (
         "step 2 must tell the session to check STATUS's `**Updated:**` date; without "
         "it a stale STATUS reads exactly like a current one (#54 cause (b))"

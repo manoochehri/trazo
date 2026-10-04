@@ -8,7 +8,7 @@
 |---|---|---|---|
 | M0 Kickoff | 2026-09-27 | Charter, plan, repo, CI, secrets setup done | Done |
 | M1 `src/` canonical, `.trazo/` pinned (#92) | 2026-10-08 | ADR 0010 recorded (#93), adapters repointed and tests renamed (#96), charter and ADRs moved to `.trazo/project/` (#97), handbook and README updated (#98), stale ADRs superseded (#99), `v0.1.0` cut (#100) | Not started |
-| M2 Decision point | 2026-10-15 | Go / pivot / stop, per the charter's stop rule, read against `docs/reports/` | Not started |
+| M2 Decision point | 2026-10-15 | Go / pivot / stop, per the charter's stop rule, read against `.trazo/project/reports/` | Not started |
 
 ## Risks
 | Risk | Likelihood | Impact | Mitigation |

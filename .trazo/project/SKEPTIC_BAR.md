@@ -1,8 +1,8 @@
 # The bar
 
 A result must clear every item here before the `skeptic` subagent passes it, and before
-it reaches a decision-maker or a permanent record (`.trazo/adr/`, `.trazo/workstreams/`,
-`docs/reports/`, `.template/LESSONS.md`).
+it reaches a decision-maker or a permanent record (`.trazo/project/adr/`, `.trazo/project/workstreams/`,
+`.trazo/project/reports/`, `.template/LESSONS.md`).
 
 **Fill this in at kickoff.** The items below marked *(specialise)* are the ones that change
 with the domain; what counts as a valid result does not transfer between projects. The

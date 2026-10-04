@@ -26,7 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 COMMANDS = REPO_ROOT / ".claude" / "commands"
 
 # Records that must keep the old name because it was true when written.
-HISTORICAL = (".template/CHANGELOG.md", ".template/LESSONS.md", ".trazo/adr/", "tests/")
+HISTORICAL = (".template/CHANGELOG.md", ".template/LESSONS.md", ".trazo/project/adr/", "tests/")
 
 TEXT_SUFFIXES = {".md", ".py", ".toml", ".yml", ".yaml", ".json", ".sh", ".cfg", ".txt"}
 

@@ -51,9 +51,9 @@ Two layers. The second is the one that matters.
 | Area | What's included |
 |---|---|
 | **The rules** | `.trazo/rules.md` — tool-neutral, read once by any tool's adapter |
-| **The judgment layer** | `.trazo/charter/` — goal, budget, success criteria, stop rule |
-| **Decision records** | `.trazo/adr/` — numbered, append-only, supersede never edit |
-| **Workstreams** | `.trazo/workstreams/` — one file per idea, with hypothesis and evidence |
+| **The judgment layer** | `.trazo/project/charter/` — goal, budget, success criteria, stop rule |
+| **Decision records** | `.trazo/project/adr/` — numbered, append-only, supersede never edit |
+| **Workstreams** | `.trazo/project/workstreams/` — one file per idea, with hypothesis and evidence |
 | **Design records** | `.trazo/specs/`, `.trazo/ARCHITECTURE.md`, `.trazo/ADVISOR.md` |
 | **AI team** | `/pm` and `/eng` switch the session's role. `reviewer`, `security` and `skeptic` are **subagent-only**, Opus. None of them edits a file — but each records its verdict on GitHub, and `/pm` may also reshape the issue graph. See [the team](team.md) |
 | **Commands** | `/trazo` (menu), `/kickoff`, `/start`, `/work`, `/check-pr`, `/pm`, `/eng`, `/wrapup`, `/brief`, `/decide` — or just ask in plain English |
@@ -103,7 +103,7 @@ Your repo keeps its runtime, its build system and its pipeline.
 2. **Copy `.trazo/` in** from this repository. That is the whole overlay, and it is tool-neutral.
 3. **Add the adapter for your agent.** `.claude/` if you use Claude Code; any other agent reads the same `.trazo/rules.md` through its own equivalent. If your repo already has a `.claude/` or `CLAUDE.md`, merge into it rather than replacing it. An `AGENTS.md` is yours as well — it describes your codebase, while Trazo governs the work done on it ([`AGENTS.md` and Trazo](https://manoochehri.github.io/trazo/agents/)).
 4. **Run `/kickoff`** and answer the interview. The stop rule is the part worth taking seriously: it is the only thing that decides whether to keep going, and it has to be written before the results exist.
-5. **Leave `docs/` blank.** It is per-project scaffolding — do not copy this repo's own `docs/` across.
+5. **Do not copy this repo's own state.** `.trazo/project/` here is about Trazo, not your project. `/kickoff` creates yours from the blank templates (`templates/docs/`).
 
 The layout is documented in [What is `.trazo/`](https://manoochehri.github.io/trazo/overlay/).
 
@@ -127,14 +127,14 @@ Kickoff asks about: the idea, measurable success criteria, budget and deadline, 
 
 | File | Changes | Answers |
 |---|---|---|
-| `.trazo/charter/charter.md` | Rarely | Why, goal, success criteria, budget, constraints, stop rule |
-| `docs/PLAN.md` | When dates or scope change | Milestones and risks |
+| `.trazo/project/charter/charter.md` | Rarely | Why, goal, success criteria, budget, constraints, stop rule |
+| `.trazo/project/PLAN.md` | When dates or scope change | Milestones and risks |
 | `.trazo/ARCHITECTURE.md` | When the system changes | How it's built (with diagram) |
-| `docs/STATUS.md` | Every session (replaced) | Where things stand right now |
-| `.trazo/adr/` | Append-only | What was decided and why |
-| `.trazo/workstreams/` | As work progresses | Each feature/experiment: hypothesis, test, evidence, status |
-| `docs/reports/` | Generated | Results over time |
-| `docs/RUNBOOK.md` | When procedures change | How to run, deploy, roll back, recover |
+| `.trazo/project/STATUS.md` | Every session (replaced) | Where things stand right now |
+| `.trazo/project/adr/` | Append-only | What was decided and why |
+| `.trazo/project/workstreams/` | As work progresses | Each feature/experiment: hypothesis, test, evidence, status |
+| `.trazo/project/reports/` | Generated | Results over time |
+| `.trazo/project/RUNBOOK.md` | When procedures change | How to run, deploy, roll back, recover |
 | GitHub Issues | Constantly | What's being done, by when |
 
 ---
@@ -187,12 +187,13 @@ records its own lessons in its own decision records; copy files across (or re-ru
 ```
 .trazo/                    the overlay: rules, charter, adr, workstreams, specs
   rules.md                 the rules, tool-neutral
-  charter/                 goal, budget, success criteria, stop rule
-  adr/                     numbered decision records (append-only)
-  workstreams/             one file per idea, with hypothesis and evidence
+  project/                 this repo's own state; never shipped, never overwritten
+    charter/               goal, budget, success criteria, stop rule
+    adr/                   numbered decision records (append-only)
+    workstreams/           one file per idea, with hypothesis and evidence
+    STATUS.md PLAN.md RUNBOOK.md SKEPTIC_BAR.md reports/
 CLAUDE.md                  the Claude Code adapter for .trazo/rules.md
 .claude/                   commands, agents, and permissions
-docs/                      per-project state: PLAN, STATUS, RUNBOOK, reports
 .github/                   CI, PR template, CODEOWNERS, issue templates, Dependabot
 .template/                 Trazo's own memory: version, changelog, lessons, decisions
 handbook/                  the published documentation

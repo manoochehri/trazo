@@ -17,5 +17,5 @@ the host repo — or re-run `/kickoff` — and let the host's own decision recor
 anything they disagree about. Lessons flow the other way only when you are working **in
 Trazo itself** and choose to promote one by hand (issue #73).
 
-When working **on Trazo itself**, `CLAUDE.md`'s "project" means the overlay, and `docs/`
-stays as blank scaffolding for host projects: don't fill it in.
+When working **on Trazo itself**, `CLAUDE.md`'s "project" means the overlay, and `.trazo/project/`
+is this repository's own state and never ships; hosts get blank templates from `src/overlay/templates/`.

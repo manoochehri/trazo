@@ -11,32 +11,33 @@ and how its roles satisfy rules the import already covers.
 
 **Launch every session from the repository root.** An import resolves when the session starts in
 the directory holding `CLAUDE.md`; from a subdirectory this line arrives unexpanded. That is
-runtime-verified, not assumed — see `.trazo/workstreams/claude-md-imports.md` (#38).
+runtime-verified, not assumed — see `.trazo/project/workstreams/claude-md-imports.md` (#38).
 
-**Read first, every session:** [`.trazo/charter/charter.md`](.trazo/charter/charter.md) and
-[`docs/STATUS.md`](docs/STATUS.md). Then open GitHub issues for the current milestone.
+**Read first, every session:** [`.trazo/project/charter/charter.md`](.trazo/project/charter/charter.md) and
+[`.trazo/project/STATUS.md`](.trazo/project/STATUS.md). Then open GitHub issues for the current milestone.
 
 ## Where things live
 | Doc | Purpose |
 |---|---|
 | `.trazo/rules.md` | The rules, tool-neutral. This file only adapts them. |
-| `.trazo/charter/` | Why, goal, success criteria, budget, hard constraints, stop rule |
-| `.trazo/adr/` | Numbered decision records. Append-only; supersede, never edit |
-| `.trazo/workstreams/` | One file per feature/experiment/strategy, with status and evidence |
+| `.trazo/project/charter/` | Why, goal, success criteria, budget, hard constraints, stop rule |
+| `.trazo/project/adr/` | Numbered decision records. Append-only; supersede, never edit |
+| `.trazo/project/workstreams/` | One file per feature/experiment/strategy, with status and evidence |
 | `.trazo/specs/` | Design specs for features and tasks |
 | `.trazo/ARCHITECTURE.md` | How the system is built (with diagram) |
 | `.trazo/ADVISOR.md` | The advisor/PM role |
-| `docs/PLAN.md` | Milestones and timeline |
-| `docs/STATUS.md` | Current state only; replaced each session |
-| `docs/RUNBOOK.md` | How to run, test, deploy, roll back, recover |
-| `docs/SKEPTIC_BAR.md` | The bar a result must clear before the skeptic passes it; filled in per project |
+| `.trazo/project/PLAN.md` | Milestones and timeline |
+| `.trazo/project/STATUS.md` | Current state only; replaced each session |
+| `.trazo/project/RUNBOOK.md` | How to run, test, deploy, roll back, recover |
+| `.trazo/project/SKEPTIC_BAR.md` | The bar a result must clear before the skeptic passes it; filled in per project |
 | GitHub Issues | Tasks. Labels: bug, feature, research, infra, needs-decision, needs-pm, P0, P1, P2, epic |
 
-`docs/` is the per-project scaffold and stays blank in this repo. The overlay in `.trazo/`
-is the part that travels to a mounted repo. `docs/PLAN.md`, `STATUS.md`, `RUNBOOK.md` and
-`docs/reports/` deliberately stay in `docs/`: they are session and operational state for
-the host repo, not design records, and shipping the harness's own scratch state into every
-mounted repo is the opposite of a blank template.
+`.trazo/project/` is the project's own state: charter, decision records, workstreams, STATUS,
+PLAN, RUNBOOK, SKEPTIC_BAR and reports. It is never overwritten when the framework upgrades,
+and it is never shipped to a host. Everything else in `.trazo/` is the installed framework
+and is not hand-edited (ADR 0010). A host receives blank copies of the operational files
+(`templates/docs/`) and `/kickoff` copies them into its own `.trazo/project/`; `docs/` is the
+host's to use however it likes.
 
 ## The team (subagents in `.claude/agents/`, role commands in `.claude/commands/`)
 Role commands (`/pm`) switch the session's role for the rest of the conversation until another role command is used; `/eng` returns to building. `reviewer`, `security`, and `skeptic` are subagent-only — the engineer role delegates one-off checks to them, invoked ad hoc or as part of the `/work` and `/check-pr` routines. How each satisfies a rule is in the table above.
@@ -75,7 +76,7 @@ disagree, `rules.md` is right and this section is the bug.
 |---|---|
 | Secrets (never read, print, log, commit) | Never open `.env` or anything in `secrets/`. The owner enters secrets with `scripts/put_secret.sh`; new config goes in `.env.example` as a placeholder. |
 | Safety limits are human-only | Anything in `.github/CODEOWNERS` (limits, infra, workflows) changes only with the owner's review. Automation may tighten, never loosen. |
-| Roles are separated | The **reviewer**, **security** and **skeptic** subagents each run in their own context. `reviewer`, `security` and `skeptic` are subagent-only, never role-switch commands — a review that grades the same conversation that produced the work is not a review. See `.trazo/adr/0003-review-security-github-tracked.md`. |
-| A result is not a result until it has been checked | The **skeptic** subagent checks it against [`docs/SKEPTIC_BAR.md`](docs/SKEPTIC_BAR.md) and returns *holds* / *holds with caveats* / *does not hold*. If it cannot run, say the result is unverified rather than proceeding. |
+| Roles are separated | The **reviewer**, **security** and **skeptic** subagents each run in their own context. `reviewer`, `security` and `skeptic` are subagent-only, never role-switch commands — a review that grades the same conversation that produced the work is not a review. See `.trazo/project/adr/0003-review-security-github-tracked.md`. |
+| A result is not a result until it has been checked | The **skeptic** subagent checks it against [`.trazo/project/SKEPTIC_BAR.md`](.trazo/project/SKEPTIC_BAR.md) and returns *holds* / *holds with caveats* / *does not hold*. If it cannot run, say the result is unverified rather than proceeding. |
 | Hand off through the repo | Every subagent verdict on a pull request posts as a real `gh pr review --comment`, verdict word as the first line. `--approve` / `--request-changes` are refused while the agent and the PR author are the same account, i.e. every PR here (#44). A security finding not tied to a PR becomes a GitHub issue. |
 | Leave state in the repo | End a session with `/wrapup`. A PR that claims to close an issue carries `Closes #<n>` in the **commit message**, not only the body — a squash merge keeps only the commit message, so a body-only keyword links the issue without closing it and `/start` then reports finished work as ready (#61). |

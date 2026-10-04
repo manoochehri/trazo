@@ -1,7 +1,7 @@
 ---
 description: Menu - what you can do right now in this project
 ---
-Show me a short menu based on this project's current state. Check quickly (read-only): docs/STATUS.md, open issues by label (especially needs-decision), open pull requests and their checks, CI status on main.
+Show me a short menu based on this project's current state. Check quickly (read-only): .trazo/project/STATUS.md, open issues by label (especially needs-decision), open pull requests and their checks, CI status on main.
 
 Format, under 15 lines:
 **Now:** one line on where things stand.

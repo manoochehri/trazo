@@ -33,7 +33,7 @@ Two things are worth noticing about that layout.
 
 **`rules.md` is the core, and it is deliberately not in `.claude/`.** `.claude/` is an *adapter* — it binds those rules to Claude Code's specifics (which subagent, which command, which permission). A repo mounted on a different tool writes its own adapter and uses the same `rules.md`. Change a rule once and every tool gets it. In this repository the Claude adapter is [`CLAUDE.md`](https://github.com/manoochehri/trazo/blob/main/CLAUDE.md); in yours it will be whatever front-loads `.trazo/rules.md` for the tool you use.
 
-Here the adapter loads the rules with a one-line `@.trazo/rules.md` import, so they are inlined at load rather than left as a link an agent might skip or reword. That form was runtime-verified in [`claude-md-imports.md`](https://github.com/manoochehri/trazo/blob/main/.trazo/workstreams/claude-md-imports.md): one hop, no tool call, and it resolves when the session starts in the repository root. Because an import that fails to resolve is **silent** — no error, no warning — the repository asserts every `@` target exists, so a typo cannot quietly leave an agent with no rules.
+Here the adapter loads the rules with a one-line `@.trazo/rules.md` import, so they are inlined at load rather than left as a link an agent might skip or reword. That form was runtime-verified in [`claude-md-imports.md`](https://github.com/manoochehri/trazo/blob/main/.trazo/project/workstreams/claude-md-imports.md): one hop, no tool call, and it resolves when the session starts in the repository root. Because an import that fails to resolve is **silent** — no error, no warning — the repository asserts every `@` target exists, so a typo cannot quietly leave an agent with no rules.
 
 **The charter is a directory, because it is several documents.** The goal, the budget, the success criteria and the stop rule are separate files that are reviewed separately, and the stop rule is the one that has to be written *before* the results exist.
 
@@ -52,9 +52,9 @@ The skeptic works because it is **not** the session that produced the result. An
 
 ## What stays out of the overlay
 
-`docs/` holds the per-project scaffolding and stays blank in the Trazo repository: `PLAN.md`, `STATUS.md`, `RUNBOOK.md` and `reports/`. Those are session and operational state for **your** repo, not design records, and shipping Trazo's own scratch space into every mounted repo would be the opposite of a blank template.
+`.trazo/project/` holds a repository's own state: charter, decision records, workstreams, `STATUS.md`, `PLAN.md`, `RUNBOOK.md`, `SKEPTIC_BAR.md` and `reports/`. In the Trazo repository that is state about Trazo, and none of it ships to a host. A host receives blank copies (`templates/docs/`, plus the charter, ADR and workstream templates) and fills in its own.
 
-The rule of thumb: **design and judgment go in `.trazo/`, session state stays in `docs/`.**
+The rule of thumb: **ours lives in `.trazo/project/`; the host's is a template under `src/overlay/templates/`.** The framework files beside it are overwritten on upgrade; `project/` never is.
 
 ## Updating a mounted copy
 
@@ -62,7 +62,7 @@ Trazo is mounted, not forked, so there is no upstream to sync from and no automa
 
 - **Taking an improvement in:** copy the changed files across, or re-run `/kickoff`, and review the diff like any other change.
 - **Your project's own decision records win** on anything the two disagree about. You know your repo; Trazo does not.
-- **Lessons flow the other way only by hand.** If a mounted project learns something reusable, it records it in its own `.trazo/adr/` and workstreams. Nothing is sent anywhere automatically.
+- **Lessons flow the other way only by hand.** If a mounted project learns something reusable, it records it in its own `.trazo/project/adr/` and workstreams. Nothing is sent anywhere automatically.
 
 ## Where to go next
 

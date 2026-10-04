@@ -24,7 +24,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKEPTIC = REPO_ROOT / ".claude" / "agents" / "skeptic.md"
-BAR = REPO_ROOT / "docs" / "SKEPTIC_BAR.md"
+BAR = REPO_ROOT / ".trazo" / "project" / "SKEPTIC_BAR.md"
 CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
 RULES = REPO_ROOT / ".trazo" / "rules.md"
 WORK = REPO_ROOT / ".claude" / "commands" / "work.md"
@@ -107,8 +107,8 @@ def test_the_bar_exists_and_is_what_the_skeptic_checks() -> None:
     """The issue is explicit that the bar is the per-project part, so the agent must
     actually read it rather than carrying a generic list inline."""
     agent = _text(SKEPTIC)
-    assert "docs/SKEPTIC_BAR.md" in agent, "the skeptic must check the project's bar"
-    assert re.search(r"`docs/SKEPTIC_BAR\.md`", agent), "cite it as a path"
+    assert ".trazo/project/SKEPTIC_BAR.md" in agent, "the skeptic must check the project's bar"
+    assert re.search(r"`.trazo/project/SKEPTIC_BAR\.md`", agent), "cite it as a path"
     assert BAR.exists(), "the bar doc is missing"
 
     bar = _text(BAR)
@@ -169,7 +169,7 @@ def test_advisor_and_kickoff_carry_the_rule() -> None:
     )
 
     kickoff = _text(KICKOFF)
-    assert "docs/SKEPTIC_BAR.md" in kickoff, (
+    assert ".trazo/project/SKEPTIC_BAR.md" in kickoff, (
         "the bar is per-project, so kickoff is the only place it can be filled in"
     )
     assert re.search(r"specialise", kickoff), "kickoff must say which lines to replace"

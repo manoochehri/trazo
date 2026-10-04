@@ -55,7 +55,7 @@ def _tracked_files() -> set[str]:
 # one no longer exists and so cannot be referenced. Note that this comment deliberately
 # avoids spelling the pre-#50 path: `test_trazo_layout.py` asserts that no file references
 # it, which is the right outcome for a live link and the wrong one for a comment.
-ALLOWED_MENTIONS = (".trazo/adr/000", "tests/test_no_app_placeholder.py")
+ALLOWED_MENTIONS = (".trazo/project/adr/000", "tests/test_no_app_placeholder.py")
 
 # The harness guards that must survive. Named individually because "the test suite still
 # passes" is satisfied by an empty suite.

@@ -47,9 +47,9 @@ act, what is forbidden, and what evidence is required before a result counts.
 Read before doing anything consequential:
 
 - `.trazo/rules.md` — the rules, stated once, tool-neutral
-- `.trazo/charter/charter.md` — the goal, the budget, the stop rule
-- `.trazo/adr/` — why, in append-only records
-- `docs/STATUS.md` — current state
+- `.trazo/project/charter/charter.md` — the goal, the budget, the stop rule
+- `.trazo/project/adr/` — why, in append-only records
+- `.trazo/project/STATUS.md` — current state
 
 Roles are part of that, not part of this file: the rule that a build should
 never be its own reviewer is in `.trazo/rules.md`. The concrete mechanism —

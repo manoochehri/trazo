@@ -108,7 +108,7 @@ def test_the_adapter_only_binds_what_is_claude_specific():
     assert "How this tool satisfies the rules" in claude, (
         "the adapter must still say how this tool satisfies the imported rules"
     )
-    for marker in (".claude/agents/", "gh pr review --comment", "docs/SKEPTIC_BAR.md"):
+    for marker in (".claude/agents/", "gh pr review --comment", ".trazo/project/SKEPTIC_BAR.md"):
         assert marker in claude, (
             f"{marker} is the Claude-specific binding the adapter exists to carry; it is gone"
         )

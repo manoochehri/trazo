@@ -6,7 +6,7 @@ Trazo is installed into a host repo from `src/`, so a consumer resolves
 had drifted: the repository carried a changelog claiming seven released versions and
 **zero tags**, so a consumer had nothing resolvable to pin to.
 
-The rule this pins is the one from `.trazo/adr/0006-release-process.md`: a release is an
+The rule this pins is the one from `.trazo/project/adr/0006-release-process.md`: a release is an
 immutable tag, `latest` is the highest tag, and `scripts/release.sh` is the only way to
 cut one. An invariant enforced only in prose is advisory, so it is enforced here too.
 

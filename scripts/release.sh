@@ -3,7 +3,7 @@
 #
 # Trazo is consumed by mounting `.trazo/` into another repo, so "latest" has to mean
 # one unambiguous, immutable thing. That is the highest semver git tag, and nothing
-# else — see `.trazo/adr/0006-release-process.md`. A branch is mutable and a plain file
+# else — see `.trazo/project/adr/0006-release-process.md`. A branch is mutable and a plain file
 # is not resolvable, so `.template/VERSION` alone cannot be what a consumer pins to.
 #
 # Usage:

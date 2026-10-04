@@ -16,7 +16,7 @@ For setup and reference, see the [guide](guide.md).
 | **Security** | subagent only | Checks anything touching secrets, permissions, workflows, infra | Opus | No |
 | **CI** (GitHub Actions) | – | Runs tests, lint, secret scan, build on every pull request | – | No |
 
-**How they talk:** through GitHub (issues, pull requests, comments) and the `docs/` folder. Not through chat memory. Any session can be closed and a fresh one picks up from the repo.
+**How they talk:** through GitHub (issues, pull requests, comments) and the `.trazo/project/` folder. Not through chat memory. Any session can be closed and a fresh one picks up from the repo.
 
 **You talk to all of them in one Claude Code window, in plain English.** Type `/pm` to switch into the PM role directly for the rest of the conversation; `/eng` takes you back to building. Reviewer and security are subagent-only — the engineer session invokes them, automatically as part of `/work` and `/check-pr`, or ad hoc. Commands are optional shortcuts (type `/trazo` for a menu).
 
@@ -71,7 +71,7 @@ No. Approve the plan, then leave. It'll stop and ask if it hits something only y
 Yes, with Claude Code's permission settings, but keep approvals on for pushing, merging, deploying, and anything that spends money or touches secrets.
 
 **Can two things happen at once?**
-Talking and reviewing in parallel: yes, open another window. Two engineers editing code at once: only in separate git worktrees (under `.worktrees/` via `git worktree add`, or via `claude --worktree`), otherwise they collide. See `docs/RUNBOOK.md` for commands.
+Talking and reviewing in parallel: yes, open another window. Two engineers editing code at once: only in separate git worktrees (under `.worktrees/` via `git worktree add`, or via `claude --worktree`), otherwise they collide. See `.trazo/project/RUNBOOK.md` for commands.
 
 **It wrote something wrong / went in the wrong direction.**
 Say so plainly: *"stop, that's not what I meant, I want X."* If it's already a pull request, say *"close PR #8"* and restate the issue.
@@ -79,7 +79,7 @@ Say so plainly: *"stop, that's not what I meant, I want X."* If it's already a p
 ### Reviewing and merging
 
 **How does the skeptic work?**
-Any number you're about to act on goes to the **skeptic** subagent first — a measured result, a benchmark, a cost or performance figure, an A/B or backtest outcome. It checks the result against the bar in `docs/SKEPTIC_BAR.md` (which you fill in for your domain at kickoff) and returns **holds / holds with caveats / does not hold**, with the three most serious problems, the evidence for each, and the check that would settle it. Until it clears, the result doesn't reach a decision, a decision record, a registry, or a status doc.
+Any number you're about to act on goes to the **skeptic** subagent first — a measured result, a benchmark, a cost or performance figure, an A/B or backtest outcome. It checks the result against the bar in `.trazo/project/SKEPTIC_BAR.md` (which you fill in for your domain at kickoff) and returns **holds / holds with caveats / does not hold**, with the three most serious problems, the evidence for each, and the check that would settle it. Until it clears, the result doesn't reach a decision, a decision record, a registry, or a status doc.
 
 The point is that the agent which built an analysis is the worst-placed thing to review it: it knows what it meant to build, so it reads the output as if it meant what it meant. A second question in the *same* conversation doesn't help — that's why this is a separate subagent and never a mode you switch into. Run it every time, not just when a number looks odd; the failure it catches is the result that looks completely fine.
 
@@ -104,7 +104,7 @@ Normal: weekly version updates, grouped by type. Say *"handle the Dependabot PRs
 Merge to `main` first: that's "ready." Deploying is a separate step: say *"deploy."* With the GitHub deploy workflow, it pauses for your **Approve** click on GitHub. Every deploy uses an image tagged with its exact commit.
 
 **How do I know what's running?**
-*"What's deployed?"* The engineer runs the project's status command (see `docs/RUNBOOK.md`).
+*"What's deployed?"* The engineer runs the project's status command (see `.trazo/project/RUNBOOK.md`).
 
 **A change broke something. How do I undo the code?**
 *"Undo PR #8."* The engineer creates a revert pull request that exactly reverses it. CI runs, you merge. History keeps both, so you can redo it later.
@@ -113,7 +113,7 @@ Merge to `main` first: that's "ready." Deploying is a separate step: say *"deplo
 *"Roll back to the previous version."* It redeploys the previous tag (with your approval if using the workflow). Then undo the code as above, so `main` matches what's running.
 
 **What can't be rolled back?**
-Anything that changed the outside world: data written or deleted, money moved or orders placed, messages sent, files published. Protection here is prevention (reviewer, security, your approval for risky actions) and backups, not rollback. Know where your backups are (`docs/RUNBOOK.md`).
+Anything that changed the outside world: data written or deleted, money moved or orders placed, messages sent, files published. Protection here is prevention (reviewer, security, your approval for risky actions) and backups, not rollback. Know where your backups are (`.trazo/project/RUNBOOK.md`).
 
 ### Money and safety
 
@@ -167,7 +167,7 @@ Yes — that is the main case. Declare a one-command hermetic build/test environ
 The PM will say so plainly. Decide: stop, pivot, or change the plan with a decision record explaining why. Stopping on schedule is a success, not a failure.
 
 **The project is done. How do I shut it down?**
-*"Wind down the project."* The engineer downloads any data you want to keep, runs the teardown in `docs/RUNBOOK.md`, confirms nothing is left running or billing, writes a final report and decision record, and archives the repo if you want.
+*"Wind down the project."* The engineer downloads any data you want to keep, runs the teardown in `.trazo/project/RUNBOOK.md`, confirms nothing is left running or billing, writes a final report and decision record, and archives the repo if you want.
 
 **I learned something that future projects should know.**
 Note it in *this* project — its decision records or workstreams. Nothing is sent anywhere automatically; when you are next working in Trazo, you decide what is worth promoting and open a pull request by hand.

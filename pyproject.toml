@@ -1,7 +1,7 @@
 [project]
 name = "trazo"
 version = "0.1.0"
-description = "TODO: one line from .trazo/charter/charter.md"
+description = "TODO: one line from .trazo/project/charter/charter.md"
 requires-python = ">=3.12"
 dependencies = []
 # Trazo is a governance overlay, not an installable library: it ships rules, docs and

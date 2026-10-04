@@ -21,7 +21,7 @@ Trazo runs a small team: you plus several Claude roles. **The agents don't talk 
 | | Claude (desktop/web app) | Claude Code (VS Code / terminal / GitHub) |
 |---|---|---|
 | **Good at** | Planning, deciding, reviewing results, writing issues | Changing files, running tests, git, pull requests |
-| **Reads** | The repo (connect GitHub under *claude.ai Settings → Connectors*) | `CLAUDE.md` automatically, then `docs/` |
+| **Reads** | The repo (connect GitHub under *claude.ai Settings → Connectors*) | `CLAUDE.md` automatically, then `.trazo/project/` |
 | **Uses** | The **project-kickoff** skill; `.trazo/ADVISOR.md` | Role commands `/pm`, `/eng`; subagents `pm`, `reviewer`, `security`; commands (type `/`, or `/trazo` for a menu) |
 
 ---
@@ -29,7 +29,7 @@ Trazo runs a small team: you plus several Claude roles. **The agents don't talk 
 ### The team inside Claude Code: role commands and subagents
 Roles live in `.claude/agents/` and commands in `.claude/commands/`:
 - **Role commands:** type `/pm` to switch the session directly into the PM role for the rest of the conversation; `/eng` returns to building. While in the PM role, instructions enforce that it does not edit code or configuration. Note that because slash command frontmatter `model:` only applies to the invoking turn and tool restrictions cannot dynamically lock tools across subsequent turns, the role command enforces "no edits" via instructions.
-- **Subagents:** **reviewer**, **security**, and **skeptic** are subagent-only — never role-switch commands — so a review can't grade the same conversation's own work. **pm**, **reviewer**, **security**, and **skeptic** run on Opus in their own context and can't edit code; the main session is the engineer. The engineer role delegates to them automatically as part of `/work` and `/check-pr`, or ad hoc ("have security check this", "is this number real?"). Manage them with the built-in `/agents` command. See `.trazo/adr/0003-review-security-github-tracked.md`.
+- **Subagents:** **reviewer**, **security**, and **skeptic** are subagent-only — never role-switch commands — so a review can't grade the same conversation's own work. **pm**, **reviewer**, **security**, and **skeptic** run on Opus in their own context and can't edit code; the main session is the engineer. The engineer role delegates to them automatically as part of `/work` and `/check-pr`, or ad hoc ("have security check this", "is this number real?"). Manage them with the built-in `/agents` command. See `.trazo/project/adr/0003-review-security-github-tracked.md`.
 
 **You don't need to memorize commands.** Talk normally ("catch me up", "work on issue 12", "can I merge #15?", "wrap up"); `CLAUDE.md` maps requests to routines. If you want a menu, type `/trazo`. Typing `/` lists every command.
 
@@ -48,7 +48,7 @@ Roles live in `.claude/agents/` and commands in `.claude/commands/`:
 | `/kickoff` | New-project setup |
 | ask for lessons to be promoted | note them in the project; promote by hand when working in Trazo |
 
-**Several windows?** Fine for talking and reviewing in parallel. Two windows *editing* the same folder will collide; use git worktrees under `.worktrees/` (or Claude Code's `--worktree` flag) for isolated parallel building. See [RUNBOOK.md](https://github.com/manoochehri/trazo/blob/main/docs/RUNBOOK.md#parallel-work-git-worktrees) for worktree commands.
+**Several windows?** Fine for talking and reviewing in parallel. Two windows *editing* the same folder will collide; use git worktrees under `.worktrees/` (or Claude Code's `--worktree` flag) for isolated parallel building. See [RUNBOOK.md](https://github.com/manoochehri/trazo/blob/main/.trazo/project/RUNBOOK.md#parallel-work-git-worktrees) for worktree commands.
 
 ## 2. How you interact
 
@@ -62,7 +62,7 @@ Your two main tools: **a Claude chat for thinking, GitHub for approving.**
 | Get work done (hands-off) | Comment `@claude implement this` on the issue. It opens a pull request when done. |
 | Approve work | Read the reviewer's comments and CI result on the pull request, then merge. |
 | Make a call | Answer `needs-decision` issues in a comment. |
-| Know what's going on | Read the daily review on the pinned "Daily review" issue, or `docs/STATUS.md`. |
+| Know what's going on | Read the daily review on the pinned "Daily review" issue, or `.trazo/project/STATUS.md`. |
 
 A typical loop:
 ```
@@ -126,7 +126,7 @@ Your repo keeps its runtime, its build system and its pipeline. You add one dire
 2. **Copy the overlay in.** `.trazo/` from this repository. It is the whole of it, and it is tool-neutral.
 3. **Add the adapter for your agent.** `.claude/` if you use Claude Code — it holds the commands, subagents and permissions, and nothing portable lives there. Any other agent reads the same `.trazo/rules.md` through its own equivalent; if it reads `AGENTS.md`, the same rules travel with a pointer there. If your repo already has a `.claude/` or a `CLAUDE.md`, **merge into it rather than replacing it**; print what to add and let the owner place it. Trazo does not require an adapter at all — a repo with no agent can take the overlay and decide later. An existing `AGENTS.md` is the host's file: keep it, and see [`AGENTS.md` and Trazo](agents.md) for how the two relate.
 4. **Fill in the charter.** Run `/kickoff` and answer the interview. The stop rule is the part worth taking seriously — it is the only thing that decides whether to keep going, and it has to be written before the results exist.
-5. **Leave `docs/` blank.** It is per-project scaffolding. Do not copy Trazo's own `docs/` across; it is about Trazo, not about your project.
+5. **Do not copy Trazo's own `.trazo/project/` across.** It is about Trazo, not about your project. `/kickoff` creates yours from the blank templates under `templates/docs/` (STATUS, PLAN, RUNBOOK, SKEPTIC_BAR, reports).
 
 You do not have to choose one of these forever: start from the template and mount onto something else later, or mount now and keep your own layout.
 
@@ -160,12 +160,12 @@ In Claude Code: `/decide <what you decided>`. It drafts a numbered record with c
 ### Where to look
 | Question | Look at |
 |---|---|
-| What's going on right now? | `docs/STATUS.md` |
+| What's going on right now? | `.trazo/project/STATUS.md` |
 | What's left to do? | GitHub Issues (filter by milestone) |
 | What needs me? | Issues labeled `needs-decision` |
-| Why did we do X? | `.trazo/adr/` |
-| How is experiment Y going? | `.trazo/workstreams/` |
-| How do I deploy / roll back? | `docs/RUNBOOK.md` |
+| Why did we do X? | `.trazo/project/adr/` |
+| How is experiment Y going? | `.trazo/project/workstreams/` |
+| How do I deploy / roll back? | `.trazo/project/RUNBOOK.md` |
 | Is the code healthy? | The **Actions** tab on GitHub |
 
 ---
@@ -205,7 +205,7 @@ Better still: have the advisor open GitHub issues with those instructions, then 
 
 **Trazo ships no deploy target.** That is deliberate: the overlay governs how agents work, and your build and your cloud are yours. Kickoff records where the project runs; the rest is yours to wire.
 
-Whatever you choose, record these in `docs/RUNBOOK.md`:
+Whatever you choose, record these in `.trazo/project/RUNBOOK.md`:
 - the one command that deploys, and the one that shows what is running
 - rollback to the previous version
 - the budget alert, and the monthly cost you expect
@@ -233,7 +233,7 @@ its decision records and workstreams are the right home, and they are the projec
 keep. When you are next working in Trazo, promote what is genuinely reusable by hand, on a
 branch, with a row in `.template/LESSONS.md` and a version bump.
 
-**Working on Trazo itself:** open the Trazo repo in Claude Code as you would any project. Its `docs/` folder stays blank; it's scaffolding for host projects. Changes go through pull requests like anything else.
+**Working on Trazo itself:** open the Trazo repo in Claude Code as you would any project. Its own state lives in `.trazo/project/`, which is never shipped to hosts; the blank scaffolding hosts receive is under `src/overlay/templates/`. Changes go through pull requests like anything else.
 
 ---
 
