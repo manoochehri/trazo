@@ -146,3 +146,32 @@ def test_the_adapters_a_host_receives_point_at_a_path_a_host_also_has():
         assert "src/overlay/rules.md" not in text, (
             f"src/adapters/{name} names a src/ path; a host has no src/"
         )
+
+
+# Words and shapes that are true of one repository's build, tests or docs and so are false
+# in a host. The shipped adapter is written into a host's own file (#133), where a claim
+# like `make setup` or "Baseline: 132 passed" would be an instruction about a codebase the
+# adapter knows nothing about. Trazo governs whether; the host's own notes say how.
+REPO_SPECIFIC = {
+    "a make target": re.compile(r"`make\s+\w|^\s+make\s+\w", re.MULTILINE),
+    "a test count": re.compile(r"\b\d+\s+(?:passed|skipped|failed|tests?)\b", re.IGNORECASE),
+    "a test baseline": re.compile(r"\bbaseline\b", re.IGNORECASE),
+    "the handbook": re.compile(r"\bhandbook/"),
+    "a docs build": re.compile(r"\b(?:mkdocs|pytest|ruff|uv run)\b"),
+    "a repo script": re.compile(r"\bscripts/\S+"),
+    "a docs location": re.compile(r"(?<![\w.])docs/"),
+}
+
+
+def test_the_shipped_adapters_make_no_claim_about_a_hosts_build_tests_or_docs():
+    """The block a host receives is governance only (#133)."""
+    found = []
+    for name in ("AGENTS.md", "CLAUDE.md"):
+        text = (REPO_ROOT / "src/adapters" / name).read_text(encoding="utf-8")
+        for what, pattern in REPO_SPECIFIC.items():
+            for m in pattern.finditer(text):
+                found.append(f"src/adapters/{name}: {what}: {m.group(0)!r}")
+    assert not found, (
+        "the shipped adapters carry claims true only of this repository; put them in the "
+        "root AGENTS.md outside the trazo markers:\n" + "\n".join(found)
+    )
