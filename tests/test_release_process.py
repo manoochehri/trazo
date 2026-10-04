@@ -483,3 +483,21 @@ def test_rules_state_a_release_is_a_milestone():
     rules = " ".join(RULES.read_text().lower().split())
     assert "a release is a milestone" in rules, "rules.md does not say a release is a milestone"
     assert "immutable tags" in rules, "the immutable-tags rule must remain"
+
+
+def test_release_refuses_a_duplicate_milestone():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = _throwaway_repo(tmp)
+        result = _release(root, gh_out="0\n0")
+
+        assert result.returncode != 0, "released with two milestones of the same name"
+        assert "more than one milestone" in result.stderr, f"unexpected: {result.stderr}"
+
+
+def test_release_refuses_a_non_numeric_milestone_answer():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = _throwaway_repo(tmp)
+        result = _release(root, gh_out="null")
+
+        assert result.returncode != 0, "released on a non-numeric milestone answer"
+        assert "unexpected milestone answer" in result.stderr, f"unexpected: {result.stderr}"

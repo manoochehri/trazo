@@ -18,6 +18,8 @@
 #      milestone, ADR 0012); fails closed if `gh` is missing or the lookup fails
 #   6. create an annotated tag `vX.Y.Z` and, unless --dry-run, push it
 #
+# Step 5 needs an authenticated `gh` and network access, and `--dry-run` runs it too.
+#
 # The tag is what a consumer resolves; the commit it points at is the release.
 # Bumping the version and writing the changelog entry happen *before* this runs,
 # because the release commit has to exist before it can be tagged.
@@ -36,7 +38,7 @@ DRY_RUN=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
-    -h|--help) sed -n '3,21p' "$0" | sed 's/^#\{1\} \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '3,23p' "$0" | sed 's/^#\{1\} \{0,1\}//'; exit 0 ;;
     *) echo "release.sh: unknown argument '$arg' (expected --dry-run)" >&2; exit 2 ;;
   esac
 done
@@ -104,7 +106,7 @@ fi
 
 command -v gh >/dev/null 2>&1 || die "gh not found; cannot check milestone $TAG, refusing to release"
 if ! OPEN="$(gh api --paginate "repos/{owner}/{repo}/milestones?state=all&per_page=100" \
-    --jq ".[] | select(.title == \"$TAG\") | .open_issues" 2>/dev/null)"; then
+    --jq ".[] | select(.title == \"$TAG\") | .open_issues" )"; then
   die "could not query milestones via gh api; refusing to release"
 fi
 [ -n "$OPEN" ] || die "no GitHub milestone named '$TAG'; create it and scope the release to it"

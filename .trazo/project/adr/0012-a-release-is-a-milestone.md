@@ -17,7 +17,7 @@ A release is a GitHub milestone named `vX.Y.Z`.
 
 - The milestone description is the release goal; its issues are the scope.
 - The tag is cut when the milestone has 0 open issues and CI is green.
-- The changelog comes from the milestone's closed issues.
+- The changelog will come from the milestone's closed issues (not yet implemented, #130).
 - A Projects board is optional, as a view only; the milestone is the record.
 - `make release` refuses to tag while milestone `v<VERSION>` has open issues, and fails
   closed (refuses) if `gh` is unavailable, the lookup fails, or no such milestone exists.
@@ -32,5 +32,5 @@ The immutable-tag rule of 0006 is unchanged.
 
 ## Consequences
 Scope is visible and enforced before a tag. Generating the changelog from closed issues is
-not yet implemented in `make release`; it is tracked as a follow-up. Releasing now requires
+not yet implemented in `make release`; it is tracked as a follow-up in [#130](https://github.com/manoochehri/trazo/issues/130). Releasing now requires
 network access and `gh` authentication. Revisit if milestones prove too coarse.

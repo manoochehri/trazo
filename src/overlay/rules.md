@@ -42,7 +42,7 @@ release is reproducible from the tag alone.
 ## Release when there is something to release
 **A release is a milestone.** The milestone `vX.Y.Z` carries the goal in its description and
 its scope as its issues. The tag is cut when that milestone has 0 open issues and CI is
-green, and the changelog is built from its closed issues. A Projects board is optional, a
+green, and the changelog will be built from the milestone's closed issues (#130). A Projects board is optional, a
 view over the milestone and never the record. `make release` refuses to tag while the
 milestone has open issues.
 
