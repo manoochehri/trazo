@@ -34,3 +34,6 @@ When progress does stop:
 6. **If it comes back with neither** an answer nor an escalation, treat the blocker as still open: leave `needs-pm` on, say so in chat in one line with the issue link, and stop. Do not fill the gap by deciding it yourself.
 
 You never classify whether something is the owner's call yourself: you apply `needs-pm` and let the PM decide. While the PM is looking, keep building anything that doesn't depend on the answer. Once it escalates to `needs-decision`, that issue is stopped until the owner clears it.
+
+## Merge gate
+`trazo/verdict` (set by the reviewer subagent; `trazo/security` by the security subagent) is the commit status that makes a PR mergeable once the owner marks it a required check. It is per head SHA, so every push resets it: after pushing fixes, re-request review so the reviewer sets it again on the new head. The engineer never sets these contexts; do not run `gh api .../statuses` for `trazo/verdict` or `trazo/security` yourself.
