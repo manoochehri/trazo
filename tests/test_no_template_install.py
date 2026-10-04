@@ -11,11 +11,24 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS = [
     "README.md",
+    "AGENTS.md",
     "CONTRIBUTING.md",
     *sorted(str(p.relative_to(REPO_ROOT)) for p in (REPO_ROOT / "handbook").glob("*.md")),
 ]
 # Historical records describe the old path; they are not instructions.
 EXEMPT = {"handbook/changelog.md", "handbook/lessons.md"}
+
+# `[^\n]*` would stop at a `\` line continuation; allow continuations explicitly.
+TEMPLATE_CMD = re.compile(r"gh repo create(?:[^\n]|\\\n)*--template")
+
+
+def _violations(rel: str, text: str) -> list[str]:
+    found = []
+    if TEMPLATE_CMD.search(text):
+        found.append(f"{rel}: template install command")
+    if "/generate" in text or "Use this template" in text:
+        found.append(f"{rel}: 'Use this template' button or /generate link")
+    return found
 
 
 def test_no_template_install_instruction() -> None:
@@ -23,11 +36,23 @@ def test_no_template_install_instruction() -> None:
         if rel in EXEMPT:
             continue
         text = (REPO_ROOT / rel).read_text(encoding="utf-8")
-        assert not re.search(r"gh repo create[^\n]*--template", text), (
-            f"{rel}: template install command"
-        )
-        assert "/generate" not in text, f"{rel}: 'Use this template' /generate link"
-        assert "Use this template" not in text, f"{rel}: 'Use this template' button"
+        assert not _violations(rel, text)
+
+
+def test_detector_matches_line_continuations() -> None:
+    assert _violations("x", "gh repo create foo \\\n  --template x\n")
+    assert _violations("x", "gh repo create foo --template x\n")
+    assert not _violations("x", "gh repo create foo\n--template unrelated\n")
+
+
+def test_install_command_always_carries_the_no_release_note() -> None:
+    """Until #100 cuts v0.1.0 the command fetches nothing; #100 removes these notes."""
+    for rel in DOCS:
+        text = (REPO_ROOT / rel).read_text(encoding="utf-8")
+        if "install.sh install" in text:
+            assert "no release exists yet" in text.lower(), (
+                f"{rel}: install command without the note"
+            )
 
 
 def test_retired_template_tooling_is_gone() -> None:
