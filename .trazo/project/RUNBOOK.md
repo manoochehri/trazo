@@ -38,6 +38,13 @@ git worktree prune
 ```
 Note: Claude Code can also be launched directly inside an isolated worktree via `claude --worktree <name>` (which creates `.claude/worktrees/<name>`). Both `.worktrees/` and `.claude/worktrees/` are ignored in `.gitignore`, and secret protections in `.claude/settings.json` cover both recursively.
 
+## Merge gate: verdict status (owner step, #115)
+The reviewer subagent sets commit status `trazo/verdict` on the PR head SHA (`pending` at start, `success` for merge, `failure` for merge after fixes or worse); the security subagent sets `trazo/security` the same way. A new push resets both, so a fix needs a fresh review.
+
+Owner step, once: GitHub repo Settings -> Rules -> Rulesets -> the `protect main` ruleset -> Require status checks to pass -> Add checks -> add `trazo/verdict` (optionally `trazo/security` too). Until the check has reported once it may not appear in the picker; type the name in.
+
+Caveat (#44): agents post as the owner's account, so an agent could set `success` itself. The rule says only the reviewer or security subagent sets it, and the audit trail is the PR review comment that accompanies each status. This is not enforced until #44 gives agent work its own identity.
+
 ## Secrets
 - Local: copy `.env.example` to `.env` and fill in. `.env` is git-ignored and blocked from Claude Code.
 - AWS: `scripts/put_secret.sh <secret-name>` (you run it; it prompts without echoing).

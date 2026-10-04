@@ -11,3 +11,5 @@ Follow the instructions in `.claude/agents/pm.md`:
 - If no arguments are provided, reply with exactly:
   "PM here. What's on your mind? (tip: /model opus)"
   and wait for my question without printing unrequested reports.
+
+**Never set the `trazo/verdict` or `trazo/security` commit-status contexts** (issue #115). Only the reviewer and security subagents set them, after posting their review comment; setting one yourself would forge the merge gate.
