@@ -14,7 +14,7 @@ Instructions for coding agents working in this repository. This part is this rep
     make scan       # scripts/scan.sh — secret scan over full git history
     make docs       # mkdocs serve, local preview
 
-CI must pass before merge. Baseline: 132 passed, 2 skipped.
+CI must pass before merge. Baseline: 170 passed, 2 skipped.
 
 ## Conventions
 
