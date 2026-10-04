@@ -80,7 +80,9 @@ def test_each_prescribing_file_uses_comment_and_names_the_reason() -> None:
         where = path.relative_to(REPO_ROOT)
         assert "gh pr review --comment" in text, f"{where}: not prescribed via --comment"
         assert any(
-            "gh pr review --comment" in line and ("#44" in line or "refused" in line)
+            "gh pr review --comment" in line
+            and "--approve" in line
+            and ("#44" in line or "refused" in line)
             for line in text.splitlines()
         ), f"{where}: the mechanism line must also say why (#44: GitHub refuses it)"
 

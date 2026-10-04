@@ -23,7 +23,6 @@ verified at runtime, not assumed. An import that does not resolve fails silently
 | `.trazo/project/charter/` | Why, goal, success criteria, budget, hard constraints, stop rule |
 | `.trazo/project/adr/` | Numbered decision records. Append-only; supersede, never edit |
 | `.trazo/project/workstreams/` | One file per feature/experiment/strategy, with status and evidence |
-| `.trazo/specs/` | Design specs for features and tasks |
 | `.trazo/ARCHITECTURE.md` | How the system is built (with diagram) |
 | `.trazo/ADVISOR.md` | The advisor/PM role |
 | `.trazo/project/PLAN.md` | Milestones and timeline |

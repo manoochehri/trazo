@@ -1,7 +1,7 @@
 # Trazo governance
 
 This repository is governed by Trazo. Trazo does not say how to build, test or document this
-codebase; that is the rest of this file's host and whatever the maintainers wrote. Trazo says
+codebase; that is for the maintainers' own notes. Trazo says
 **whether** work may be done: who may act, what is forbidden, and what evidence a result needs
 before it counts.
 

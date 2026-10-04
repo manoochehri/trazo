@@ -14,7 +14,7 @@ Instructions for coding agents working in this repository. This part is this rep
     make scan       # scripts/scan.sh — secret scan over full git history
     make docs       # mkdocs serve, local preview
 
-CI must pass before merge. Baseline: 170 passed, 2 skipped.
+CI must pass before merge. Run `make test`; all tests must pass.
 
 ## Conventions
 
@@ -37,7 +37,7 @@ and changelog entry in the same commit as the last change in the release.
 # Trazo governance
 
 This repository is governed by Trazo. Trazo does not say how to build, test or document this
-codebase; that is the rest of this file's host and whatever the maintainers wrote. Trazo says
+codebase; that is for the maintainers' own notes. Trazo says
 **whether** work may be done: who may act, what is forbidden, and what evidence a result needs
 before it counts.
 

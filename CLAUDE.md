@@ -24,7 +24,6 @@ verified at runtime, not assumed. An import that does not resolve fails silently
 | `.trazo/project/charter/` | Why, goal, success criteria, budget, hard constraints, stop rule |
 | `.trazo/project/adr/` | Numbered decision records. Append-only; supersede, never edit |
 | `.trazo/project/workstreams/` | One file per feature/experiment/strategy, with status and evidence |
-| `.trazo/specs/` | Design specs for features and tasks |
 | `.trazo/ARCHITECTURE.md` | How the system is built (with diagram) |
 | `.trazo/ADVISOR.md` | The advisor/PM role |
 | `.trazo/project/PLAN.md` | Milestones and timeline |
@@ -79,3 +78,20 @@ disagree, `rules.md` is right and this section is the bug.
 | Hand off through the repo | Every subagent verdict on a pull request posts as a real `gh pr review --comment`, verdict word as the first line. `--approve` / `--request-changes` are refused when the agent and the PR author are one account. A security finding not tied to a PR becomes a GitHub issue. |
 | Leave state in the repo | End a session with `/wrapup`. A PR that claims to close an issue carries `Closes #<n>` in the **commit message**, not only the body: a squash merge keeps only the commit message. |
 <!-- trazo:end -->
+
+## This repository
+
+Notes specific to Trazo's own repo, outside the shipped block above. Claude Code does not
+load `AGENTS.md`, so the repo-specific guidance is repeated here.
+
+- Secrets: the owner enters them with `scripts/put_secret.sh`; new config goes in `.env.example`.
+- Verdicts post as `gh pr review --comment`. `--approve` and `--request-changes` are refused
+  while the agent and the PR author are the same account, which is every PR here (#44).
+- The closing keyword (`Closes #<n>:`) must be the first line of the commit message. A squash
+  merge keeps only commit messages, so a body-only or mid-prose keyword closes nothing (#61, #68).
+- Decision records: `.trazo/project/adr/0003-review-security-github-tracked.md` (review and
+  security tracked on GitHub) and `.trazo/project/adr/0010-src-canonical-trazo-pinned.md`
+  (`src/` is canonical; `.trazo/` is the installed copy, never hand-edited).
+- Why the import must load from the repository root: `.trazo/project/workstreams/claude-md-imports.md` (#38).
+- A host receives blank templates (`src/overlay/templates/`) and `/kickoff` copies them into
+  its own `.trazo/project/`; this repo's `.trazo/project/` is its own state and is never shipped.

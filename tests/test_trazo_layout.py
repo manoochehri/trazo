@@ -328,7 +328,6 @@ def test_claude_md_is_the_adapter_not_the_rules() -> None:
     assert "adapter" in claude.lower(), "CLAUDE.md must say what it now is"
     # The judgment layer must not be reduced to specs + ADRs (#0005).
     assert ".trazo/project/charter/" in claude, "the charter must stay visible from the adapter"
-    assert ".trazo/specs/" in claude, "specs are part of the layout"
     assert ".trazo/project/adr/" in claude and ".trazo/project/workstreams/" in claude
 
 
