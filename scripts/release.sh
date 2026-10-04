@@ -14,7 +14,11 @@
 #   2. require `.template/VERSION` to be present and MAJOR.MINOR.PATCH
 #   3. require that version to have a `.template/CHANGELOG.md` entry
 #   4. require the tag not to exist already
-#   5. create an annotated tag `vX.Y.Z` and, unless --dry-run, push it
+#   5. require the GitHub milestone `vX.Y.Z` to exist with 0 open issues (a release is a
+#      milestone, ADR 0012); fails closed if `gh` is missing or the lookup fails
+#   6. create an annotated tag `vX.Y.Z` and, unless --dry-run, push it
+#
+# Step 5 needs an authenticated `gh` and network access, and `--dry-run` runs it too.
 #
 # The tag is what a consumer resolves; the commit it points at is the release.
 # Bumping the version and writing the changelog entry happen *before* this runs,
@@ -34,7 +38,7 @@ DRY_RUN=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
-    -h|--help) sed -n '3,19p' "$0" | sed 's/^#\{1\} \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '3,23p' "$0" | sed 's/^#\{1\} \{0,1\}//'; exit 0 ;;
     *) echo "release.sh: unknown argument '$arg' (expected --dry-run)" >&2; exit 2 ;;
   esac
 done
@@ -95,7 +99,24 @@ if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
   die "tag $TAG already exists; bump $VERSION_FILE to release a new version"
 fi
 
-# --- 5. tag ------------------------------------------------------------------------
+# --- 5. the milestone for this version has no open issues -------------------------
+# A release is a milestone (ADR 0012): its issues are the scope, so the tag is cut only
+# when none are open. Fail closed: no gh, no answer, or no such milestone all refuse,
+# because "could not check" must never read as "nothing is open".
+
+command -v gh >/dev/null 2>&1 || die "gh not found; cannot check milestone $TAG, refusing to release"
+if ! OPEN="$(gh api --paginate "repos/{owner}/{repo}/milestones?state=all&per_page=100" \
+    --jq ".[] | select(.title == \"$TAG\") | .open_issues" )"; then
+  die "could not query milestones via gh api; refusing to release"
+fi
+[ -n "$OPEN" ] || die "no GitHub milestone named '$TAG'; create it and scope the release to it"
+[ "$(printf '%s\n' "$OPEN" | wc -l | tr -d ' ')" = "1" ] || die "more than one milestone named '$TAG'; refusing"
+printf '%s' "$OPEN" | grep -Eq '^[0-9]+$' || die "unexpected milestone answer '$OPEN'; refusing"
+if [ "$OPEN" -ne 0 ]; then
+  die "milestone $TAG has $OPEN open issue(s); close or move them before releasing"
+fi
+
+# --- 6. tag ------------------------------------------------------------------------
 
 echo "Releasing $TAG"
 echo "  version:   $VERSION"
