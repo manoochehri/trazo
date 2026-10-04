@@ -1,0 +1,68 @@
+# Install, upgrade and uninstall
+
+Trazo is installed into your repository from a release tag, by one script. Nothing is
+copied from a template repository and nothing is fetched from a moving branch.
+
+!!! note "No release exists yet"
+    The first tag, `v0.1.0`, is cut by [#100](https://github.com/manoochehri/trazo/issues/100).
+    Until it exists, `install v0.1.0` has nothing to fetch and refuses. The commands below
+    work as written once the tag is published.
+
+## Install
+
+From the root of your git repository:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.1.0/scripts/install.sh -o install.sh
+bash install.sh install v0.1.0
+```
+
+Pin the script to the same tag you install, as above. The tag is required: with none, the
+script refuses. `latest` is accepted and resolves to the highest `vMAJOR.MINOR.PATCH` tag,
+never to a branch.
+
+| Option | Meaning |
+|---|---|
+| `--adapter claude\|agents\|both` | Which tool adapter to install. Default `both`. |
+| `--source <path-or-url>` | Where to fetch from. Default `$TRAZO_SOURCE`, then the public repository. |
+
+What it does:
+
+- Copies the framework (`rules.md`, `ADVISOR.md`, `ARCHITECTURE.md`, `templates/`) into
+  `.trazo/` and writes the tag to `.trazo/VERSION`.
+- Creates `.trazo/project/` from the blank templates **only if it does not exist**. It is
+  yours, and no command here overwrites it.
+- Inserts the adapter into `AGENTS.md` and/or `CLAUDE.md` between
+  `<!-- trazo:begin -->` and `<!-- trazo:end -->`. If the file exists, everything outside
+  those markers is left byte for byte as it was; if it does not, it is created. Running
+  install again replaces the block and nothing else.
+- For the Claude adapter, copies `agents/` and `commands/` into `.claude/`. If a file of
+  that name is already yours, the Trazo one is installed as `trazo-<name>.md` and the
+  script says so. `.claude/settings.json` is installed only if you have none.
+- Records the adapter files it placed in `.trazo/INSTALLED`, so upgrade and uninstall touch
+  only those.
+- Never edits `.github/CODEOWNERS`. It prints lines for you to add; a safety limit only
+  counts if you review it.
+
+## Upgrade
+
+```sh
+bash install.sh upgrade v0.2.0 --dry-run   # show the diff of .trazo/ and stop
+bash install.sh upgrade v0.2.0             # show the diff, then apply
+```
+
+Upgrade is install at a newer tag, with a unified diff of `.trazo/` printed before anything
+changes. Framework files are replaced (files dropped upstream are removed). `.trazo/project/`
+is never read or written.
+
+## Uninstall
+
+```sh
+bash install.sh uninstall            # keeps .trazo/project/
+bash install.sh uninstall --purge    # removes it too
+```
+
+Removes the framework files under `.trazo/`, the adapter files listed in
+`.trazo/INSTALLED`, and the marked blocks in `AGENTS.md` and `CLAUDE.md`. A file that held
+only the block is deleted; otherwise your content stays. Your own `.claude/` files, your
+`CODEOWNERS`, and `.trazo/project/` (without `--purge`) are not touched.
