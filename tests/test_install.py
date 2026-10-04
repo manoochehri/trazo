@@ -386,3 +386,63 @@ def test_shipped_settings_only_deny():
     perms = json.loads((REPO_ROOT / "src/adapters/claude/settings.json").read_text())
     assert set(perms) == {"permissions"}
     assert set(perms["permissions"]) == {"deny"}, "shipped settings may only deny"
+
+
+def test_reversed_markers_are_refused(host, source):
+    reversed_ = f"# top\n{END}\nmid\n{BEGIN}\n## host section after\nkeep\n"
+    (host / "AGENTS.md").write_text(reversed_)
+    r = run(host, "install", "v0.1.0", "--adapter", "agents", source=source, check=False)
+    assert r.returncode != 0 and "order" in r.stderr
+    assert (host / "AGENTS.md").read_text() == reversed_
+    (host / "AGENTS.md").unlink()
+    run(host, "install", "v0.1.0", "--adapter", "claude", source=source)
+    (host / "AGENTS.md").write_text(reversed_)
+    r = run(host, "uninstall", check=False)
+    assert r.returncode != 0
+    assert (host / "AGENTS.md").read_text() == reversed_
+
+
+def test_host_owning_both_name_and_prefixed_name_is_not_overwritten(host, source):
+    d = host / ".claude" / "agents"
+    d.mkdir(parents=True)
+    (d / "pm.md").write_text("host pm\n")
+    (d / "trazo-pm.md").write_text("host trazo-pm\n")
+    r = run(host, "install", "v0.1.0", "--adapter", "claude", source=source)
+    assert "also yours" in r.stderr
+    assert (d / "trazo-pm.md").read_text() == "host trazo-pm\n"
+    run(host, "uninstall")
+    assert (d / "pm.md").read_text() == "host pm\n"
+    assert (d / "trazo-pm.md").read_text() == "host trazo-pm\n"
+
+
+def test_manifest_keep_loop_compares_whole_paths(tmp_path, host):
+    def mutate(src, tag):
+        if tag == "v0.2.0":
+            agents = src / "adapters/claude/agents"
+            (agents / "pm.md").rename(agents / "pm.md.md")
+
+    src = make_source(tmp_path, ("v0.1.0", "v0.2.0"), mutate)
+    run(host, "install", "v0.1.0", "--adapter", "claude", source=src)
+    run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src)
+    mf = host / ".trazo" / "INSTALLED"
+    paths = [x.split("  ", 1)[1] for x in mf.read_text().splitlines()]
+    # pm.md is no longer shipped but is still on disk; it must stay listed even though
+    # pm.md.md (which contains its name) was placed.
+    assert ".claude/agents/pm.md" in paths and ".claude/agents/pm.md.md" in paths
+
+
+def test_purge_fails_closed_when_project_is_ignored(host, source):
+    run(host, "install", "v0.1.0", source=source)
+    (host / ".gitignore").write_text(".trazo/project/\n")
+    r = run(host, "uninstall", "--purge", check=False)
+    assert r.returncode != 0 and "--force" in r.stderr
+    assert (host / ".trazo/project/STATUS.md").is_file()
+
+
+def test_purge_fails_closed_when_git_status_fails(host, source):
+    run(host, "install", "v0.1.0", source=source)
+    shutil.rmtree(host / ".git")
+    (host / ".git").write_text("gitdir: /nonexistent\n")
+    r = run(host, "uninstall", "--purge", check=False)
+    assert r.returncode != 0 and "--force" in r.stderr
+    assert (host / ".trazo/project/STATUS.md").is_file()
