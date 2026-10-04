@@ -88,6 +88,8 @@ curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.1.0/scripts/in
 bash install.sh install v0.1.0
 ```
 
+> **No release exists yet.** The first tag, `v0.1.0`, is cut by [#100](https://github.com/manoochehri/trazo/issues/100); the command works once it is published.
+
 Your repo keeps its runtime, its build system and its pipeline. The installer copies the framework into `.trazo/`, adds the adapter for your agent (`.claude/` and `CLAUDE.md` if you use Claude Code, `AGENTS.md` for other agents; if your repo already has them, the installer merges between its own markers and never replaces yours), and creates `.trazo/project/` from blank templates. Full options, upgrade and uninstall: [Install, upgrade and uninstall](https://manoochehri.github.io/trazo/install/).
 
 Then:
