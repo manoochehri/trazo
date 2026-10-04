@@ -78,11 +78,21 @@ def test_pm_may_not_rewrite_specs_or_close_issues() -> None:
     assert "gh issue close" not in grant
 
 
-def test_pm_never_removes_the_owners_gate() -> None:
-    """`needs-decision` is the owner's gate; escalation is one-way."""
+def test_pm_clears_the_owners_gate_only_with_a_quoted_decision() -> None:
+    """`needs-decision` is the owner's gate; escalation is one-way, and the PM may clear
+    the label only in the same step as a comment quoting the owner's decision."""
     pm = _text(PM_AGENT)
-    assert re.search(r"[Nn]ever remove \*{0,2}`needs-decision`", pm)
+    rule = _bullet(pm, "`needs-decision` is the owner's gate")
+    assert "Owner decision (" in rule
+    assert "quotes the owner" in rule and "verbatim" in rule
+    assert "immediately after" in rule
+    for forbidden in ("your own judgment", "say-so", "inferred decision"):
+        assert forbidden in rule, f"must still forbid clearing on {forbidden}"
+    assert re.search(r"[Nn]ever remove it on", rule)
     assert "never the reverse" in pm
+    # The role command must not restate the old absolute ban.
+    assert not re.search(r"never remove `needs-decision`", _text(PM_ROLE))
+    assert "Owner decision (" in _text(PM_ROLE)
 
 
 def test_pm_escalation_matches_what_work_md_promises() -> None:
