@@ -17,7 +17,7 @@ def test_reviewer_sets_verdict_status():
     assert "headRefOid" in t
     for state in ("pending", "success", "failure"):
         assert f"state={state}" in t
-    assert "after, and only after, the review comment" in t
+    assert "After, and only after, the review comment" in t
 
 
 def test_security_sets_security_status():
