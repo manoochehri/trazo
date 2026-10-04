@@ -54,3 +54,21 @@ def test_adapter_copies_identical():
     for sub in ("agents", "commands"):
         for f in (CLAUDE / sub).glob("*.md"):
             assert (ADAPTER / sub / f.name).read_bytes() == f.read_bytes(), f.name
+
+
+def test_status_write_exception_is_narrow():
+    for name, ctx, other in (
+        ("reviewer.md", "trazo/verdict", "trazo/security"),
+        ("security.md", "trazo/security", "trazo/verdict"),
+    ):
+        t = read(CLAUDE, "agents", name)
+        head = t.split("---")[1] + t.split("---")[2][:700]
+        assert "exactly two writes allowed" in head, name
+        assert f"for your own context (`{ctx}`) and no other" in head, name
+        assert "gh pr review --comment" in head, name
+        assert other not in head, name
+        assert "gh repo view --json nameWithOwner" in t, name
+
+
+def test_security_status_only_after_review_comment():
+    assert "After, and only after, the review comment" in read(CLAUDE, "agents", "security.md")
