@@ -12,9 +12,9 @@ Trazo runs a small team: you plus several Claude roles. **The agents don't talk 
 | Role | Who | Where they work | Triggered by |
 |---|---|---|---|
 | **Owner** | You | GitHub (phone or laptop), Claude app | You |
-| **PM / advisor** | Claude, strong model (e.g., Opus) | Claude chat; scheduled GitHub runs | You, or a daily schedule |
-| **Engineer** | Claude Code (e.g., Sonnet) | VS Code on your machine, or GitHub Actions | You, or `@claude` on an issue |
-| **Reviewer** | Claude (e.g., Opus) | GitHub pull requests | Automatically on every pull request (once the section 3 workflows are added), or on request in Claude Code |
+| **PM / advisor** | Claude, the `pm` subagent pinned to Opus | Claude chat; scheduled GitHub runs | You, or a daily schedule |
+| **Engineer** | Claude Code, the main session, on the model you choose | VS Code on your machine, or GitHub Actions | You, or `@claude` on an issue |
+| **Reviewer** | Claude, the `reviewer` subagent pinned to Opus | GitHub pull requests | Automatically on every pull request (once the section 3 workflows are added), or on request in Claude Code |
 
 **Neither AI keeps memory between sessions.** The repo does. Every session starts by reading the docs and ends by updating them.
 
@@ -29,7 +29,7 @@ Trazo runs a small team: you plus several Claude roles. **The agents don't talk 
 ### The team inside Claude Code: role commands and subagents
 Roles live in `.claude/agents/` and commands in `.claude/commands/`:
 - **Role commands:** type `/pm` to switch the session directly into the PM role for the rest of the conversation; `/eng` returns to building. While in the PM role, instructions enforce that it does not edit code or configuration. Note that because slash command frontmatter `model:` only applies to the invoking turn and tool restrictions cannot dynamically lock tools across subsequent turns, the role command enforces "no edits" via instructions.
-- **Subagents:** **reviewer**, **security**, and **skeptic** are subagent-only — never role-switch commands — so a review can't grade the same conversation's own work. **pm**, **reviewer**, **security**, and **skeptic** run on Opus in their own context and can't edit code; the main session is the engineer. The engineer role delegates to them automatically as part of `/work` and `/check-pr`, or ad hoc ("have security check this", "is this number real?"). Manage them with the built-in `/agents` command. See `.trazo/project/adr/0003-review-security-github-tracked.md`.
+- **Subagents:** **reviewer**, **security**, and **skeptic** are subagent-only — never role-switch commands — so a review can't grade the same conversation's own work. **pm**, **reviewer**, **security**, and **skeptic** are pinned to Opus (`model: opus`), run in their own context and can't edit code; the main session is the engineer, and its model is your choice via `/model`. A role command does not switch the model (tracked in [#116](https://github.com/manoochehri/trazo/issues/116)). The engineer role delegates to them automatically as part of `/work` and `/check-pr`, or ad hoc ("have security check this", "is this number real?"). Manage them with the built-in `/agents` command. See `.trazo/project/adr/0003-review-security-github-tracked.md`.
 
 **You don't need to memorize commands.** Talk normally ("catch me up", "work on issue 12", "can I merge #15?", "wrap up"); `CLAUDE.md` maps requests to routines. If you want a menu, type `/trazo`. Typing `/` lists every command.
 
@@ -61,7 +61,7 @@ Your two main tools: **a Claude chat for thinking, GitHub for approving.**
 | Get work done (hands-on) | Open Claude Code in the repo and say *"work on issue 12"* (or `/work 12`). |
 | Get work done (hands-off) | Comment `@claude implement this` on the issue. It opens a pull request when done. |
 | Approve work | Read the reviewer's comments and CI result on the pull request, then merge. |
-| Make a call | Answer `needs-decision` issues in a comment. |
+| Make a call | Answer `needs-decision` issues in a comment. The PM clears the label only after a comment quoting your words verbatim, from you in session or posted by you on the issue; a quote relayed by another agent does not count. |
 | Know what's going on | Read the daily review on the pinned "Daily review" issue, or `.trazo/project/STATUS.md`. |
 
 A typical loop:
@@ -233,7 +233,9 @@ its decision records and workstreams are the right home, and they are the projec
 keep. When you are next working in Trazo, promote what is genuinely reusable by hand, on a
 branch, with a row in `.template/LESSONS.md` and a version bump.
 
-**Working on Trazo itself:** open the Trazo repo in Claude Code as you would any project. Its own state lives in `.trazo/project/`, which is never shipped to hosts; the blank scaffolding hosts receive is under `src/overlay/templates/`. Changes go through pull requests like anything else.
+**Working on Trazo itself:** open the Trazo repo in Claude Code as you would any project. `src/` is the product and is where every change is made; `.trazo/` is the pinned install that governs the repo and is never hand-edited, so a rule you change in `src/` governs this repo only after it is released. Its own state lives in `.trazo/project/`, which is never shipped to hosts; the blank scaffolding hosts receive is under `src/overlay/templates/`. Changes go through pull requests like anything else.
+
+**Releasing:** a release is a GitHub milestone named `vX.Y.Z`. Its description is the goal and its issues are the scope. When it has 0 open issues and CI is green, bump `.template/VERSION` with the changelog entry and run `make release`, which refuses while the milestone has open issues. Tags are immutable: never move one that exists.
 
 ---
 
@@ -262,7 +264,9 @@ branch, with a row in `.template/LESSONS.md` and a version bump.
 - **CI:** automatic checks on every change (tests, lint, secret scan, build).
 - **Pull request (PR):** a proposed change, reviewed and checked before merging into `main`.
 - **Dependabot:** GitHub's bot that proposes version updates.
-- **Deploy target:** where the project runs (none, Fly.io, AWS, GCP).
+- **Milestone:** a GitHub milestone `vX.Y.Z` is a release: the goal in its description, the scope as its issues. The tag is cut at 0 open issues.
+- **Pinned install:** `.trazo/`, the copy of `src/` that governs a repo; never hand-edited.
+- **Deploy target:** where the project runs; Trazo ships none.
 - **OIDC:** lets GitHub deploy to a cloud without storing cloud passwords or keys.
 - **GitHub Action / workflow:** an automated job defined in `.github/workflows/`, run by GitHub on its own servers.
 - **`@claude`:** mentioning Claude in an issue or pull request, which triggers the engineer workflow.

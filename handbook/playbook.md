@@ -10,11 +10,13 @@ For setup and reference, see the [guide](guide.md).
 | Who | Command | Does | Model | Edits code? |
 |---|---|---|---|---|
 | **You (owner)** | – | Decide, approve, merge. Pick what matters; answer what only you can. | – | Rarely |
-| **Engineer** (your main Claude Code session) | `/eng` | Builds: code, tests, branches, pull requests | Sonnet | Yes |
-| **PM / advisor** | `/pm` | Status, planning, priorities, "is this real?", writes issues | Opus | No |
+| **Engineer** (your main Claude Code session) | `/eng` | Builds: code, tests, branches, pull requests | Your choice | Yes |
+| **PM / advisor** | `/pm` | Status, planning, priorities, "is this real?", writes issues | Opus (the `pm` subagent; `/pm` keeps your session model) | No |
 | **Reviewer** | subagent only | Checks pull requests before merge, with fresh eyes | Opus | No |
 | **Security** | subagent only | Checks anything touching secrets, permissions, workflows, infra | Opus | No |
 | **CI** (GitHub Actions) | – | Runs tests, lint, secret scan, build on every pull request | – | No |
+
+The four subagents are pinned to Opus. The main session runs on whatever model you picked with `/model`; role commands do not change it.
 
 **How they talk:** through GitHub (issues, pull requests, comments) and the `.trazo/project/` folder. Not through chat memory. Any session can be closed and a fresh one picks up from the repo.
 
@@ -54,10 +56,10 @@ Say it: *"I want X. Is it worth it?"* (or switch to `/pm`). The PM thinks it thr
 Ask *"what should I work on next?"* The PM weighs the plan, milestones, and what's blocked. You pick.
 
 **Something needs a decision only I can make. Where do I find those?**
-Issues labeled `needs-decision`. The morning briefing lists them. Answer in the issue or in chat; say *"record that decision"* so it becomes a decision record.
+Issues labeled `needs-decision`. The morning briefing lists them. Answer in the issue; the PM clears the label only after a comment quoting your words verbatim (typed by you in session, or posted by you on the issue), and a quote relayed by another agent does not count. Say *"record that decision"* so it becomes a decision record.
 
 **I want a big-picture strategy conversation, not a quick answer.**
-In Claude Code, type `/pm` (or switch model with `/model opus`) to talk with the PM directly for the rest of the conversation. End with *"record what we decided."* When done planning, `/eng` switches back to the engineer.
+In Claude Code, type `/pm` to talk with the PM directly for the rest of the conversation. It switches the role, not the model, so run `/model opus` first if you want Opus for a long planning conversation. End with *"record what we decided."* When done planning, `/eng` switches back to the engineer.
 
 ### Doing the work
 

@@ -23,7 +23,7 @@ Almost every serious repo already exists, with its own runtime, toolchain and pi
 
 A starter template does not fix these — it fixes them for the empty repo you start from, and you are not starting from one. And the tool it mandates is the tool you were trying to escape.
 
-Trazo's answer: **the repo is the memory, and the rails are mounted rather than imposed.** It adds a `.trazo/` overlay and a thin `.claude/` adapter. Your code, your build, your deploy — unchanged.
+Trazo's answer: **the repo is the memory, and the rails are mounted rather than imposed.** It adds a pinned `.trazo/` overlay and a thin `.claude/` adapter. Your code, your build, your deploy — unchanged.
 
 ## What it adds
 
@@ -69,7 +69,7 @@ flowchart LR
     Reviewer -.->|flags risk| Security
 ```
 
-The PM writes issues, the engineer turns issues into pull requests, and you approve and merge. Only `/pm` and `/eng` switch the session's role directly in Claude Code; the reviewer, security and skeptic checks are subagents the engineer calls on — automatically as part of `/work` and `/check-pr`, or ad hoc ("have security check this", "is this number real?"). Everything is visible, and nothing depends on a chat surviving. See [the team](team.md) for the full roster, and the [playbook](playbook.md) for how a normal day actually runs.
+The PM writes issues, the engineer turns issues into pull requests, and you approve and merge. Only `/pm` and `/eng` switch the session's role directly in Claude Code (they do not switch the model: the subagents are pinned to Opus, the main session's model is yours); the reviewer, security and skeptic checks are subagents the engineer calls on — automatically as part of `/work` and `/check-pr`, or ad hoc ("have security check this", "is this number real?"). Everything is visible, and nothing depends on a chat surviving. See [the team](team.md) for the full roster, and the [playbook](playbook.md) for how a normal day actually runs.
 
 ## Mounting it
 
@@ -94,8 +94,12 @@ you + PM (/pm)  →  issues  →  engineer (/eng)  →  pull request  →  revie
 
 Ten to fifteen minutes of your attention: a morning briefing, a decision or two, a merge or two, and a one-line "wrap up" at the end. The [playbook](playbook.md) walks through the whole loop and has an FAQ for everything in between.
 
-## Deploy targets
+## Layout and releases
 
-**AWS is the default and the recommended deploy target** for a Trazo-owned repo — it is the only provider with a working bootstrap stack (budget alerts, GitHub OIDC, ECR). Fly.io, GCP, and local-only remain fully supported when AWS isn't the right fit. If you are *mounting* Trazo onto an existing repo, this whole section is somebody else's decision and Trazo stays out of it.
+`src/` is the product and `.trazo/` is the pinned install that governs a repository; `.trazo/project/` is that repository's own state (charter, decision records, workstreams, STATUS, PLAN, RUNBOOK), never overwritten on upgrade. A host starts from blank templates, not from Trazo's own state. A release is a GitHub milestone, and the tag is cut when it has no open issues; tags are never moved. See [What is `.trazo/`](overlay.md).
+
+## Deploying
+
+**Trazo ships no deploy target.** The overlay governs how agents work; your build and your cloud are yours. If you are mounting Trazo onto an existing repo, deployment is somebody else's decision and Trazo stays out of it.
 
 See the [guide](guide.md) for the full setup walkthrough, including the optional GitHub Actions automation.

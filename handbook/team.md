@@ -6,11 +6,13 @@ Trazo runs a small team: you plus several Claude roles, talking to each other th
 
 | Role / Agent | Command | Model | Use for | Edits files? | Updates GitHub? |
 |---|---|---|---|---|---|
-| Engineer (main session) | `/eng` | default (Sonnet) | Building: code, tests, git, pull requests | Yes | Yes |
-| PM / advisor | `/pm` | Opus | Status, planning, priorities, "is this result real?", charter/budget/stop rule, writing issues | No | Issues only — labels, parent/sub-issue, blocked-by, milestone, assignee, type, plus comments. Never rewrites an issue `--body`, never closes one |
+| Engineer (main session) | `/eng` | your choice (see below) | Building: code, tests, git, pull requests | Yes | Yes |
+| PM / advisor | `/pm` | Opus (the `pm` subagent; the `/pm` command keeps your session's model) | Status, planning, priorities, "is this result real?", charter/budget/stop rule, writing issues | No | Issues only — labels, parent/sub-issue, blocked-by, milestone, assignee, type, plus comments. Never rewrites an issue `--body`, never closes one |
 | Reviewer | subagent only | Opus | Reviewing pull requests and diffs before merge | No | Verdict, as a comment on the pull request |
 | Security | subagent only | Opus | Secrets, permissions, workflows, dependencies, infra, repo security settings | No | Findings as a PR comment, or a new issue |
 | Skeptic | subagent only | Opus | Breaking a research/analysis result before it is acted on | No | Verdict, as a comment on the pull request or issue |
+
+**Which model runs?** The four subagents (`pm`, `reviewer`, `security`, `skeptic`) are pinned to Opus in their frontmatter, so they run on Opus wherever they are invoked. The main session is the engineer, and its model is whatever you chose with `/model`. A role command does not switch it: `/pm` changes the role for the rest of the conversation, not the model, so for a long planning conversation pick Opus yourself. Pinning the main session's model is tracked in [#116](https://github.com/manoochehri/trazo/issues/116).
 
 **No role other than the engineer edits a file** — that is the invariant, and it is why a review cannot quietly grade the same conversation's work. But "no file edits" is not "read-only": every one of these four *writes to GitHub*. The PM reshapes the issue graph, and the reviewer, security and skeptic agents all record their verdict where the next session can see it, because a verdict that lives only in the conversation gates nothing.
 
@@ -18,9 +20,11 @@ Trazo runs a small team: you plus several Claude roles, talking to each other th
 
     Reviewer, security and skeptic post `gh pr review --comment`, never `--approve` or `--request-changes`. GitHub rejects both while the agent and the PR author are the same account — which is every pull request here, because agents share the owner's identity ([#44](https://github.com/manoochehri/trazo/issues/44)). The moment agents get their own identity, these become real blocking reviews. Until then, **a green CI run is your merge gate, not a reviewer approval.**
 
+**`needs-decision` is the owner's gate.** The PM removes the label only to record your decision, in the same step as a comment that opens `Owner decision (<date>):`, quotes your words verbatim, and says where you gave them: in the session, typed by you, or the URL of a comment you wrote on the issue or PR. A quote relayed by another agent never counts, even if it claims to be verbatim. The PM never clears the label on its own judgment, and never applies the decision itself; engineers build from the issue.
+
 They can be used in two ways:
 1. **Direct role switching:** Type `/pm` in Claude Code to switch into the PM role for the rest of the conversation; `/eng` returns to building. Reviewer, security, and skeptic are subagent-only — never role-switch commands — so a review can't grade the same conversation's own work (see `.trazo/project/adr/0003-review-security-github-tracked.md`).
-2. **Subagent delegation:** The same four roles are defined in `.claude/agents/` as Opus subagents that never edit files but do post verdicts to GitHub. In engineer mode, Claude Code delegates to reviewer and security automatically as part of `/work` and `/check-pr`, or ad hoc, without switching the whole conversation.
+2. **Subagent delegation:** The same four roles are defined in `.claude/agents/` as Opus subagents (`model: opus`) that never edit files but do post verdicts to GitHub. In engineer mode, Claude Code delegates to reviewer and security automatically as part of `/work` and `/check-pr`, or ad hoc, without switching the whole conversation.
 
 ## Commands
 
