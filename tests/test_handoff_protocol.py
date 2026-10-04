@@ -89,6 +89,13 @@ def test_pm_clears_the_owners_gate_only_with_a_quoted_decision() -> None:
     for forbidden in ("your own judgment", "say-so", "inferred decision"):
         assert forbidden in rule, f"must still forbid clearing on {forbidden}"
     assert re.search(r"[Nn]ever remove it on", rule)
+    assert "says where they were given" in rule
+    assert '"in session"' in rule and "URL of an owner-authored" in rule
+    assert "removal with no such comment right before it is a rule violation" in rule
+    assert "subagent" in rule
+    assert "relayed by another agent never counts" in rule
+    for relay in ("engineer's prompt", "subagent report", "agent-written text"):
+        assert relay in rule, f"must still reject a relayed quote in {relay}"
     assert "never the reverse" in pm
     # The role command must not restate the old absolute ban.
     assert not re.search(r"never remove `needs-decision`", _text(PM_ROLE))
