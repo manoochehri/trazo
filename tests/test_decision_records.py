@@ -17,7 +17,7 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DECISIONS = REPO_ROOT / ".trazo" / "adr"
+DECISIONS = REPO_ROOT / ".trazo" / "project" / "adr"
 
 # The blank template ships to hosts as product, so it lives in the overlay tree (#94)
 # rather than in this repository's own decision directory. It is still `0000`: the

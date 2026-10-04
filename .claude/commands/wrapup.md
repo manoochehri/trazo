@@ -2,9 +2,9 @@
 description: "End a work session: update STATUS, decisions, issues; push"
 ---
 End a work session.
-1. Rewrite docs/STATUS.md (replace, don't append; keep under one screen): date, milestone, running now, recently done, blocked/needs-decision, next.
-2. For each decision made this session, add a numbered file in .trazo/adr/ (use the template). Ask me to confirm the wording first.
-3. Update any .trazo/workstreams/ file whose status or evidence changed, and ARCHITECTURE/RUNBOOK if the system changed.
+1. Rewrite .trazo/project/STATUS.md (replace, don't append; keep under one screen): date, milestone, running now, recently done, blocked/needs-decision, next.
+2. For each decision made this session, add a numbered file in .trazo/project/adr/ (use the template). Ask me to confirm the wording first.
+3. Update any .trazo/project/workstreams/ file whose status or evidence changed, and ARCHITECTURE/RUNBOOK if the system changed.
 4. Close finished issues with a one-line comment; open issues for new work; label needs-decision where I must choose.
 5. **Check that this session's merges actually closed their issues.** For each PR merged into `main` this session, read the issue it says it closes and confirm it is CLOSED. A squash merge drops the PR body's `Closes #N`, so the issue can stay open after a successful merge and the work queue will then report finished work as ready (#61). If one is still open, close it with a one-line comment naming the PR that did it. The check:
    `gh pr list --state merged --search "merged:>=<date>" --json number,title` then for each, `gh pr view <n> --json closingIssuesReferences` and `gh issue view <m> --json state`. A `closingIssuesReferences` entry does **not** prove closure — check the issue's own `state`.

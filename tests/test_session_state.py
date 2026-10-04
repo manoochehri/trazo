@@ -1,4 +1,4 @@
-"""Guards `docs/STATUS.md` and `docs/PLAN.md` against the stub they shipped as (#54).
+"""Guards the session STATUS and PLAN files against the stub they shipped as (#54).
 
 The claim this repository makes is "the repo is the memory." `STATUS.md` is the file a
 fresh session reads to learn where things stand, and `PLAN.md` is where the charter's
@@ -17,8 +17,8 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-STATUS = REPO_ROOT / "docs" / "STATUS.md"
-PLAN = REPO_ROOT / "docs" / "PLAN.md"
+STATUS = REPO_ROOT / ".trazo" / "project" / "STATUS.md"
+PLAN = REPO_ROOT / ".trazo" / "project" / "PLAN.md"
 
 PLACEHOLDER = re.compile(r"YYYY-MM-DD|\bTODO\b")
 ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")

@@ -5,8 +5,8 @@ Closes #<issue-number> as the **first line of the commit message** (`Closes #<n>
 - [ ] Tests added/updated and passing
 - [ ] No secrets, keys, or real data in the diff
 - [ ] Changed the system's shape? Updated `.trazo/ARCHITECTURE.md`
-- [ ] Changed how to run/deploy/recover? Updated `docs/RUNBOOK.md`
-- [ ] Made a decision? Added `.trazo/adr/NNNN-*.md`
-- [ ] Changed a workstream's status or evidence? Updated `.trazo/workstreams/`
+- [ ] Changed how to run/deploy/recover? Updated `.trazo/project/RUNBOOK.md`
+- [ ] Made a decision? Added `.trazo/project/adr/NNNN-*.md`
+- [ ] Changed a workstream's status or evidence? Updated `.trazo/project/workstreams/`
 - [ ] Numbers reported with sample sizes and measured against external reality
 - [ ] Learned something reusable? Added to `.template/LESSONS.md`

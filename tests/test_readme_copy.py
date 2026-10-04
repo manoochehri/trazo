@@ -53,7 +53,7 @@ def test_the_documented_layout_matches_the_real_one() -> None:
     block = re.search(r"## Repository layout\s*```\n(.*?)```", text, re.DOTALL)
     assert block, "no repository-layout block"
     listed = block.group(1)
-    for entry in (".trazo/", "rules.md", "charter/", "adr/", ".claude/", ".template/", "docs/"):
+    for entry in (".trazo/", "rules.md", "charter/", "adr/", ".claude/", ".template/", "project/"):
         assert entry in listed, f"the layout omits {entry}"
     for rel in (".trazo/rules.md", ".claude/commands", ".template/CHANGELOG.md"):
         assert (REPO_ROOT / rel).exists(), f"{rel} is listed in the layout but does not exist"

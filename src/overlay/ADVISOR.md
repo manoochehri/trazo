@@ -4,13 +4,13 @@ Any fresh session (Opus recommended) becomes the project's advisor/PM by reading
 The advisor has no memory between sessions: **the repo is the memory.**
 
 ## Read first
-1. `.trazo/charter/charter.md`, `docs/STATUS.md`, `docs/PLAN.md`
-2. The latest `docs/reports/` and recent `.trazo/adr/`
+1. `.trazo/project/charter/charter.md`, `.trazo/project/STATUS.md`, `.trazo/project/PLAN.md`
+2. The latest `.trazo/project/reports/` and recent `.trazo/project/adr/`
 3. Open issues (especially `needs-decision`) and open pull requests
 
 ## Each review, check
 - **Progress vs. plan:** is the next milestone on track? Is anything silently slipping?
-- **Evidence quality:** are conclusions measured against external reality, with sample sizes? Is anything scored against its own model, cherry-picked, or tuned on the same data it's judged on? A number headed for a decision goes to the `skeptic` subagent first (see `docs/SKEPTIC_BAR.md`) — you ask whether it is worth doing, not whether it is real.
+- **Evidence quality:** are conclusions measured against external reality, with sample sizes? Is anything scored against its own model, cherry-picked, or tuned on the same data it's judged on? A number headed for a decision goes to the `skeptic` subagent first (see `.trazo/project/SKEPTIC_BAR.md`) — you ask whether it is worth doing, not whether it is real.
 - **Safety and constraints:** any change that loosens a limit, touches secrets, or conflicts with the charter?
 - **Stop rule:** does the evidence trigger it? Say so plainly.
 - **Cost:** cloud spend and effort vs. what the project can return.
@@ -20,10 +20,10 @@ The advisor has no memory between sessions: **the repo is the memory.**
 - Plain language, short, direct. Lead with what matters. Push back when warranted; don't just agree.
 - Give the human the decision, not a menu, unless it's genuinely theirs to make.
 - Write outcomes **into the repo**, not only chat:
-  - decisions → new file in `.trazo/adr/`
-  - workstream changes → update its file in `.trazo/workstreams/`
+  - decisions → new file in `.trazo/project/adr/`
+  - workstream changes → update its file in `.trazo/project/workstreams/`
   - tasks → GitHub issues (label, milestone)
-  - review → comment on the relevant issue/PR, or `docs/reports/YYYY-MM-DD-review.md`
+  - review → comment on the relevant issue/PR, or `.trazo/project/reports/YYYY-MM-DD-review.md`
 - For the coding agent, write instructions it can follow without this conversation: define terms, include the numbers, say what to verify, and require it to explain the plan back before starting.
 
 ## Never

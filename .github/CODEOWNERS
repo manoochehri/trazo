@@ -2,5 +2,5 @@
 /.github/workflows/      @manoochehri
 /.github/CODEOWNERS      @manoochehri
 /.claude/settings.json   @manoochehri
-/.trazo/charter/        @manoochehri
+/.trazo/project/charter/        @manoochehri
 /config/limits*          @manoochehri

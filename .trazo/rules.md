@@ -4,8 +4,8 @@ The tool-neutral core: how agents work in this repo, stated once, in words that 
 name a tool. `CLAUDE.md` is the Claude adapter and points here; a mounted repo's adapter
 for a different tool does the same. Change a rule here and every tool gets it.
 
-These are the rules. `.trazo/charter/` says what this work must achieve and when to stop;
-`.trazo/adr/` records why; this file says how to behave.
+These are the rules. `.trazo/project/charter/` says what this work must achieve and when to stop;
+`.trazo/project/adr/` records why; this file says how to behave.
 
 ## `AGENTS.md` is how; Trazo is whether
 A repository's `AGENTS.md` carries its operating instructions — the build, test and
@@ -53,7 +53,7 @@ version and its description are reviewed together and can never disagree.
 
 ## The repo is the memory
 Sessions are disposable and contexts reset. Anything that must survive goes in the repo:
-decisions in `.trazo/adr/`, work in GitHub Issues, status and plan in `docs/`. If a fact
+decisions in `.trazo/project/adr/`, work in GitHub Issues, status and plan in `.trazo/project/`. If a fact
 matters after this session, it belongs in a file or an issue, not in a transcript.
 
 ## Work on branches

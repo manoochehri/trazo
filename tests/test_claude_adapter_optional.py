@@ -105,7 +105,7 @@ def test_adr_0007_supersedes_the_wrong_clause():
     ADRs are append-only (#0000), so 0005 keeps its wrong clause forever. The only thing
     that can correct a reader is a later record that says so explicitly.
     """
-    adr = REPO_ROOT / ".trazo" / "adr" / "0007-claude-is-an-adapter.md"
+    adr = REPO_ROOT / ".trazo" / "project" / "adr" / "0007-claude-is-an-adapter.md"
     assert adr.is_file(), "ADR 0007 is missing; nothing supersedes 0005's wrong clause"
     text = adr.read_text(encoding="utf-8")
     assert re.search(r"supersede", text, re.IGNORECASE), (

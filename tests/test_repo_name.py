@@ -18,7 +18,7 @@ So these guards assert the *invariants* rather than the individual strings:
 3. `.template/UPSTREAM` points at the real repo, or every derived project's
    `/template-sync` breaks with no error at all.
 
-Historical records are excluded and that exclusion is asserted too: `.trazo/adr/0004`
+Historical records are excluded and that exclusion is asserted too: `.trazo/project/adr/0004`
 names the old Pages URL because it was true then, and rewriting an append-only record to
 match a later change would make it false (#49).
 """
@@ -38,7 +38,7 @@ NEW_SLUG = "man" + "oochehri/trazo"
 OLD_PAGES = "manoochehri.github.io/semilla"
 
 # Records that must keep the old name because it was true when written.
-HISTORICAL = (".trazo/adr/", ".template/CHANGELOG.md", ".template/LESSONS.md", "tests/")
+HISTORICAL = (".trazo/project/adr/", ".template/CHANGELOG.md", ".template/LESSONS.md", "tests/")
 
 TEXT_SUFFIXES = {".md", ".py", ".toml", ".yml", ".yaml", ".json", ".sh", ".cfg", ".txt"}
 
@@ -128,7 +128,7 @@ def test_no_live_file_references_the_old_repository() -> None:
             if OLD_SLUG in line or OLD_PAGES in line:
                 offenders.append(f"{rel}:{lineno}: {line.strip()[:70]}")
     assert not offenders, (
-        "references to the pre-rename repo. Historical records (.trazo/adr/, "
+        "references to the pre-rename repo. Historical records (.trazo/project/adr/, "
         ".template/CHANGELOG.md, .template/LESSONS.md, tests/) are excluded on purpose -- "
         "they describe what was true when written:\n" + "\n".join(offenders)
     )

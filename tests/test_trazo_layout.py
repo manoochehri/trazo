@@ -56,8 +56,30 @@ INSTALLED_FROM_SRC = {
     ".claude/settings.json": "src/adapters/claude/settings.json",
 }
 
-# Deliberately still in docs/: operational and session state, not design records.
-KEPT_IN_DOCS = ("docs/PLAN.md", "docs/STATUS.md", "docs/RUNBOOK.md", "docs/SKEPTIC_BAR.md")
+# ADR 0011: ours lives in `.trazo/project/`; the host's is a template under `src/`.
+PROJECT = ".trazo/project"
+OURS = (
+    "charter/charter.md",
+    "STATUS.md",
+    "PLAN.md",
+    "RUNBOOK.md",
+    "SKEPTIC_BAR.md",
+    "reports",
+    "adr",
+    "workstreams",
+)
+HOST_TEMPLATES = (
+    "charter.md",
+    "adr.md",
+    "workstream.md",
+    "docs/STATUS.md",
+    "docs/PLAN.md",
+    "docs/RUNBOOK.md",
+    "docs/SKEPTIC_BAR.md",
+    "docs/reports",
+)
+# The decision records are append-only history and name the layouts they were written under.
+HISTORY = (".trazo/project/adr/", ".template/CHANGELOG.md")
 
 
 def _tracked() -> list[Path]:
@@ -89,8 +111,7 @@ def test_the_overlay_layout_exists() -> None:
     """The layout from ADR 0010, asserted rather than assumed.
 
     `src/` is the canonical product. `.trazo/` is the installed copy that governs this
-    repository, plus this repository's own state (charter, decision records, workstreams)
-    until #97 moves that under `.trazo/project/`.
+    repository, plus this repository's own state under `.trazo/project/` (ADR 0011).
     """
     for rel in (
         # The canonical product a host receives.
@@ -107,7 +128,7 @@ def test_the_overlay_layout_exists() -> None:
         ".trazo/ADVISOR.md",
         ".trazo/ARCHITECTURE.md",
         # This repository's own state.
-        ".trazo/charter/charter.md",
+        ".trazo/project/charter/charter.md",
     ):
         assert (REPO_ROOT / rel).exists(), f"{rel} is missing; the layout is incomplete"
 
@@ -185,6 +206,8 @@ def test_no_file_points_at_a_path_that_does_not_exist() -> None:
     dangling: list[str] = []
     pattern = re.compile(r"\.trazo/[A-Za-z0-9_./-]+")
     for path in _text_files():
+        if path.relative_to(REPO_ROOT).as_posix().startswith(HISTORY):
+            continue
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, ValueError):
@@ -231,14 +254,31 @@ def test_the_old_paths_are_gone() -> None:
         assert not refs, f"{old} is still referenced by: {refs}"
 
 
-def test_operational_state_stays_in_docs() -> None:
-    """The judgement call from #50, asserted so a later session does not quietly move
-    them: PLAN/STATUS/RUNBOOK are session and operational state for the host repo, and
-    shipping the harness's own scratch space into every mounted repo is the opposite of a
-    blank template."""
-    for rel in KEPT_IN_DOCS:
-        assert (REPO_ROOT / rel).exists(), f"{rel} moved; #50's plan keeps it in docs/"
-    assert (REPO_ROOT / "docs" / "reports").is_dir(), "docs/reports/ should still exist"
+def test_ours_is_in_project_and_the_hosts_is_a_template() -> None:
+    """ADR 0011: the question is "ours or the host's", not "design or operational".
+
+    Everything Trazo-authored about Trazo's own work lives in `.trazo/project/`, which is
+    never shipped. What a host receives is a blank template under `src/overlay/templates/`.
+    `docs/` holds nothing of ours, so a clone does not inherit a STATUS about our session.
+    """
+    for rel in OURS:
+        assert (REPO_ROOT / PROJECT / rel).exists(), f"{PROJECT}/{rel} is missing"
+    for rel in HOST_TEMPLATES:
+        assert (REPO_ROOT / OVERLAY / "templates" / rel).exists(), f"template {rel} is missing"
+    for old in (".trazo/charter", ".trazo/adr", ".trazo/workstreams"):
+        stale = [p for p in (REPO_ROOT / old).rglob("*") if p.is_file()]
+        assert not stale, f"{old} still has files; they moved to {PROJECT}/ (#97)"
+    docs = REPO_ROOT / "docs"
+    leftover = [str(p.relative_to(REPO_ROOT)) for p in docs.rglob("*") if p.is_file()]
+    assert not leftover, f"docs/ holds Trazo-authored state: {leftover}"
+
+
+def test_host_templates_are_blank() -> None:
+    """A template that carries our own content is the #77 failure again, one level down."""
+    for rel in ("charter.md", "docs/STATUS.md", "docs/PLAN.md", "docs/RUNBOOK.md"):
+        text = (REPO_ROOT / OVERLAY / "templates" / rel).read_text(encoding="utf-8")
+        assert "TODO" in text, f"{rel} should be a blank template"
+        assert "semilla" not in text.lower(), f"{rel} carries this repository's own state"
 
 
 def test_the_rules_file_is_the_tool_neutral_core() -> None:
@@ -265,9 +305,9 @@ def test_claude_md_is_the_adapter_not_the_rules() -> None:
     assert ".trazo/rules.md" in claude, "the adapter must point at the rules"
     assert "adapter" in claude.lower(), "CLAUDE.md must say what it now is"
     # The judgment layer must not be reduced to specs + ADRs (#0005).
-    assert ".trazo/charter/" in claude, "the charter must stay visible from the adapter"
+    assert ".trazo/project/charter/" in claude, "the charter must stay visible from the adapter"
     assert ".trazo/specs/" in claude, "specs are part of the layout"
-    assert ".trazo/adr/" in claude and ".trazo/workstreams/" in claude
+    assert ".trazo/project/adr/" in claude and ".trazo/project/workstreams/" in claude
 
 
 def test_codeowners_still_protects_the_charter() -> None:
@@ -276,7 +316,7 @@ def test_codeowners_still_protects_the_charter() -> None:
     exact 'a path that matches no rule protects nothing' failure of issue #14."""
     codeowners = (REPO_ROOT / ".github" / "CODEOWNERS").read_text(encoding="utf-8")
     assert "docs/CHARTER.md" not in codeowners, "the old protected path is still listed"
-    assert re.search(r"/\.trazo/charter/\s+@\S+", codeowners), (
+    assert re.search(r"/\.trazo/project/charter/\s+@\S+", codeowners), (
         "the charter's new path is unprotected -- a moved path that matches no rule "
         "protects nothing (issue #14)"
     )
@@ -287,5 +327,6 @@ def test_the_docs_updated_ci_gate_followed_the_move() -> None:
     stale pattern turns the gate into a no-op that still reports success."""
     ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert ".trazo/ARCHITECTURE.md" in ci, "the docs-updated gate does not watch the new path"
-    assert "docs/RUNBOOK.md" in ci, "the gate lost the runbook"
+    assert ".trazo/project/RUNBOOK.md" in ci, "the docs-updated gate does not watch the runbook"
+    assert "docs/RUNBOOK.md" not in ci, "the stale runbook path is still in ci.yml"
     assert not re.search(r"\^docs/\(ARCHITECTURE", ci), "the stale pattern is still there"
