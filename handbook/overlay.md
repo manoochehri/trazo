@@ -19,21 +19,31 @@ Everything else in this overlay is the same shape: a rule stated once, tool-neut
 ## The layout
 
 ```
-.trazo/
-  rules.md        the rules, stated once, tool-neutral
-  charter/        the judgment layer: goal, budget, success criteria, stop rule
-  adr/            numbered decision records — append-only, supersede never edit
-  workstreams/    one file per feature or experiment, with status and evidence
-  specs/          design specs for features and tasks
-  ARCHITECTURE.md how the system is built
-  ADVISOR.md      the advisor/PM role
+src/                      the product: what a host receives, edited here
+  overlay/                tool-neutral core: rules.md, ADVISOR.md, ARCHITECTURE.md
+    templates/            blank charter, adr, workstream and docs/ for a host
+  adapters/               AGENTS.md, CLAUDE.md, claude/ (commands, agents, settings)
+
+.trazo/                   the pinned install; overwritten on upgrade, never hand-edited
+  rules.md                the rules, stated once, tool-neutral
+  ARCHITECTURE.md         how the system is built
+  ADVISOR.md              the advisor/PM role
+  project/                the repository's own state; never overwritten
+    charter/              the judgment layer: goal, budget, success criteria, stop rule
+    adr/                  numbered decision records — append-only, supersede never edit
+    workstreams/          one file per feature or experiment, with status and evidence
+    STATUS.md PLAN.md RUNBOOK.md SKEPTIC_BAR.md reports/
 ```
 
-Two things are worth noticing about that layout.
+`src/` is canonical and `.trazo/` is the installed, pinned copy of it. In the Trazo repository the two are separate on purpose: editing a rule in `src/` does not change the rules governing the session that edited it, because that session is governed by the frozen copy in `.trazo/` until the next version is cut. In a host there is no `src/`; the host has only `.trazo/`, and `.trazo/project/` is its own.
+
+Three things are worth noticing about that layout.
 
 **`rules.md` is the core, and it is deliberately not in `.claude/`.** `.claude/` is an *adapter* — it binds those rules to Claude Code's specifics (which subagent, which command, which permission). A repo mounted on a different tool writes its own adapter and uses the same `rules.md`. Change a rule once and every tool gets it. In this repository the Claude adapter is [`CLAUDE.md`](https://github.com/manoochehri/trazo/blob/main/CLAUDE.md); in yours it will be whatever front-loads `.trazo/rules.md` for the tool you use.
 
 Here the adapter loads the rules with a one-line `@.trazo/rules.md` import, so they are inlined at load rather than left as a link an agent might skip or reword. That form was runtime-verified in [`claude-md-imports.md`](https://github.com/manoochehri/trazo/blob/main/.trazo/project/workstreams/claude-md-imports.md): one hop, no tool call, and it resolves when the session starts in the repository root. Because an import that fails to resolve is **silent** — no error, no warning — the repository asserts every `@` target exists, so a typo cannot quietly leave an agent with no rules.
+
+**The framework and the project are partitioned.** Everything in `.trazo/` outside `project/` belongs to Trazo and is overwritten when you upgrade. Everything inside `project/` belongs to the repository and is never overwritten. That boundary is what makes an upgrade safe.
 
 **The charter is a directory, because it is several documents.** The goal, the budget, the success criteria and the stop rule are separate files that are reviewed separately, and the stop rule is the one that has to be written *before* the results exist.
 
@@ -52,9 +62,13 @@ The skeptic works because it is **not** the session that produced the result. An
 
 ## What stays out of the overlay
 
-`.trazo/project/` holds a repository's own state: charter, decision records, workstreams, `STATUS.md`, `PLAN.md`, `RUNBOOK.md`, `SKEPTIC_BAR.md` and `reports/`. In the Trazo repository that is state about Trazo, and none of it ships to a host. A host receives blank copies (`templates/docs/`, plus the charter, ADR and workstream templates) and fills in its own.
+`.trazo/project/` holds a repository's own state: charter, decision records, workstreams, `STATUS.md`, `PLAN.md`, `RUNBOOK.md`, `SKEPTIC_BAR.md` and `reports/`. In the Trazo repository that is state about Trazo, and none of it ships to a host. A host receives blank templates from `src/overlay/templates/` (the charter, ADR and workstream files, and a `docs/` set holding STATUS, PLAN, RUNBOOK, SKEPTIC_BAR and `reports/`), and `/kickoff` copies them into the host's own `.trazo/project/`. `docs/` is empty in this repository and belongs to the host.
 
 The rule of thumb: **ours lives in `.trazo/project/`; the host's is a template under `src/overlay/templates/`.** The framework files beside it are overwritten on upgrade; `project/` never is.
+
+## Releases
+
+A release is a GitHub milestone named `vX.Y.Z`: its description is the release goal and its issues are the scope. The git tag is cut when the milestone has 0 open issues and CI is green, and `make release` refuses to tag while any are open. Tags are immutable. A tag that exists is never moved, because someone may have pinned it, and "latest" means the highest release tag.
 
 ## Updating a mounted copy
 

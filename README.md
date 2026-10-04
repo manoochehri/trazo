@@ -6,7 +6,7 @@
 
 Trazo is built specifically for **Claude Code**, and opinionated in two places: how agents hand work to each other, and whether a result is real. It is deliberately neutral about everything else — language, framework, and where your code runs.
 
-You bring a repo, or an idea. Trazo adds a `.trazo/` overlay and a thin `.claude/` adapter on top: rules, a charter with a pre-registered stop rule, decision records that outlive a session, and three agents that check each other's work. Your code, your build, your deploy — unchanged.
+You bring a repo, or an idea. Trazo adds a pinned `.trazo/` overlay and a thin `.claude/` adapter on top: rules, a charter with a pre-registered stop rule, decision records that outlive a session, and three agents that check each other's work. Your code, your build, your deploy — unchanged.
 
 > Status: early. Distilled from one real project; expect rough edges. See [`.template/VERSION`](.template/VERSION) for the current version.
 
@@ -54,14 +54,13 @@ Two layers. The second is the one that matters.
 | **The judgment layer** | `.trazo/project/charter/` — goal, budget, success criteria, stop rule |
 | **Decision records** | `.trazo/project/adr/` — numbered, append-only, supersede never edit |
 | **Workstreams** | `.trazo/project/workstreams/` — one file per idea, with hypothesis and evidence |
-| **Design records** | `.trazo/specs/`, `.trazo/ARCHITECTURE.md`, `.trazo/ADVISOR.md` |
-| **AI team** | `/pm` and `/eng` switch the session's role. `reviewer`, `security` and `skeptic` are **subagent-only**, Opus. None of them edits a file — but each records its verdict on GitHub, and `/pm` may also reshape the issue graph. See [the team](team.md) |
+| **Design records** | `.trazo/ARCHITECTURE.md`, `.trazo/ADVISOR.md` (framework files, overwritten on upgrade) |
+| **AI team** | `/pm` and `/eng` switch the session's role. `reviewer`, `security`, `skeptic` and `pm` are subagents **pinned to Opus**; `reviewer`, `security` and `skeptic` are **subagent-only**. The model of the main session is your choice (`/model`); a role command does not switch it. None of them edits a file — but each records its verdict on GitHub, and `/pm` may also reshape the issue graph. See [the team](team.md) |
 | **Commands** | `/trazo` (menu), `/kickoff`, `/start`, `/work`, `/check-pr`, `/pm`, `/eng`, `/wrapup`, `/brief`, `/decide` — or just ask in plain English |
 | **Secrets from day one** | `.gitignore`, `.env.example`, gitleaks (pre-commit + CI), `scripts/put_secret.sh` |
 | **Containers** | Dockerfile (non-root, uv) — the toolchain and the tests, no service |
-| **CI** | GitHub Actions on every PR: secret scan, lint, tests, Docker build, infra lint, docs check |
+| **CI** | GitHub Actions on every PR: secret scan, lint, tests, Docker build, docs check |
 | **Guardrails** | CODEOWNERS on safety-critical paths, PR template with doc checkboxes, branch protection at kickoff |
-| **Deploy (optional)** | Pluggable targets: none, Fly.io, AWS (budget alerts + GitHub OIDC + ECR), GCP (stub) |
 
 The one thing a **mounted** repo must supply is an environment, not a tool: *a one-command, reproducible build/test environment an agent can run hermetically from a fresh worktree.* Docker, nix, devcontainers or a `Makefile` all satisfy it. Trazo mandates nothing — that mistake was already made once, with a cloud provider.
 
@@ -72,7 +71,7 @@ The one thing a **mounted** repo must supply is an environment, not a tool: *a o
 - A GitHub account and the [GitHub CLI](https://cli.github.com/) (`gh auth login`)
 - [Claude Code](https://docs.claude.com/) (or another agent that can read `CLAUDE.md` and run commands)
 - A way to run your tests in one command — see the mount-time contract above. For a *new* Trazo-owned repo, that means [uv](https://docs.astral.sh/uv/) and Docker.
-- Optional: a Fly.io, AWS, or GCP account if the project deploys somewhere
+- Optional: an account with wherever your project deploys; Trazo ships no deploy target
 
 ---
 
@@ -119,7 +118,7 @@ Kickoff asks about: the idea, measurable success criteria, budget and deadline, 
 /wrapup   → agent updates STATUS, records decisions, updates issues, pushes, opens/updates the PR
 ```
 
-- **Tasks** live in GitHub Issues, grouped by milestone. Anything waiting on you is labeled `needs-decision`.
+- **Tasks** live in GitHub Issues, grouped by milestone. Anything waiting on you is labeled `needs-decision`. The PM removes that label only to record your decision: right after a comment that quotes your words verbatim, typed by you in the session or posted by you on the issue. A quote relayed by another agent never counts.
 - **Advice:** start a fresh session (a strong reasoning model works best) and say *"act as advisor per .trazo/ADVISOR.md"*. It reviews progress, evidence quality, safety, cost, and the stop rule, and writes its conclusions into the repo.
 - **Decisions:** `/decide <what>` drafts a numbered decision record for your approval.
 
@@ -129,7 +128,7 @@ Kickoff asks about: the idea, measurable success criteria, budget and deadline, 
 |---|---|---|
 | `.trazo/project/charter/charter.md` | Rarely | Why, goal, success criteria, budget, constraints, stop rule |
 | `.trazo/project/PLAN.md` | When dates or scope change | Milestones and risks |
-| `.trazo/ARCHITECTURE.md` | When the system changes | How it's built (with diagram) |
+| `.trazo/ARCHITECTURE.md` | When the system changes (framework file, upgraded with Trazo) | How it's built (with diagram) |
 | `.trazo/project/STATUS.md` | Every session (replaced) | Where things stand right now |
 | `.trazo/project/adr/` | Append-only | What was decided and why |
 | `.trazo/project/workstreams/` | As work progresses | Each feature/experiment: hypothesis, test, evidence, status |
@@ -170,12 +169,16 @@ Trazo's own memory lives in `.template/`: `VERSION`, `CHANGELOG.md`, the lessons
 
 | File | Purpose |
 |---|---|
-| `VERSION` | Template version a project was created from |
+| `VERSION` | The version being cut; the git tag of the same name is what a host pins to |
 | `CHANGELOG.md` | What changed, by version |
 | `LESSONS.md` | Real problems from real projects, and how the overlay now prevents them |
 | `decisions/` | Why the overlay is designed this way |
 
-Trazo is **mounted** onto a host repo, not forked from a template, so there is no upstream
+**A release is a GitHub milestone.** The milestone `vX.Y.Z` carries the release goal in its description and its scope as its issues. The tag is cut when that milestone has 0 open issues and CI is green, and `make release` refuses to tag while any are open. Tags are immutable: a published tag is never moved, so a host that pinned it always gets the same files. A version is a coherent body of work, not one per merged pull request.
+
+**`src/` is the product; `.trazo/` is the pinned install.** All changes to the framework are made in `src/` and ship with the next version. This repository is itself governed by the pinned copy in `.trazo/`, which is never hand-edited, so editing a rule never changes the rules governing the edit. The cost is deliberate: a rule fix cannot govern this repository until it is released.
+
+Trazo is **mounted** onto a host repo, not forked, so there is no upstream
 to sync with and no automated way to send a host project's lessons back. A mounted project
 records its own lessons in its own decision records; copy files across (or re-run
 `/kickoff`) to take an improvement in, and the host's decisions win on any conflict.
@@ -185,7 +188,11 @@ records its own lessons in its own decision records; copy files across (or re-ru
 ## Repository layout
 
 ```
-.trazo/                    the overlay: rules, charter, adr, workstreams, specs
+src/                       the product: everything a host receives, edited here
+  overlay/                 tool-neutral core: rules.md, ADVISOR.md, ARCHITECTURE.md
+    templates/             blank charter, adr, workstream and docs/ for a host
+  adapters/                AGENTS.md, CLAUDE.md and claude/ (commands, agents)
+.trazo/                    the pinned install that governs this repo; never hand-edited
   rules.md                 the rules, tool-neutral
   project/                 this repo's own state; never shipped, never overwritten
     charter/               goal, budget, success criteria, stop rule
@@ -197,13 +204,13 @@ CLAUDE.md                  the Claude Code adapter for .trazo/rules.md
 .github/                   CI, PR template, CODEOWNERS, issue templates, Dependabot
 .template/                 Trazo's own memory: version, changelog, lessons, decisions
 handbook/                  the published documentation
-scripts/                   helper scripts (put_secret.sh, scan.sh)
+scripts/                   helper scripts (put_secret.sh, scan.sh, release.sh)
 tests/                     guard tests for the overlay itself
 Dockerfile                  container (toolchain + tests; no service)
 Makefile, pyproject.toml   tooling
 ```
 
-The first two lines are the overlay. Everything after them is either this repository's own scaffolding or the harness that protects it — a mounted repo takes `.trazo/`, adds the adapter for whichever agent it uses, and leaves the rest alone.
+A host receives `src/overlay/` plus the adapter for its agent, and starts from the blank templates, so it never inherits this repository's charter, decision records or STATUS. In a host, `.trazo/project/` is the host's own state; upgrades overwrite the framework files beside it and never touch `project/`.
 
 ---
 
