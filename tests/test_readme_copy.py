@@ -122,4 +122,4 @@ def test_the_mount_time_contract_is_stated() -> None:
     assert "one-command" in low or "one command" in low, "the contract must be one command"
     for option in ("docker", "nix", "devcontainer", "makefile"):
         assert option in low, f"{option} must be named as a valid way to satisfy it"
-    assert "option c" in low, "mounting an existing repo must be a documented path"
+    assert "install.sh" in low, "mounting an existing repo must be a documented path"

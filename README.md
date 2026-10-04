@@ -79,30 +79,22 @@ The one thing a **mounted** repo must supply is an environment, not a tool: *a o
 
 Two different jobs: **starting a new repo with Trazo in it**, and **mounting Trazo onto a repo you already have**. If you have an existing codebase, you want the second.
 
-### Option A: let Claude do it (new project)
-In a Claude session that has the **project-kickoff** skill, say:
+### Install
 
-> Let's kick off a new project.
+From the root of your git repository (a new empty one, or the one you already have):
 
-It interviews you, writes the charter and plan for your approval, creates the repo from this template, and sets everything up.
-
-### Option B: by hand (new repo)
 ```bash
-gh repo create my-project --private --template manoochehri/trazo --clone
-cd my-project
-make setup          # installs dependencies and git hooks
-claude              # start Claude Code in the repo
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.1.0/scripts/install.sh -o install.sh
+bash install.sh install v0.1.0
 ```
-Then type `/kickoff`.
 
-### Option C: mounting onto a repo you already have
-Your repo keeps its runtime, its build system and its pipeline.
+Your repo keeps its runtime, its build system and its pipeline. The installer copies the framework into `.trazo/`, adds the adapter for your agent (`.claude/` and `CLAUDE.md` if you use Claude Code, `AGENTS.md` for other agents; if your repo already has them, the installer merges between its own markers and never replaces yours), and creates `.trazo/project/` from blank templates. Full options, upgrade and uninstall: [Install, upgrade and uninstall](https://manoochehri.github.io/trazo/install/).
+
+Then:
 
 1. **Declare the environment** — one command that runs your tests hermetically from a fresh worktree. If you don't have one, that's the only thing to build first.
-2. **Copy `.trazo/` in** from this repository. That is the whole overlay, and it is tool-neutral.
-3. **Add the adapter for your agent.** `.claude/` if you use Claude Code; any other agent reads the same `.trazo/rules.md` through its own equivalent. If your repo already has a `.claude/` or `CLAUDE.md`, merge into it rather than replacing it. An `AGENTS.md` is yours as well — it describes your codebase, while Trazo governs the work done on it ([`AGENTS.md` and Trazo](https://manoochehri.github.io/trazo/agents/)).
-4. **Run `/kickoff`** and answer the interview. The stop rule is the part worth taking seriously: it is the only thing that decides whether to keep going, and it has to be written before the results exist.
-5. **Do not copy this repo's own state.** `.trazo/project/` here is about Trazo, not your project. `/kickoff` creates yours from the blank templates (`templates/docs/`).
+2. **Run `/kickoff`** and answer the interview. The stop rule is the part worth taking seriously: it is the only thing that decides whether to keep going, and it has to be written before the results exist.
+3. **Leave `docs/` and Trazo's own state alone.** A repo's Trazo state lives in `.trazo/project/`, created blank for you; never copy this repository's own `.trazo/project/` across, because it is about Trazo, not your project.
 
 The layout is documented in [What is `.trazo/`](https://manoochehri.github.io/trazo/overlay/).
 
@@ -216,7 +208,7 @@ A host receives `src/overlay/` plus the adapter for its agent, and starts from t
 
 ## FAQ
 
-**Can I use this for private projects?** Yes. Create a private repo from this public template, or mount `.trazo/` onto a private repo you already have.
+**Can I use this for private projects?** Yes. Run the installer in any private repo you already have; nothing is sent anywhere.
 
 **I already have a repo. Do I have to delete my files first?** No — that is the point of the overlay. Your code, build and pipeline stay; you add `.trazo/`, plus an adapter for whichever agent you use, and satisfy the mount-time contract.
 

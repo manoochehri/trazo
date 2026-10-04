@@ -165,8 +165,8 @@ def test_upstream_pointer_is_not_reintroduced() -> None:
     would pass — quietly re-adding the thing #73 removed. The assertion is therefore that
     the file is *absent*, which is what #73 decided and what survives a rebase.
 
-    `tests/test_publish_template.py` asserts the other half (the publish script does not
-    substitute into it). Between them, the pointer cannot come back unnoticed.
+    The publish script that once substituted into it was removed with the template path
+    (#107), so this assertion is the whole guard.
     """
     assert not (REPO_ROOT / ".template" / "UPSTREAM").exists(), (
         ".template/UPSTREAM is back. It names an upstream for the template-fork model that "

@@ -59,10 +59,7 @@ ALLOWED_MENTIONS = (".trazo/project/adr/000", "tests/test_no_app_placeholder.py"
 
 # The harness guards that must survive. Named individually because "the test suite still
 # passes" is satisfied by an empty suite.
-HARNESS_GUARDS = (
-    "tests/test_codeowners.py",
-    "tests/test_publish_template.py",
-)
+HARNESS_GUARDS = ("tests/test_codeowners.py",)
 
 
 def _text(path: Path) -> str:
