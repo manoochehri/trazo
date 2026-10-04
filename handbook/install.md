@@ -24,12 +24,14 @@ never to a branch.
 | Option | Meaning |
 |---|---|
 | `--adapter claude\|agents\|both` | Which tool adapter to install. Default `both`. |
-| `--source <path-or-url>` | Where to fetch from. Default `$TRAZO_SOURCE`, then the public repository. |
+| `--source <path-or-url>` | Where to fetch from. Default `$TRAZO_SOURCE` (announced when used), then the public repository. A value starting with `-` is refused. |
+| `--sha <commit>` | Optional full 40-hex commit the tag must resolve to; refuses on a mismatch. Use it to detect a moved tag. |
 
 What it does:
 
 - Copies the framework (`rules.md`, `ADVISOR.md`, `ARCHITECTURE.md`, `templates/`) into
-  `.trazo/` and writes the tag to `.trazo/VERSION`.
+  `.trazo/` and writes the tag and its resolved commit to `.trazo/VERSION`. The source, tag and
+  commit are printed. Tags containing symlinks under `src/` are refused.
 - Creates `.trazo/project/` from the blank templates **only if it does not exist**. It is
   yours, and no command here overwrites it.
 - Inserts the adapter into `AGENTS.md` and/or `CLAUDE.md` between
@@ -39,8 +41,13 @@ What it does:
 - For the Claude adapter, copies `agents/` and `commands/` into `.claude/`. If a file of
   that name is already yours, the Trazo one is installed as `trazo-<name>.md` and the
   script says so. `.claude/settings.json` is installed only if you have none.
-- Records the adapter files it placed in `.trazo/INSTALLED`, so upgrade and uninstall touch
-  only those.
+- Records a sha256 and path for each adapter file it placed in `.trazo/INSTALLED`, so upgrade
+  and uninstall touch only those. A listed file you have edited since is never overwritten
+  or deleted: the script warns and, on upgrade, prints the diff. Entries outside
+  `.claude/agents|commands/*.md` and `.claude/settings.json` make the script refuse.
+- Prints the `settings.json` it installs. It only denies reads of secrets.
+- Refuses if `.trazo/` exists without `INSTALLED` (an older layout), and on unbalanced
+  markers in `AGENTS.md` or `CLAUDE.md`.
 - Never edits `.github/CODEOWNERS`. It prints lines for you to add; a safety limit only
   counts if you review it.
 
@@ -59,7 +66,8 @@ is never read or written.
 
 ```sh
 bash install.sh uninstall            # keeps .trazo/project/
-bash install.sh uninstall --purge    # removes it too
+bash install.sh uninstall --purge    # removes it too; refuses if it has uncommitted changes
+bash install.sh uninstall --purge --force   # ...unless you pass --force
 ```
 
 Removes the framework files under `.trazo/`, the adapter files listed in

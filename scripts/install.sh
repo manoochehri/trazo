@@ -2,9 +2,9 @@
 # Install, upgrade or remove Trazo in a host repository.
 #
 # Usage (run from the host repository root):
-#   install.sh install   <tag> [--adapter claude|agents|both] [--source <path-or-url>]
-#   install.sh upgrade   <tag> [--adapter ...] [--source ...] [--dry-run]
-#   install.sh uninstall [--purge]
+#   install.sh install   <tag> [--adapter claude|agents|both] [--source <path-or-url>] [--sha <commit>]
+#   install.sh upgrade   <tag> [--adapter ...] [--source ...] [--sha ...] [--dry-run]
+#   install.sh uninstall [--purge [--force]]
 #
 # <tag> is an exact release tag such as v0.1.0, or `latest`, which resolves to the highest
 # vMAJOR.MINOR.PATCH tag at the source. There is no default tag: with none, this refuses.
@@ -21,8 +21,9 @@
 #   .claude/           agents/ and commands/ files; a name that is already the host's is
 #                      installed as trazo-<name>.md. settings.json only if absent
 #   .github/CODEOWNERS never edited; suggested lines are printed
-#   .trazo/INSTALLED   manifest of the adapter files placed, so upgrade and uninstall touch
-#                      only what this script put there
+#   .trazo/INSTALLED   manifest: sha256 and path of each adapter file placed. Upgrade and
+#                      uninstall touch only listed files, and skip any whose hash no longer
+#                      matches (the host edited it). Entries are validated before use
 
 set -euo pipefail
 
@@ -44,47 +45,77 @@ usage() {
 
 resolve_latest() {
   local src="$1" tag
-  tag="$(git ls-remote --tags --refs "$src" 2>/dev/null |
+  tag="$(git ls-remote --tags --refs -- "$src" 2>/dev/null |
     sed 's|.*refs/tags/||' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -t. -k1.2,1n -k2,2n -k3,3n |
     tail -n 1)" || true
   [ -n "$tag" ] || die "no vMAJOR.MINOR.PATCH tag found at $src"
   echo "$tag"
 }
 
-# fetch <source> <tag> <dest>: shallow clone of exactly that tag.
+# fetch <source> <tag> <dest>: shallow clone of exactly that tag, refusing symlinks in src/.
 fetch() {
   local src="$1" tag="$2" dest="$3"
-  git clone --quiet --depth 1 --branch "$tag" "$src" "$dest" >/dev/null 2>&1 ||
+  git -c core.symlinks=false clone --quiet --depth 1 --branch "$tag" -- "$src" "$dest" >/dev/null 2>&1 ||
     die "cannot fetch tag '$tag' from $src (does the tag exist?)"
   [ -d "$dest/src/overlay" ] && [ -d "$dest/src/adapters" ] ||
     die "tag '$tag' has no src/overlay and src/adapters; it predates the installer layout"
+  # With core.symlinks=false a link is checked out as a plain file, so read the tree itself.
+  if git -C "$dest" ls-tree -r HEAD -- src | awk '$1 == "120000" { found = 1 } END { exit !found }'; then
+    die "tag '$tag' contains symlinks under src/; refusing"
+  fi
+  if [ -n "$(find "$dest/src" -type l)" ]; then
+    die "tag '$tag' contains symlinks under src/; refusing"
+  fi
+}
+
+# ---------------------------------------------------------------- hashing
+
+hash_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
 }
 
 # ---------------------------------------------------------------- marked blocks
 
+# Marker lines are matched with a trailing CR ignored, so a CRLF file still has its block.
+count_marker() { tr -d '\r' <"$1" | grep -cxF "$2" || true; }
+
+# check_markers <file>: refuse unless the markers are absent or exactly one balanced pair.
+check_markers() {
+  local file="$1" begins ends
+  [ -e "$file" ] || return 0
+  begins="$(count_marker "$file" "$BEGIN")"
+  ends="$(count_marker "$file" "$END")"
+  if { [ "$begins" = 0 ] && [ "$ends" = 0 ]; } || { [ "$begins" = 1 ] && [ "$ends" = 1 ]; }; then
+    return 0
+  fi
+  die "$file has unbalanced trazo markers ($begins begin, $ends end); fix it by hand and retry"
+}
+
 # set_block <file> <body-file>: insert or replace the marked block; create the file if absent.
 set_block() {
-  local file="$1" body="$2" begins ends tmp
+  local file="$1" body="$2" tmp
   if [ ! -e "$file" ]; then
     { echo "$BEGIN"; cat "$body"; echo "$END"; } >"$file"
     return
   fi
-  begins="$(grep -cxF "$BEGIN" "$file" || true)"
-  ends="$(grep -cxF "$END" "$file" || true)"
-  if [ "$begins" = 0 ] && [ "$ends" = 0 ]; then
+  check_markers "$file"
+  if [ "$(count_marker "$file" "$BEGIN")" = 0 ]; then
     # Append after a blank line; the host's own bytes stay exactly where they were.
     [ -z "$(tail -c1 "$file")" ] || echo >>"$file"
     { echo; echo "$BEGIN"; cat "$body"; echo "$END"; } >>"$file"
-  elif [ "$begins" = 1 ] && [ "$ends" = 1 ]; then
+  else
     tmp="$(mktemp)"
     awk -v b="$BEGIN" -v e="$END" -v blk="$body" '
-      $0 == b { print; while ((getline l < blk) > 0) print l; skip = 1; next }
-      skip && $0 == e { skip = 0; print; next }
+      { l = $0; sub(/\r$/, "", l) }
+      l == b { print; while ((getline x < blk) > 0) print x; skip = 1; next }
+      skip && l == e { skip = 0; print; next }
       !skip { print }' "$file" >"$tmp"
     cat "$tmp" >"$file"
     rm -f "$tmp"
-  else
-    die "$file has unbalanced trazo markers ($begins begin, $ends end); fix it by hand and retry"
   fi
 }
 
@@ -93,15 +124,17 @@ set_block() {
 drop_block() {
   local file="$1" tmp
   [ -e "$file" ] || return 0
-  grep -qxF "$BEGIN" "$file" || return 0
+  check_markers "$file"
+  [ "$(count_marker "$file" "$BEGIN")" = 1 ] || return 0
   tmp="$(mktemp)"
   awk -v b="$BEGIN" -v e="$END" '
-    skip { if ($0 == e) skip = 0; next }
-    $0 == b { held = 0; skip = 1; next }
-    held { print ""; held = 0 }
-    $0 == "" { held = 1; next }
+    { l = $0; sub(/\r$/, "", l) }
+    skip { if (l == e) skip = 0; next }
+    l == b { held = 0; skip = 1; next }
+    held { print held_line; held = 0 }
+    l == "" { held = 1; held_line = $0; next }
     { print }
-    END { if (held) print "" }' "$file" >"$tmp"
+    END { if (held) print held_line }' "$file" >"$tmp"
   if grep -q '[^[:space:]]' "$tmp"; then
     cat "$tmp" >"$file"
     echo "removed trazo block from $file"
@@ -116,13 +149,45 @@ drop_block() {
 
 MANIFEST=.trazo/INSTALLED
 P=.trazo/project
+PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.json)$'
 
-in_manifest() { [ -f "$MANIFEST" ] && grep -qxF "$1" "$MANIFEST"; }
+# check_manifest: the manifest is a committed file anyone can edit, and it decides what we
+# overwrite and delete. Accept only "<sha256>  <path>" with a path from the allowed set.
+check_manifest() {
+  local line h f
+  [ -f "$MANIFEST" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    h="${line%%  *}"
+    f="${line#*  }"
+    [[ "$h" =~ ^[0-9a-f]{64}$ ]] && [[ "$f" =~ $PATH_RE ]] && [ "$line" = "$h  $f" ] ||
+      die "$MANIFEST has an entry that is not '<sha256>  <.claude/...>' ($line); refusing"
+  done <"$MANIFEST"
+}
 
-# place_adapter_file <src> <dest-dir> <name>: write <dest-dir>/<name>, or trazo-<name> on a
-# clash with a file this script did not place. Echoes the path written.
+recorded_hash() { [ -f "$MANIFEST" ] && awk -v p="$1" '{ h = $1; $1 = ""; sub(/^ +/, ""); if ($0 == p) print h }' "$MANIFEST" || true; }
+in_manifest() { [ -n "$(recorded_hash "$1")" ]; }
+# edited <path>: true when the file is ours but its content no longer matches what we placed.
+edited() { [ -e "$1" ] && [ "$(hash_of "$1")" != "$(recorded_hash "$1")" ]; }
+
+# put_file <rendered> <dest> <placed-list>: write our file, unless the host edited the copy we
+# placed earlier; then show the diff, warn, and leave it (the old hash stays recorded).
+put_file() {
+  local rendered="$1" dest="$2" placed="$3"
+  if in_manifest "$dest" && edited "$dest"; then
+    echo "warning: $dest was edited since Trazo placed it; not overwriting. Diff (yours -> incoming):" >&2
+    diff -u "$dest" "$rendered" >&2 || true
+    echo "$(recorded_hash "$dest")  $dest" >>"$placed"
+    return
+  fi
+  mkdir -p "$(dirname "$dest")"
+  cp "$rendered" "$dest"
+  echo "$(hash_of "$dest")  $dest" >>"$placed"
+}
+
+# place_adapter_file <src> <dir> <name> <placed-list>: write <dir>/<name>, or trazo-<name> on a
+# clash with a file this script did not place.
 place_adapter_file() {
-  local src="$1" dir="$2" name="$3" dest
+  local src="$1" dir="$2" name="$3" placed="$4" dest rendered
   dest="$dir/$name"
   if [ -e "$dest" ] && ! in_manifest "$dest"; then
     dest="$dir/trazo-$name"
@@ -130,32 +195,47 @@ place_adapter_file() {
   elif [ ! -e "$dest" ] && in_manifest "$dir/trazo-$name"; then
     dest="$dir/trazo-$name"
   fi
-  mkdir -p "$dir"
+  rendered="$(mktemp)"
   case "$dest" in
     */trazo-*)
       # A prefixed agent must also be renamed inside, or it collides on `name:`.
       if [ "$(basename "$dir")" = agents ]; then
-        awk '!d && /^name: / { sub(/^name: /, "name: trazo-"); d = 1 } { print }' "$src" >"$dest"
+        awk '!d && /^name: / { sub(/^name: /, "name: trazo-"); d = 1 } { print }' "$src" >"$rendered"
       else
-        cp "$src" "$dest"
+        cp "$src" "$rendered"
       fi ;;
-    *) cp "$src" "$dest" ;;
+    *) cp "$src" "$rendered" ;;
   esac
-  echo "$dest"
+  put_file "$rendered" "$dest" "$placed"
+  rm -f "$rendered"
 }
 
 # ---------------------------------------------------------------- install / upgrade
 
 do_install() {
-  local mode="$1" tag="$2" source="$3" adapter="$4" dryrun="$5"
-  local tmp new_managed f name dest placed kind
+  local mode="$1" tag="$2" source="$3" adapter="$4" dryrun="$5" want_sha="$6"
+  local tmp new_managed f name dest placed kind sha line
 
   case "$adapter" in claude | agents | both) ;; *) die "--adapter must be claude, agents or both" ;; esac
   [ -d .git ] || [ -f .git ] || die "run this from the root of a git repository"
+  case "$source" in -*) die "source must not start with '-'" ;; esac
+  [ -z "$want_sha" ] || [[ "$want_sha" =~ ^[0-9a-f]{40}$ ]] || die "--sha must be a full 40-hex commit id"
+  if [ -d .trazo ] && [ ! -f "$MANIFEST" ]; then
+    # Without the manifest this may be an older layout whose adr/charter live in .trazo/
+    # itself, which a managed replace would delete.
+    for f in .trazo/* .trazo/.[!.]*; do
+      [ -e "$f" ] || continue
+      [ "$f" = "$P" ] && continue
+      die ".trazo/ exists without $MANIFEST (older layout?); refusing to replace it. Move your own files into $P first"
+    done
+  fi
+  check_manifest
+  check_markers AGENTS.md
+  check_markers CLAUDE.md
   if [ "$mode" = upgrade ]; then
     [ -f .trazo/VERSION ] || die "no .trazo/VERSION here; nothing to upgrade (use install)"
   elif [ -f .trazo/VERSION ]; then
-    echo "note: .trazo/VERSION is $(cat .trazo/VERSION); reinstalling at $tag"
+    echo "note: .trazo/VERSION is $(head -n 1 .trazo/VERSION); reinstalling at $tag"
   fi
 
   [ "$tag" != latest ] || tag="$(resolve_latest "$source")"
@@ -164,19 +244,26 @@ do_install() {
   work="$(mktemp -d)"
   trap 'rm -rf "${work:-}"' EXIT
   fetch "$source" "$tag" "$work/repo"
+  sha="$(git -C "$work/repo" rev-parse HEAD)"
+  echo "source: $source"
+  echo "tag:    $tag"
+  echo "commit: $sha"
+  if [ -n "$want_sha" ] && [ "$want_sha" != "$sha" ]; then
+    die "tag '$tag' resolves to $sha, not the pinned $want_sha; refusing"
+  fi
 
   # Stage the managed copy of .trazo/ so upgrade can diff before it changes anything.
   new_managed="$work/new"
   mkdir -p "$new_managed"
   cp -R "$work/repo/src/overlay/." "$new_managed/"
-  printf '%s\n' "$tag" >"$new_managed/VERSION"
+  printf '%s\ncommit %s\n' "$tag" "$sha" >"$new_managed/VERSION"
 
   if [ "$mode" = upgrade ]; then
-    echo "== diff of .trazo/ (installed -> $tag), .trazo/project/ excluded"
+    echo "== diff of .trazo/ (installed -> $tag), $P excluded"
     tmp="$work/old"
     mkdir -p "$tmp"
-    for f in .trazo/* ; do
-      case "$f" in .trazo/project | .trazo/INSTALLED) continue ;; esac
+    for f in .trazo/*; do
+      case "$f" in "$P" | "$MANIFEST") continue ;; esac
       [ -e "$f" ] && cp -R "$f" "$tmp/"
     done
     diff -ru "$tmp" "$new_managed" || true
@@ -192,20 +279,20 @@ do_install() {
   mkdir -p .trazo
   for f in .trazo/* .trazo/.[!.]*; do
     [ -e "$f" ] || continue
-    case "$f" in .trazo/project | .trazo/INSTALLED) continue ;; esac
+    case "$f" in "$P" | "$MANIFEST") continue ;; esac
     rm -rf "$f"
   done
   cp -R "$new_managed/." .trazo/
 
   # The host's own state: templates only if absent.
-  if [ -d .trazo/project ]; then
-    echo ".trazo/project/ exists; left untouched"
+  if [ -d "$P" ]; then
+    echo "$P/ exists; left untouched"
   else
-    mkdir -p .trazo/project/charter .trazo/project/adr .trazo/project/workstreams
-    cp "$work/repo/src/overlay/templates/charter.md" .trazo/project/charter/charter.md
-    cp -R "$work/repo/src/overlay/templates/docs/." .trazo/project/
+    mkdir -p "$P/charter" "$P/adr" "$P/workstreams"
+    cp "$work/repo/src/overlay/templates/charter.md" "$P/charter/charter.md"
+    cp -R "$work/repo/src/overlay/templates/docs/." "$P/"
     touch "$P/adr/.gitkeep" "$P/workstreams/.gitkeep"
-    echo "created .trazo/project/ from blank templates"
+    echo "created $P/ from blank templates"
   fi
 
   # Adapters. Rebuild the manifest from what is placed now.
@@ -220,24 +307,24 @@ do_install() {
     echo "CLAUDE.md: trazo block set"
     for kind in agents commands; do
       for f in "$work/repo/src/adapters/claude/$kind"/*.md; do
-        name="$(basename "$f")"
-        dest="$(place_adapter_file "$f" ".claude/$kind" "$name")"
-        echo "$dest" >>"$placed"
+        place_adapter_file "$f" ".claude/$kind" "$(basename "$f")" "$placed"
       done
     done
     if [ -e .claude/settings.json ] && ! in_manifest .claude/settings.json; then
       echo "note: .claude/settings.json is yours; not touched. Trazo's deny rules for secrets are in" \
         "src/adapters/claude/settings.json at $tag; merge them yourself."
     else
-      mkdir -p .claude
-      cp "$work/repo/src/adapters/claude/settings.json" .claude/settings.json
-      echo .claude/settings.json >>"$placed"
+      put_file "$work/repo/src/adapters/claude/settings.json" .claude/settings.json "$placed"
+      echo "== .claude/settings.json, as shipped (review it)"
+      cat "$work/repo/src/adapters/claude/settings.json"
+      echo "== end settings.json"
     fi
   fi
   # Keep manifest entries from an earlier adapter choice that are still on disk.
   if [ -f "$MANIFEST" ]; then
-    while IFS= read -r f; do
-      [ -e "$f" ] && ! grep -qxF "$f" "$placed" && echo "$f" >>"$placed"
+    while IFS= read -r line; do
+      f="${line#*  }"
+      if [ -e "$f" ] && ! grep -qF "  $f" "$placed"; then echo "$line" >>"$placed"; fi
     done <"$MANIFEST"
   fi
   sort -u "$placed" >"$MANIFEST"
@@ -258,11 +345,25 @@ EOF
 # ---------------------------------------------------------------- uninstall
 
 do_uninstall() {
-  local purge="$1" f
+  local purge="$1" force="$2" line f
   [ -d .trazo ] || die "no .trazo/ here; nothing to uninstall"
+  check_manifest
+  check_markers AGENTS.md
+  check_markers CLAUDE.md
+  if [ "$purge" = 1 ] && [ "$force" != 1 ] && [ -d "$P" ] &&
+    [ -n "$(git status --porcelain -- "$P" 2>/dev/null)" ]; then
+    die "$P has uncommitted changes; commit them, or pass --force to delete them anyway"
+  fi
   if [ -f "$MANIFEST" ]; then
-    while IFS= read -r f; do
-      [ -n "$f" ] && [ -e "$f" ] && rm -f "$f" && echo "removed $f"
+    while IFS= read -r line; do
+      f="${line#*  }"
+      [ -e "$f" ] || continue
+      if edited "$f"; then
+        echo "warning: $f was edited since Trazo placed it; kept" >&2
+      else
+        rm -f "$f"
+        echo "removed $f"
+      fi
     done <"$MANIFEST"
   fi
   rmdir .claude/agents .claude/commands .claude 2>/dev/null || true
@@ -270,14 +371,14 @@ do_uninstall() {
   drop_block CLAUDE.md
   for f in .trazo/* .trazo/.[!.]*; do
     [ -e "$f" ] || continue
-    [ "$f" = .trazo/project ] && continue
+    [ "$f" = "$P" ] && continue
     rm -rf "$f"
   done
   if [ "$purge" = 1 ]; then
     rm -rf .trazo
     echo "removed .trazo/ including project/ (--purge)"
-  elif [ -d .trazo/project ]; then
-    echo "kept .trazo/project/ (yours); --purge removes it"
+  elif [ -d "$P" ]; then
+    echo "kept $P/ (yours); --purge removes it"
   else
     rmdir .trazo 2>/dev/null || true
   fi
@@ -289,27 +390,31 @@ do_uninstall() {
 [ $# -ge 1 ] || usage
 cmd="$1"
 shift
-tag="" adapter=both source="${TRAZO_SOURCE:-$DEFAULT_SOURCE}" dryrun=0 purge=0
+tag="" adapter=both dryrun=0 purge=0 force=0 want_sha="" source="" from_env=0
+if [ -n "${TRAZO_SOURCE:-}" ]; then source="$TRAZO_SOURCE"; from_env=1; else source="$DEFAULT_SOURCE"; fi
 while [ $# -gt 0 ]; do
   case "$1" in
     --adapter) [ $# -ge 2 ] || die "--adapter needs a value"; adapter="$2"; shift 2 ;;
-    --source) [ $# -ge 2 ] || die "--source needs a value"; source="$2"; shift 2 ;;
+    --source) [ $# -ge 2 ] || die "--source needs a value"; source="$2"; from_env=0; shift 2 ;;
+    --sha) [ $# -ge 2 ] || die "--sha needs a value"; want_sha="$2"; shift 2 ;;
     --dry-run) dryrun=1; shift ;;
     --purge) purge=1; shift ;;
+    --force) force=1; shift ;;
     -h | --help) usage 0 ;;
     -*) die "unknown option $1" ;;
     *) [ -z "$tag" ] || die "unexpected argument $1"; tag="$1"; shift ;;
   esac
 done
+[ "$from_env" = 0 ] || echo "note: TRAZO_SOURCE overrides the default source: $source" >&2
 
 case "$cmd" in
   install | upgrade)
     [ -n "$tag" ] || die "$cmd needs an exact release tag, e.g. $0 $cmd v0.1.0"
-    do_install "$cmd" "$tag" "$source" "$adapter" "$dryrun"
+    do_install "$cmd" "$tag" "$source" "$adapter" "$dryrun" "$want_sha"
     ;;
   uninstall)
     [ -z "$tag" ] || die "uninstall takes no tag"
-    do_uninstall "$purge"
+    do_uninstall "$purge" "$force"
     ;;
   -h | --help | help) usage 0 ;;
   *) usage ;;
