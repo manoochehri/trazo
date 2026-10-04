@@ -23,8 +23,6 @@ Two properties are asserted:
 import re
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 TEMPLATE_TOKENS = ("NNNN", "TODO", "YYYY")
@@ -312,11 +310,6 @@ def test_claude_md_is_the_adapter_not_the_rules() -> None:
     assert ".trazo/project/adr/" in claude and ".trazo/project/workstreams/" in claude
 
 
-@pytest.mark.xfail(
-    reason="owner action: add `/.trazo/project/charter/ @owner` to .github/CODEOWNERS (#111). "
-    "Remove this marker once it is there.",
-    strict=False,
-)
 def test_codeowners_still_protects_the_charter() -> None:
     """The charter is a judgment-layer path and was owner-protected under its old name.
     Moving the path without moving the rule would silently drop that protection -- the
@@ -334,6 +327,6 @@ def test_the_docs_updated_ci_gate_followed_the_move() -> None:
     stale pattern turns the gate into a no-op that still reports success."""
     ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert ".trazo/ARCHITECTURE.md" in ci, "the docs-updated gate does not watch the new path"
-    # `ci.yml` still names `docs/RUNBOOK.md` until the owner repoints it (#111); the
-    # runbook moved to `.trazo/project/RUNBOOK.md`, so that half of the gate is stale.
+    assert ".trazo/project/RUNBOOK.md" in ci, "the docs-updated gate does not watch the runbook"
+    assert "docs/RUNBOOK.md" not in ci, "the stale runbook path is still in ci.yml"
     assert not re.search(r"\^docs/\(ARCHITECTURE", ci), "the stale pattern is still there"
