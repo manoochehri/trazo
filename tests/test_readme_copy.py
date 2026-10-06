@@ -123,3 +123,17 @@ def test_the_mount_time_contract_is_stated() -> None:
     for option in ("docker", "nix", "devcontainer", "makefile"):
         assert option in low, f"{option} must be named as a valid way to satisfy it"
     assert "install.sh" in low, "mounting an existing repo must be a documented path"
+
+
+def test_readme_does_not_present_template_version_as_the_current_release() -> None:
+    """#143: `.template/VERSION` is the version being cut, not a release. It said 0.6.0
+    while the first real release is v0.1.0 and no tag exists, so a status line pointing
+    at it contradicted the install command two sections below."""
+    text = _text()
+    assert not re.search(r"\]\(\.?/?\.template/VERSION\)", text), (
+        "README links .template/VERSION; point status at the release milestone instead"
+    )
+    status = next((ln for ln in text.splitlines() if ln.startswith("> Status")), "")
+    assert status, "README has no status line"
+    assert "VERSION" not in status, "the status line must not cite .template/VERSION"
+    assert "v0.1.0" in status, "the status line must name the first release, v0.1.0"
