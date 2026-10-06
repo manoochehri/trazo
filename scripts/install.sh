@@ -363,12 +363,11 @@ do_uninstall() {
   check_markers AGENTS.md
   check_markers CLAUDE.md
   if [ "$purge" = 1 ] && [ "$force" != 1 ] && [ -d "$P" ]; then
-    # Fail closed: an unknowable or ignored state counts as "might lose work".
-    st="$(git status --porcelain -- "$P" 2>/dev/null)" ||
+    # Fail closed: an unknowable state counts as "might lose work". --ignored so
+    # gitignored files (a host's *.local) count too; git cannot recover those.
+    st="$(git status --porcelain --ignored -- "$P" 2>/dev/null)" ||
       die "cannot read git status for $P; pass --force to delete it anyway"
-    [ -z "$st" ] || die "$P has uncommitted changes; commit them, or pass --force to delete them anyway"
-    ! git check-ignore -q -- "$P" ||
-      die "$P is gitignored, so git cannot show what would be lost; pass --force to delete it anyway"
+    [ -z "$st" ] || die "$P has untracked, modified or gitignored files; commit or move them, or pass --force to delete them anyway"
   fi
   if [ -f "$MANIFEST" ]; then
     while IFS= read -r line; do

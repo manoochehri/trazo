@@ -220,7 +220,7 @@ def test_uninstall_purge_removes_project(host, source):
     run(host, "install", "v0.1.0", source=source)
     # The project dir is untracked here, so --purge refuses until --force.
     r = run(host, "uninstall", "--purge", check=False)
-    assert r.returncode != 0 and "uncommitted" in r.stderr
+    assert r.returncode != 0 and "--force" in r.stderr
     assert (host / ".trazo/project/STATUS.md").is_file()
     run(host, "uninstall", "--purge", "--force")
     assert not (host / ".trazo").exists()
@@ -446,3 +446,21 @@ def test_purge_fails_closed_when_git_status_fails(host, source):
     r = run(host, "uninstall", "--purge", check=False)
     assert r.returncode != 0 and "--force" in r.stderr
     assert (host / ".trazo/project/STATUS.md").is_file()
+
+
+def test_purge_keeps_gitignored_file_without_force(host, source):
+    run(host, "install", "v0.1.0", source=source)
+    (host / ".gitignore").write_text("*.local\n")
+    subprocess.run(["git", "add", "-A", "-f", ".trazo/project", ".gitignore"], cwd=host, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
+        cwd=host,
+        check=True,
+    )
+    note = host / ".trazo" / "project" / "notes.local"
+    note.write_text("mine\n")
+    r = run(host, "uninstall", "--purge", check=False)
+    assert r.returncode != 0 and "--force" in r.stderr
+    assert note.read_text() == "mine\n"
+    run(host, "uninstall", "--purge", "--force")
+    assert not note.exists()
