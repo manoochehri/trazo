@@ -20,6 +20,7 @@ verified at runtime, not assumed. An import that does not resolve fails silently
 | Doc | Purpose |
 |---|---|
 | `.trazo/rules.md` | The rules, tool-neutral. This file only adapts them. |
+| `.trazo/roles/` | Canonical role definitions (engineer, PM, reviewer, security, skeptic) |
 | `.trazo/project/charter/` | Why, goal, success criteria, budget, hard constraints, stop rule |
 | `.trazo/project/adr/` | Numbered decision records. Append-only; supersede, never edit |
 | `.trazo/project/workstreams/` | One file per feature/experiment/strategy, with status and evidence |
@@ -36,15 +37,17 @@ PLAN, RUNBOOK, SKEPTIC_BAR and reports. An upgrade never overwrites it. Everythi
 `.trazo/` is the installed framework and is not hand-edited.
 
 ## The team (subagents in `.claude/agents/`, role commands in `.claude/commands/`)
-Role commands (`/pm`) switch the session's role for the rest of the conversation until another role command is used; `/eng` returns to building. `reviewer`, `security`, and `skeptic` are subagent-only — the engineer role delegates one-off checks to them, invoked ad hoc or as part of the `/work` and `/check-pr` routines. How each satisfies a rule is in the table above.
+Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Role commands (`/pm`) switch the session's role for the rest of the conversation until another role command is used; `/eng` returns to building. `reviewer`, `security`, and `skeptic` are subagent-only — the engineer role delegates one-off checks to them, invoked ad hoc or as part of the `/work` and `/check-pr` routines.
 
-| Role / Agent | Command | Model | Use for | Edits code? |
-|---|---|---|---|---|
-| Engineer (main session) | `/eng` | default (Sonnet) | Building: code, tests, git, pull requests | Yes |
-| PM / advisor | `/pm` | Opus | Status, planning, priorities, "is this result real?", charter/budget/stop rule, writing issues | No |
-| Reviewer (subagent only) | ask the **reviewer** subagent | Opus | Reviewing pull requests and diffs before merge | No |
-| Security (subagent only) | ask the **security** subagent | Opus | Secrets, permissions, workflows, dependencies, infra, repo security settings | No |
-| Skeptic (subagent only) | ask the **skeptic** subagent | Opus | Breaking a research/analysis result before it is acted on | No |
+| Canonical Role | Claude Implementation | Model | Edits code? |
+|---|---|---|---|
+| **Engineer** (`.trazo/roles/engineer.md`) | `/eng` command (main session) | Sonnet recommended | Yes |
+| **PM / Advisor** (`.trazo/roles/pm.md`) | `/pm` command | Opus recommended | No |
+| **Reviewer** (`.trazo/roles/reviewer.md`) | `reviewer` subagent | Opus recommended | No |
+| **Security** (`.trazo/roles/security.md`) | `security` subagent | Opus recommended | No |
+| **Skeptic** (`.trazo/roles/skeptic.md`) | `skeptic` subagent | Opus recommended | No |
+
+For complete role definitions including purpose, permissions, and constraints, see the canonical files in `.trazo/roles/`.
 
 ## Plain English → routine
 The owner shouldn't need to remember commands. Map requests to routines:
