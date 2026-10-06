@@ -15,7 +15,6 @@
 
 - `src/` — application/source code
 - `tests/` — tests
-- `docs/` — project documentation
 - `.trazo/` — Trazo governance and durable agentic project state
 
 ## Repository conventions
