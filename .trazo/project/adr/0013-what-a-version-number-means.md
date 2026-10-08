@@ -25,4 +25,4 @@ If a behavior-changing issue joins a PATCH milestone, the milestone is renamed t
 - Date-based versions: conflicts with 0009's `MAJOR.MINOR.PATCH` rule and `release.sh`.
 
 ## Consequences
-A host can tell from the number alone whether an upgrade changes agent behavior. The open work outside v0.1.0 (#113, #115, #116) goes to a **v0.2.0** milestone, not v0.1.1. Revisit at 1.0.
+A host can tell from the number alone whether an upgrade changes agent behavior. Everything planned before the first tag ships in v0.1.0; the bump rule applies from the next milestone on. Revisit at 1.0.
