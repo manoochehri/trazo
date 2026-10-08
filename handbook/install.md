@@ -23,7 +23,7 @@ never to a branch.
 
 | Option | Meaning |
 |---|---|
-| `--adapter claude\|agents\|both` | Which tool adapter to install. Default `both`. |
+| `--adapter claude\|agents\|codex\|both` | Which tool adapter to install. Default `both` (Claude and the generic `AGENTS.md` adapter). Use `codex` for Codex's project agents and skills. |
 | `--source <path-or-url>` | Where to fetch from. Default `$TRAZO_SOURCE` (announced when used), then the public repository. A value starting with `-` is refused. |
 | `--sha <commit>` | Optional full 40-hex commit the tag must resolve to; refuses on a mismatch. Use it to detect a moved tag. |
 
@@ -41,10 +41,14 @@ What it does:
 - For the Claude adapter, copies `agents/` and `commands/` into `.claude/`. If a file of
   that name is already yours, the Trazo one is installed as `trazo-<name>.md` and the
   script says so. `.claude/settings.json` is installed only if you have none.
+- For Codex, inserts the `AGENTS.md` adapter block and installs project-scoped role agents
+  under `.codex/agents/` and workflow skills under `.agents/skills/`. Both point to the
+  canonical roles and rules in `.trazo/`. Existing host files are preserved; on a name
+  clash, Trazo prefixes the installed name and reports it.
 - Records a sha256 and path for each adapter file it placed in `.trazo/INSTALLED`, so upgrade
   and uninstall touch only those. A listed file you have edited since is never overwritten
   or deleted: the script warns and, on upgrade, prints the diff. Entries outside
-  `.claude/agents|commands/*.md` and `.claude/settings.json` make the script refuse.
+  the supported Claude and Codex adapter paths make the script refuse.
 - Prints the `settings.json` it installs. It only denies reads of secrets.
 - Refuses if `.trazo/` exists without `INSTALLED` (an older layout), and on unbalanced
   markers in `AGENTS.md` or `CLAUDE.md`.
@@ -66,11 +70,12 @@ is never read or written.
 
 ```sh
 bash install.sh uninstall            # keeps .trazo/project/
-bash install.sh uninstall --purge    # removes it too; refuses if it has uncommitted changes
+bash install.sh uninstall --purge    # removes it too; refuses if it has uncommitted, untracked or gitignored files
 bash install.sh uninstall --purge --force   # ...unless you pass --force
 ```
 
 Removes the framework files under `.trazo/`, the adapter files listed in
 `.trazo/INSTALLED`, and the marked blocks in `AGENTS.md` and `CLAUDE.md`. A file that held
 only the block is deleted; otherwise your content stays. Your own `.claude/` files, your
-`CODEOWNERS`, and `.trazo/project/` (without `--purge`) are not touched.
+`.codex/` agents, `.agents/skills/`, `CODEOWNERS`, and `.trazo/project/` (without `--purge`)
+are not touched.

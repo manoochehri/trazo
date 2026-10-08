@@ -118,6 +118,63 @@ def test_agents_adapter_only(host, source):
     assert not (host / ".claude").exists()
 
 
+def test_kickoff_product_and_installed_copy_use_current_layout(host, source):
+    run(host, "install", "v0.1.0", "--adapter", "claude", source=source)
+    product = REPO_ROOT / "src/adapters/claude/commands/kickoff.md"
+    installed = host / ".claude/commands/kickoff.md"
+    assert installed.read_bytes() == product.read_bytes()
+    for text in (installed.read_text(), (host / ".trazo/skills/kickoff.md").read_text()):
+        assert "semilla" not in text.lower()
+        assert "templates/docs/" not in text
+
+
+def test_codex_adapter_installs_agents_and_skills(host, source):
+    run(host, "install", "v0.1.0", "--adapter", "codex", source=source)
+    agents = (host / "AGENTS.md").read_text()
+    pm = host / ".codex/agents/trazo-pm.toml"
+    reviewer = host / ".codex/agents/trazo-reviewer.toml"
+    work = host / ".agents/skills/trazo-work/SKILL.md"
+    assert agents.startswith(BEGIN + "\n") and agents.rstrip().endswith(END)
+    assert pm.is_file() and 'name = "trazo-pm"' in pm.read_text()
+    assert reviewer.is_file() and ".trazo/roles/reviewer.md" in reviewer.read_text()
+    assert work.is_file() and work.read_text().startswith("---\nname: trazo-work\n")
+    assert ".trazo/skills/work.md" in work.read_text()
+    assert (host / ".trazo/roles/engineer.md").is_file()
+    assert (host / ".trazo/roles/reviewer.md").is_file()
+    assert (host / ".trazo/skills/work.md").is_file()
+    assert "installer created" in (host / ".trazo/skills/kickoff.md").read_text()
+    assert ".trazo/roles/engineer.md" in (host / ".codex/agents/trazo-engineer.toml").read_text()
+    assert not (host / "CLAUDE.md").exists()
+    assert not (host / ".claude").exists()
+    manifest = "\n".join(manifest_lines(host))
+    assert ".codex/agents/trazo-pm.toml" in manifest
+    assert ".agents/skills/trazo-work/SKILL.md" in manifest
+
+
+def test_codex_adapter_preserves_host_name_collisions(host, source):
+    (host / ".codex/agents").mkdir(parents=True)
+    (host / ".codex/agents/trazo-pm.toml").write_text('name = "mine"\n')
+    (host / ".agents/skills/trazo-work").mkdir(parents=True)
+    (host / ".agents/skills/trazo-work/SKILL.md").write_text("mine\n")
+    run(host, "install", "v0.1.0", "--adapter", "codex", source=source)
+    assert (host / ".codex/agents/trazo-pm.toml").read_text() == 'name = "mine"\n'
+    assert (host / ".codex/agents/trazo-trazo-pm.toml").is_file()
+    assert (host / ".agents/skills/trazo-work/SKILL.md").read_text() == "mine\n"
+    installed_skill = host / ".agents/skills/trazo-trazo-work/SKILL.md"
+    assert installed_skill.is_file() and "name: trazo-trazo-work" in installed_skill.read_text()
+
+
+def test_codex_adapter_uninstalls_only_manifest_files(host, source):
+    run(host, "install", "v0.1.0", "--adapter", "codex", source=source)
+    project = host / ".trazo/project/charter/charter.md"
+    project.write_text("host project state\n")
+    run(host, "uninstall")
+    assert project.read_text() == "host project state\n"
+    assert not (host / ".codex/agents/trazo-pm.toml").exists()
+    assert not (host / ".agents/skills/trazo-work/SKILL.md").exists()
+    assert not (host / "AGENTS.md").exists()
+
+
 def test_existing_agents_md_is_preserved_byte_for_byte(host, source):
     before = b"# Mine\r\n\r\nbuild: make\n\n<!-- a comment -->\ntrailing   \n"
     (host / "AGENTS.md").write_bytes(before)
@@ -220,7 +277,7 @@ def test_uninstall_purge_removes_project(host, source):
     run(host, "install", "v0.1.0", source=source)
     # The project dir is untracked here, so --purge refuses until --force.
     r = run(host, "uninstall", "--purge", check=False)
-    assert r.returncode != 0 and "uncommitted" in r.stderr
+    assert r.returncode != 0 and "--force" in r.stderr
     assert (host / ".trazo/project/STATUS.md").is_file()
     run(host, "uninstall", "--purge", "--force")
     assert not (host / ".trazo").exists()
@@ -262,7 +319,15 @@ def manifest_lines(host):
 
 
 @pytest.mark.parametrize(
-    "bad", ["../x", "/etc/passwd", ".github/CODEOWNERS", ".claude/agents/../../x.md"]
+    "bad",
+    [
+        "../x",
+        "/etc/passwd",
+        ".github/CODEOWNERS",
+        ".claude/agents/../../x.md",
+        ".agents/skills/../SKILL.md",
+        ".codex/agents/../../inject.toml",
+    ],
 )
 def test_hostile_manifest_is_refused(host, source, bad):
     run(host, "install", "v0.1.0", source=source)
@@ -310,23 +375,34 @@ def test_crlf_markers_are_recognised(host, source):
 
 
 @pytest.mark.parametrize(
-    "rel", [".claude/settings.json", ".claude/agents/pm.md", ".claude/commands/work.md"]
+    "adapter,rel",
+    [
+        ("claude", ".claude/settings.json"),
+        ("claude", ".claude/agents/pm.md"),
+        ("claude", ".claude/commands/work.md"),
+        ("codex", ".codex/agents/trazo-reviewer.toml"),
+        ("codex", ".agents/skills/trazo-work/SKILL.md"),
+    ],
 )
-def test_edited_installed_file_survives_upgrade_and_uninstall(tmp_path, host, rel):
+def test_edited_installed_file_survives_upgrade_and_uninstall(tmp_path, host, adapter, rel):
     def mutate(src, tag):
         if tag == "v0.2.0":
-            for f in (src / "adapters/claude").rglob("*"):
+            for f in (src / "adapters").rglob("*"):
                 if f.is_file():
                     f.write_text(f.read_text() + "\n")
 
     src = make_source(tmp_path, ("v0.1.0", "v0.2.0"), mutate)
-    run(host, "install", "v0.1.0", source=src)
+    run(host, "install", "v0.1.0", "--adapter", adapter, source=src)
     mine = host / rel
     mine.write_text("host edit\n")
-    r = run(host, "upgrade", "v0.2.0", source=src)
+    r = run(host, "upgrade", "v0.2.0", "--adapter", adapter, source=src)
     assert mine.read_text() == "host edit\n"
     assert "edited" in r.stderr and "host edit" in r.stderr  # warning and diff
-    other = host / ".claude/commands/start.md"
+    other = (
+        host / ".claude/commands/start.md"
+        if adapter == "claude"
+        else host / ".agents/skills/trazo-start/SKILL.md"
+    )
     assert other.read_text().endswith("\n\n")  # untouched files do upgrade
     r = run(host, "uninstall")
     assert mine.read_text() == "host edit\n"
@@ -446,3 +522,21 @@ def test_purge_fails_closed_when_git_status_fails(host, source):
     r = run(host, "uninstall", "--purge", check=False)
     assert r.returncode != 0 and "--force" in r.stderr
     assert (host / ".trazo/project/STATUS.md").is_file()
+
+
+def test_purge_keeps_gitignored_file_without_force(host, source):
+    run(host, "install", "v0.1.0", source=source)
+    (host / ".gitignore").write_text("*.local\n")
+    subprocess.run(["git", "add", "-A", "-f", ".trazo/project", ".gitignore"], cwd=host, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
+        cwd=host,
+        check=True,
+    )
+    note = host / ".trazo" / "project" / "notes.local"
+    note.write_text("mine\n")
+    r = run(host, "uninstall", "--purge", check=False)
+    assert r.returncode != 0 and "--force" in r.stderr
+    assert note.read_text() == "mine\n"
+    run(host, "uninstall", "--purge", "--force")
+    assert not note.exists()

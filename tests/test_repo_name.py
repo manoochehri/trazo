@@ -38,7 +38,7 @@ NEW_SLUG = "man" + "oochehri/trazo"
 OLD_PAGES = "manoochehri.github.io/semilla"
 
 # Records that must keep the old name because it was true when written.
-HISTORICAL = (".trazo/project/adr/", ".template/CHANGELOG.md", ".template/LESSONS.md", "tests/")
+HISTORICAL = (".trazo/project/adr/", ".template/CHANGELOG.md", "tests/")
 
 TEXT_SUFFIXES = {".md", ".py", ".toml", ".yml", ".yaml", ".json", ".sh", ".cfg", ".txt"}
 
@@ -129,7 +129,7 @@ def test_no_live_file_references_the_old_repository() -> None:
                 offenders.append(f"{rel}:{lineno}: {line.strip()[:70]}")
     assert not offenders, (
         "references to the pre-rename repo. Historical records (.trazo/project/adr/, "
-        ".template/CHANGELOG.md, .template/LESSONS.md, tests/) are excluded on purpose -- "
+        ".template/CHANGELOG.md and tests/) are excluded on purpose -- "
         "they describe what was true when written:\n" + "\n".join(offenders)
     )
 

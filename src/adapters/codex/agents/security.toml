@@ -1,0 +1,3 @@
+name = "trazo-security"
+description = "Independently reviews a Trazo change for security and permission risks."
+developer_instructions = "Read `.trazo/roles/security.md` and `.trazo/rules.md` in full. They are the canonical role and governance instructions; follow them for this review. Run in a separate agent context from the implementation."

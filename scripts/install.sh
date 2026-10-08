@@ -2,7 +2,7 @@
 # Install, upgrade or remove Trazo in a host repository.
 #
 # Usage (run from the host repository root):
-#   install.sh install   <tag> [--adapter claude|agents|both] [--source <path-or-url>] [--sha <commit>]
+#   install.sh install   <tag> [--adapter claude|agents|codex|both] [--source <path-or-url>] [--sha <commit>]
 #   install.sh upgrade   <tag> [--adapter ...] [--source ...] [--sha ...] [--dry-run]
 #   install.sh uninstall [--purge [--force]]
 #
@@ -20,6 +20,8 @@
 #                      outside the markers is never read into, rewritten or removed
 #   .claude/           agents/ and commands/ files; a name that is already the host's is
 #                      installed as trazo-<name>.md. settings.json only if absent
+#   .codex/agents/     project-scoped Codex role agents; names are prefixed with trazo-
+#   .agents/skills/    Codex workflow skills; names are prefixed with trazo-
 #   .github/CODEOWNERS never edited; suggested lines are printed
 #   .trazo/INSTALLED   manifest: sha256 and path of each adapter file placed. Upgrade and
 #                      uninstall touch only listed files, and skip any whose hash no longer
@@ -155,7 +157,7 @@ drop_block() {
 
 MANIFEST=.trazo/INSTALLED
 P=.trazo/project
-PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.json)$'
+PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.json|\.codex/agents/[A-Za-z0-9._-]+\.toml|\.agents/skills/[A-Za-z0-9._-]+/SKILL\.md)$'
 
 # check_manifest: the manifest is a committed file anyone can edit, and it decides what we
 # overwrite and delete. Accept only "<sha256>  <path>" with a path from the allowed set.
@@ -165,8 +167,9 @@ check_manifest() {
   while IFS= read -r line || [ -n "$line" ]; do
     h="${line%%  *}"
     f="${line#*  }"
-    [[ "$h" =~ ^[0-9a-f]{64}$ ]] && [[ "$f" =~ $PATH_RE ]] && [ "$line" = "$h  $f" ] ||
-      die "$MANIFEST has an entry that is not '<sha256>  <.claude/...>' ($line); refusing"
+    [[ "$h" =~ ^[0-9a-f]{64}$ ]] && [[ "$f" =~ $PATH_RE ]] &&
+      ! [[ "$f" =~ (^|/)\.\.(/|$) ]] && [ "$line" = "$h  $f" ] ||
+      die "$MANIFEST has an invalid adapter entry ($line); refusing"
   done <"$MANIFEST"
 }
 
@@ -220,13 +223,62 @@ place_adapter_file() {
   rm -f "$rendered"
 }
 
+# place_codex_agent <src> <name> <placed-list>: project agent filenames and TOML names must agree.
+place_codex_agent() {
+  local src="$1" name="$2" placed="$3" dest rendered installed_name
+  installed_name="trazo-$name"
+  dest=".codex/agents/$installed_name.toml"
+  if [ -e "$dest" ] && ! in_manifest "$dest"; then
+    echo "clash: $dest is yours; installing as trazo-trazo-$name.toml" >&2
+    installed_name="trazo-trazo-$name"
+    dest=".codex/agents/$installed_name.toml"
+    if [ -e "$dest" ] && ! in_manifest "$dest"; then
+      echo "warning: $dest is also yours; skipping $name entirely" >&2
+      return
+    fi
+  fi
+  rendered="$(mktemp)"
+  if [ "$installed_name" = "trazo-$name" ]; then
+    cp "$src" "$rendered"
+  else
+    sed "s/^name = \"trazo-$name\"$/name = \"$installed_name\"/" "$src" >"$rendered"
+  fi
+  put_file "$rendered" "$dest" "$placed"
+  rm -f "$rendered"
+}
+
+# place_codex_skill <src> <name> <placed-list>: keep the required SKILL.md name and avoid
+# overwriting a host skill directory. The skill's frontmatter name follows the chosen directory.
+place_codex_skill() {
+  local src="$1" name="$2" placed="$3" installed_name dest rendered
+  installed_name="trazo-$name"
+  dest=".agents/skills/$installed_name/SKILL.md"
+  if [ -e "$dest" ] && ! in_manifest "$dest"; then
+    echo "clash: $dest is yours; installing as trazo-trazo-$name/SKILL.md" >&2
+    installed_name="trazo-trazo-$name"
+    dest=".agents/skills/$installed_name/SKILL.md"
+    if [ -e "$dest" ] && ! in_manifest "$dest"; then
+      echo "warning: $dest is also yours; skipping $name entirely" >&2
+      return
+    fi
+  fi
+  rendered="$(mktemp)"
+  if [ "$installed_name" = "trazo-$name" ]; then
+    cp "$src" "$rendered"
+  else
+    sed "s/^name: trazo-$name$/name: $installed_name/" "$src" >"$rendered"
+  fi
+  put_file "$rendered" "$dest" "$placed"
+  rm -f "$rendered"
+}
+
 # ---------------------------------------------------------------- install / upgrade
 
 do_install() {
   local mode="$1" tag="$2" source="$3" adapter="$4" dryrun="$5" want_sha="$6"
   local tmp new_managed f name dest placed kind sha line
 
-  case "$adapter" in claude | agents | both) ;; *) die "--adapter must be claude, agents or both" ;; esac
+  case "$adapter" in claude | agents | codex | both) ;; *) die "--adapter must be claude, agents, codex or both" ;; esac
   [ -d .git ] || [ -f .git ] || die "run this from the root of a git repository"
   case "$source" in -*) die "source must not start with '-'" ;; esac
   [ -z "$want_sha" ] || [[ "$want_sha" =~ ^[0-9a-f]{40}$ ]] || die "--sha must be a full 40-hex commit id"
@@ -308,9 +360,19 @@ do_install() {
   # Adapters. Rebuild the manifest from what is placed now.
   placed="$work/placed"
   : >"$placed"
-  if [ "$adapter" = agents ] || [ "$adapter" = both ]; then
+  if [ "$adapter" = agents ] || [ "$adapter" = codex ] || [ "$adapter" = both ]; then
     set_block AGENTS.md "$work/repo/src/adapters/AGENTS.md"
     echo "AGENTS.md: trazo block set"
+  fi
+  if [ "$adapter" = codex ]; then
+    for f in "$work/repo/src/adapters/codex/agents"/*.toml; do
+      [ -f "$f" ] || continue
+      place_codex_agent "$f" "$(basename "$f" .toml)" "$placed"
+    done
+    for f in "$work/repo/src/adapters/codex/skills"/*/SKILL.md; do
+      [ -f "$f" ] || continue
+      place_codex_skill "$f" "$(basename "$(dirname "$f")")" "$placed"
+    done
   fi
   if [ "$adapter" = claude ] || [ "$adapter" = both ]; then
     set_block CLAUDE.md "$work/repo/src/adapters/CLAUDE.md"
@@ -363,12 +425,11 @@ do_uninstall() {
   check_markers AGENTS.md
   check_markers CLAUDE.md
   if [ "$purge" = 1 ] && [ "$force" != 1 ] && [ -d "$P" ]; then
-    # Fail closed: an unknowable or ignored state counts as "might lose work".
-    st="$(git status --porcelain -- "$P" 2>/dev/null)" ||
+    # Fail closed: an unknowable state counts as "might lose work". --ignored so
+    # gitignored files (a host's *.local) count too; git cannot recover those.
+    st="$(git status --porcelain --ignored -- "$P" 2>/dev/null)" ||
       die "cannot read git status for $P; pass --force to delete it anyway"
-    [ -z "$st" ] || die "$P has uncommitted changes; commit them, or pass --force to delete them anyway"
-    ! git check-ignore -q -- "$P" ||
-      die "$P is gitignored, so git cannot show what would be lost; pass --force to delete it anyway"
+    [ -z "$st" ] || die "$P has untracked, modified or gitignored files; commit or move them, or pass --force to delete them anyway"
   fi
   if [ -f "$MANIFEST" ]; then
     while IFS= read -r line; do
@@ -383,6 +444,7 @@ do_uninstall() {
     done <"$MANIFEST"
   fi
   rmdir .claude/agents .claude/commands .claude 2>/dev/null || true
+  rmdir .codex/agents .codex .agents/skills .agents 2>/dev/null || true
   drop_block AGENTS.md
   drop_block CLAUDE.md
   for f in .trazo/* .trazo/.[!.]*; do

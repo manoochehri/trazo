@@ -62,7 +62,7 @@ The skeptic works because it is **not** the session that produced the result. An
 
 ## What stays out of the overlay
 
-`.trazo/project/` holds a repository's own state: charter, decision records, workstreams, `STATUS.md`, `PLAN.md`, `RUNBOOK.md`, `SKEPTIC_BAR.md` and `reports/`. In the Trazo repository that is state about Trazo, and none of it ships to a host. A host receives blank templates from `src/overlay/templates/` (the charter, ADR and workstream files, and a `docs/` set holding STATUS, PLAN, RUNBOOK, SKEPTIC_BAR and `reports/`), and `/kickoff` copies them into the host's own `.trazo/project/`. `docs/` is empty in this repository and belongs to the host.
+`.trazo/project/` holds a repository's own state: charter, decision records, workstreams, `STATUS.md`, `PLAN.md`, `RUNBOOK.md`, `SKEPTIC_BAR.md` and `reports/`. In the Trazo repository that is state about Trazo, and none of it ships to a host. A host receives blank templates from `src/overlay/templates/` (the charter, ADR and workstream files, and a `docs/` set holding STATUS, PLAN, RUNBOOK, SKEPTIC_BAR and `reports/`), and the installer creates them in the host's own `.trazo/project/` if absent (`/kickoff` fills them in). `docs/` is empty in this repository and belongs to the host.
 
 The rule of thumb: **ours lives in `.trazo/project/`; the host's is a template under `src/overlay/templates/`.** The framework files beside it are overwritten on upgrade; `project/` never is.
 
@@ -74,7 +74,7 @@ A release is a GitHub milestone named `vX.Y.Z`: its description is the release g
 
 Trazo is mounted, not forked, so there is no upstream to sync from and no automated round trip back. That is a deliberate consequence of the model, not an omission:
 
-- **Taking an improvement in:** copy the changed files across, or re-run `/kickoff`, and review the diff like any other change.
+- **Taking an improvement in:** run `bash install.sh upgrade <tag>` (`--dry-run` previews it). It replaces the framework files in `.trazo/`, never touches `.trazo/project/`, and skips adapter files you have edited; review the diff like any other change.
 - **Your project's own decision records win** on anything the two disagree about. You know your repo; Trazo does not.
 - **Lessons flow the other way only by hand.** If a mounted project learns something reusable, it records it in its own `.trazo/project/adr/` and workstreams. Nothing is sent anywhere automatically.
 

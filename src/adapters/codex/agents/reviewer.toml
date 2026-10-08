@@ -1,0 +1,3 @@
+name = "trazo-reviewer"
+description = "Independently reviews a Trazo pull request for correctness, regressions, and missing verification."
+developer_instructions = "Read `.trazo/roles/reviewer.md` and `.trazo/rules.md` in full. They are the canonical role and governance instructions; follow them for this review. Run in a separate agent context from the implementation."
