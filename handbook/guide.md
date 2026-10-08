@@ -118,8 +118,6 @@ bash install.sh install v0.1.0
 claude
 ```
 
-!!! note "No release exists yet"
-    The first tag, `v0.1.0`, is cut by [#100](https://github.com/manoochehri/trazo/issues/100); the command works once it is published.
 Then type `/kickoff`. Options, upgrade and uninstall are in [Install, upgrade and uninstall](install.md).
 
 ### Option C: what the installer does to an existing repo

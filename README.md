@@ -10,7 +10,7 @@ You bring a repo, or an idea. Trazo adds a pinned `.trazo/` overlay and the adap
 
 Engineer and PM are working roles (`/eng` and `/pm` in Claude Code, Codex agents for Codex). Reviewer, security, and skeptic are **subagent-only** review roles, kept separate from the agent that builds the change.
 
-> Status: early, and **not yet released**. Distilled from one real project; expect rough edges. The first release, `v0.1.0`, is tracked by the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1); no tag exists until it closes.
+> Status: early; distilled from one real project, so expect rough edges. The first release, `v0.1.0`, is tracked by the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
 
 [📖 Full documentation](https://manoochehri.github.io/trazo/) · new here? [the guide](handbook/guide.md) · already running a project? [the playbook](handbook/playbook.md)
 
@@ -108,8 +108,6 @@ For OpenAI Codex, select its adapter explicitly:
 ```bash
 bash install.sh install v0.1.0 --adapter codex
 ```
-
-> **No release exists yet.** The first tag, `v0.1.0`, is cut by [#100](https://github.com/manoochehri/trazo/issues/100); the command works once it is published.
 
 Your repo keeps its runtime, its build system and its pipeline. The installer copies the framework into `.trazo/`, adds the adapter for your agent, and creates `.trazo/project/` from blank templates. The Codex adapter adds custom role agents under `.codex/agents/` and workflow skills under `.agents/skills/`; existing host files are preserved. Full options, upgrade and uninstall: [Install, upgrade and uninstall](https://manoochehri.github.io/trazo/install/).
 

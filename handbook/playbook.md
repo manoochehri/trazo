@@ -160,7 +160,7 @@ Yes: the GitHub app shows issues, pull requests, CI, and lets you comment, merge
 ### Bigger moments
 
 **How do I start a brand-new project?**
-From a Claude chat with the project-kickoff skill: *"let's kick off a new project."* Or install Trazo into a new repo (`bash install.sh install v0.1.0`, see [Install](install.md); no release exists yet, so this works once `v0.1.0` is cut, #100), open it in Claude Code, `/kickoff`.
+From a Claude chat with the project-kickoff skill: *"let's kick off a new project."* Or install Trazo into a new repo (`bash install.sh install v0.1.0`, see [Install](install.md)), open it in Claude Code, `/kickoff`.
 
 **I already have a repo. Can I use Trazo on it?**
 Yes — that is the main case. Declare a one-command hermetic build/test environment, run the installer (see [Install](install.md)), then `/kickoff`. Your runtime and pipeline stay as they are. See [What is `.trazo/`](overlay.md) and the guide's mounting option.
