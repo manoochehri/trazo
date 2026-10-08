@@ -23,7 +23,7 @@ def test_external_behavior_and_fail_first_are_checked_by_reviewers():
     work = _read("src/overlay/skills/work.md")
     template = _read(".github/pull_request_template.md")
 
-    assert "For external API behavior, cite the primary documentation" in rules
+    assert "If code depends on an outside service" in rules
     assert "write the regression test first" in rules
     assert "A reviewer treats missing fail-first evidence as must-fix" in rules
     assert "source supports the implementation" in reviewer
@@ -31,6 +31,22 @@ def test_external_behavior_and_fail_first_are_checked_by_reviewers():
     assert "UNVERIFIED" in work
     assert "Review rounds" in template
     assert "defects found and fixed" in template
+
+
+def test_external_api_rules_require_sources_for_assumptions_and_fakes():
+    rules = _read("src/overlay/rules.md")
+    work = _read("src/overlay/skills/work.md")
+    reviewer = _read("src/overlay/roles/reviewer.md")
+
+    assert "check its documentation or a real response" in rules
+    assert "link" in rules and "what you checked" in rules
+    assert "Base tests and fakes on that evidence" in rules
+    assert "Use the service's original documentation" in rules
+    assert "mark the issue" in rules and "`needs-pm`" in rules
+    assert "list each assumed behavior with its source or `UNVERIFIED`" in work
+    assert "UNVERIFIED` behavior the code depends on blocks the change" in work
+    assert "new or changed fakes, fixtures, or mocks cite" in reviewer
+    assert "An uncited fake of an external system is must-fix" in reviewer
 
 
 def test_pm_boundaries_and_owner_message_shape_are_durable():

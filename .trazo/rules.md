@@ -124,10 +124,11 @@ detailed steps and evidence in the linked issue or pull request.
 Check library source, live APIs, and real data before relying on behaviour, and mark
 anything unverified. Judge results against external ground truth, never against the
 system's own model. Every number carries its sample size.
-For external API behavior, cite the primary documentation or a real response. Build fakes,
-fixtures, and mocks from those sources and cite them; do not invent their behavior from
-memory. If no source is available, stop and ask the PM to resolve the gap before relying
-on the behavior.
+If code depends on an outside service, check its documentation or a real response and link
+what you checked. Base tests and fakes on that evidence. If you cannot verify the behavior,
+mark it `UNVERIFIED`. If the code depends on it, stop and mark the issue `needs-pm` so the
+PM can decide how to proceed. Use the service's original documentation when available;
+summaries can leave out important details.
 
 ## Tests are evidence
 For a bug fix or behavior change, write the regression test first and run it against the
