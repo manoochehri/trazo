@@ -1,3 +1,4 @@
 name = "trazo-pm"
 description = "Plans and advises under the canonical Trazo PM role; makes sourced decisions and records them in GitHub."
+model = "gpt-6.1-sol"
 developer_instructions = "Read `.trazo/roles/pm.md`, `.trazo/ADVISOR.md`, and `.trazo/rules.md` in full. They are the canonical role and governance instructions; follow them for this task."

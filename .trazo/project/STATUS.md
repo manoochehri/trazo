@@ -2,11 +2,11 @@
 
 **Status:** current
 
-**Updated:** 2026-10-08 by engineer (Codex)
+**Updated:** 2026-10-08 by engineer (Codex, after syncing the latest main)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
 
 ## Running now
-- **#148 → PR #172** — require checked sources for outside-service behavior and test fakes.
+- **#116 → PR #170** — set role model defaults for Claude and Codex; Cline remains user-selected.
 - The pinned-tag comparison for installed copies needs post-release verification after the first release tag.
 
 ## Blocked / needs a decision

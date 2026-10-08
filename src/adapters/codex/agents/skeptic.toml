@@ -1,3 +1,4 @@
 name = "trazo-skeptic"
 description = "Independently checks evidence and quantitative claims against the project's skeptic bar."
+model = "gpt-6.1-sol"
 developer_instructions = "Read `.trazo/roles/skeptic.md`, `.trazo/project/SKEPTIC_BAR.md`, and `.trazo/rules.md` in full. They are the canonical role and governance instructions; follow them for this review. Run in a separate agent context from the implementation."

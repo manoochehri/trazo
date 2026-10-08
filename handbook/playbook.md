@@ -10,17 +10,17 @@ For setup and reference, see the [guide](guide.md).
 | Who | Command | Does | Model | Edits code? |
 |---|---|---|---|---|
 | **You (owner)** | – | Decide, approve, merge. Pick what matters; answer what only you can. | – | Rarely |
-| **Engineer** (your main Claude Code session) | `/eng` | Builds: code, tests, branches, pull requests | Your choice | Yes |
-| **PM / advisor** | `/pm` | Status, planning, priorities, "is this real?", writes issues | Opus (the `pm` subagent; `/pm` keeps your session model) | No |
-| **Reviewer** | subagent only | Checks pull requests before merge, with fresh eyes | Opus | No |
-| **Security** | subagent only | Checks anything touching secrets, permissions, workflows, infra | Opus | No |
+| **Engineer** | `/eng`, `/work` | Builds: code, tests, branches, pull requests | Haiku default; `/work` uses forked Haiku context | Yes |
+| **PM / advisor** | `/pm` | Status, planning, priorities, "is this real?", writes issues | Sonnet for `/pm`; pinned `pm` subagent | No |
+| **Reviewer** | subagent only | Checks pull requests before merge, with fresh eyes | Sonnet | No |
+| **Security** | subagent only | Checks anything touching secrets, permissions, workflows, infra | Sonnet | No |
 | **CI** (GitHub Actions) | – | Runs tests, lint, secret scan, build on every pull request | – | No |
 
-The four subagents are pinned to Opus. The main session runs on whatever model you picked with `/model`; role commands do not change it.
+Claude Code defaults to Haiku in a fresh Trazo host install. `/work` uses the forked Haiku context; PM, reviewer, security, and skeptic agents are pinned to Sonnet. Codex agents use Luna for engineering and Sol for the other roles. Cline users choose their provider and model. Claude command model settings apply only to the command's turn; the session returns to its previous model on the next prompt.
 
 **How they talk:** through GitHub (issues, pull requests, comments) and the `.trazo/project/` folder. Not through chat memory. Any session can be closed and a fresh one picks up from the repo.
 
-**You talk to all of them in one Claude Code window, in plain English.** Type `/pm` to switch into the PM role directly for the rest of the conversation; `/eng` takes you back to building. Reviewer and security are subagent-only — the engineer session invokes them, automatically as part of `/work` and `/check-pr`, or ad hoc. Commands are optional shortcuts (type `/trazo` for a menu).
+**You talk to all of them in one Claude Code window, in plain English.** `/pm` runs its command turn on Sonnet; for continued planning, invoke the pinned `pm` subagent. A Claude role command does not change the session model after its turn. `/eng` runs its command turn on Haiku. Reviewer and security are subagent-only — the engineer session invokes them, automatically as part of `/work` and `/check-pr`, or ad hoc. Commands are optional shortcuts (type `/trazo` for a menu).
 
 ---
 
@@ -59,7 +59,7 @@ Ask *"what should I work on next?"* The PM weighs the plan, milestones, and what
 Issues labeled `needs-decision`. The morning briefing lists them. Answer in the issue; the PM clears the label only after a comment quoting your words verbatim (typed by you in session, or posted by you on the issue), and a quote relayed by another agent does not count. Say *"record that decision"* so it becomes a decision record.
 
 **I want a big-picture strategy conversation, not a quick answer.**
-In Claude Code, type `/pm` to talk with the PM directly for the rest of the conversation. It switches the role, not the model, so run `/model opus` first if you want Opus for a long planning conversation. End with *"record what we decided."* When done planning, `/eng` switches back to the engineer.
+In Claude Code, `/pm` runs its command turn on Sonnet; for follow-up planning, invoke the pinned `pm` subagent. End with *"record what we decided."* `/eng` runs its command turn on Haiku, and `/work` runs in the forked Haiku context.
 
 ### Doing the work
 

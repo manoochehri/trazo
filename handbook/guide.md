@@ -12,9 +12,9 @@ Trazo runs a small team: you plus several Claude roles. **The agents don't talk 
 | Role | Who | Where they work | Triggered by |
 |---|---|---|---|
 | **Owner** | You | GitHub (phone or laptop), Claude app | You |
-| **PM / advisor** | Claude, the `pm` subagent pinned to Opus | Claude chat; scheduled GitHub runs | You, or a daily schedule |
-| **Engineer** | Claude Code, the main session, on the model you choose | VS Code on your machine, or GitHub Actions | You, or `@claude` on an issue |
-| **Reviewer** | Claude, the `reviewer` subagent pinned to Opus | GitHub pull requests | Automatically on every pull request (once the section 3 workflows are added), or on request in Claude Code |
+| **PM / advisor** | Claude, the `pm` subagent pinned to Sonnet | Claude chat; scheduled GitHub runs | You, or a daily schedule |
+| **Engineer** | Claude Code, `/work` in the forked Haiku context | VS Code on your machine, or GitHub Actions | You, or `@claude` on an issue |
+| **Reviewer** | Claude, the `reviewer` subagent pinned to Sonnet | GitHub pull requests | Automatically on every pull request (once the section 3 workflows are added), or on request in Claude Code |
 
 **Neither AI keeps memory between sessions.** The repo does. Every session starts by reading the docs and ends by updating them.
 
@@ -28,8 +28,8 @@ Trazo runs a small team: you plus several Claude roles. **The agents don't talk 
 
 ### The team inside Claude Code: role commands and subagents
 Roles live in `.claude/agents/` and commands in `.claude/commands/`:
-- **Role commands:** type `/pm` to switch the session directly into the PM role for the rest of the conversation; `/eng` returns to building. While in the PM role, instructions enforce that it does not edit code or configuration. Note that because slash command frontmatter `model:` only applies to the invoking turn and tool restrictions cannot dynamically lock tools across subsequent turns, the role command enforces "no edits" via instructions.
-- **Subagents:** **reviewer**, **security**, and **skeptic** are subagent-only — never role-switch commands — so a review can't grade the same conversation's own work. **pm**, **reviewer**, **security**, and **skeptic** are pinned to Opus (`model: opus`), run in their own context and can't edit code; the main session is the engineer, and its model is your choice via `/model`. A role command does not switch the model (tracked in [#116](https://github.com/manoochehri/trazo/issues/116)). The engineer role delegates to them automatically as part of `/work` and `/check-pr`, or ad hoc ("have security check this", "is this number real?"). Manage them with the built-in `/agents` command. See `.trazo/project/adr/0003-review-security-github-tracked.md`.
+- **Role commands:** `/pm` runs its command turn on Sonnet and `/eng` on Haiku. The model override ends after that turn; Claude restores the session's prior model on the next prompt. `/pm` directs continued work to the pinned `pm` subagent.
+- **Subagents:** `pm`, **reviewer**, **security**, and **skeptic** are pinned to Sonnet. `/work` runs in a forked Haiku context. Reviewer, security, and skeptic remain subagent-only so a review cannot grade the same conversation's work. Manage agents with the built-in `/agents` command. See `.trazo/project/adr/0003-review-security-github-tracked.md`.
 
 **You don't need to memorize commands.** Talk normally ("catch me up", "work on issue 12", "can I merge #15?", "wrap up"); `CLAUDE.md` maps requests to routines. If you want a menu, type `/trazo`. Typing `/` lists every command.
 
@@ -86,7 +86,7 @@ The automatic parts run on GitHub using Anthropic's official Claude Code GitHub 
 ### One-time setup
 1. **API key:** create one in the Anthropic Console. Usage is billed per token, separately from a Claude subscription. **Set a monthly spending limit in the Console.**
 2. **Install the Claude GitHub app** on the repo. In Claude Code, run `/install-github-app`; it walks you through the app and the `ANTHROPIC_API_KEY` secret.
-3. **Add the three workflows.** Ask Claude Code: *"Add claude.yml, claude-review.yml and daily-review.yml per handbook/guide.md section 3, using the current Claude Code Action docs. PM and reviewer on Opus, engineer on Sonnet. Cap turns per run. The daily review reads .trazo/ADVISOR.md and posts to a pinned 'Daily review' issue."*
+3. **Add the three workflows.** Ask Claude Code: *"Add claude.yml, claude-review.yml and daily-review.yml per handbook/guide.md section 3, using the current Claude Code Action docs. PM and reviewer on Sonnet, engineer on Haiku. Cap turns per run. The daily review reads .trazo/ADVISOR.md and posts to a pinned 'Daily review' issue."*
 4. **Test:** comment `@claude what's in this repo?` on any issue, and use "Run workflow" on the daily review.
 
 ### Guardrails
