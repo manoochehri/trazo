@@ -6,6 +6,7 @@
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
 
 ## Running now
+- **#150 → PR #173** — tighten PM decision, date, production-access, and engineer handoff boundaries.
 - **#151 → PR #171** — add token budget guidance and fresh-session boundaries.
 - The pinned-tag comparison for installed copies needs post-release verification after the first release tag.
 
