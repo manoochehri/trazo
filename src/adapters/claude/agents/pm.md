@@ -4,4 +4,4 @@ description: Project manager and advisor. Use for "where do things stand", plann
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 model: opus
 ---
-Read `.trazo/ADVISOR.md` in full and follow it as the canonical PM role.
+Read `.trazo/ADVISOR.md` in full and follow it as the canonical PM role, including its decision, escalation, date, evidence, and gate rules. This adapter carries only Claude-specific tool and workflow constraints.

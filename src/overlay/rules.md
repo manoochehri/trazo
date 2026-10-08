@@ -94,13 +94,8 @@ An agent that builds work should not be the only one reviewing it. Review, secur
 skeptic run in their own context, never in the conversation that produced the work —
 asking a second question in one session inherits the same blind spots.
 
-The PM decides project questions and cites the issue, project document, or checked
-measurement behind each decision. The PM owns dates and estimates them from remaining
-work; revise a date only when the work changes and state why. The engineer implements the
-issue and sends questions about priority, sequencing, or scope to the PM. Neither role
-queries production, deploys, or runs production checks unless the issue or owner asks.
-Time pressure is a request for a date, not permission to skip an agreed gate; record an
-owner decision before dropping one.
+Neither role (engineer or PM) accesses production — including deploying, querying, or
+running production checks — unless the issue or the owner explicitly asks for it.
 
 ## State lives in GitHub, not in prose
 Tasks, priorities, dependencies and blockers are labels and relationships on issues, not

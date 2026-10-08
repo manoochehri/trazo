@@ -35,12 +35,14 @@ def test_external_behavior_and_fail_first_are_checked_by_reviewers():
 
 def test_pm_boundaries_and_owner_message_shape_are_durable():
     rules = _read("src/overlay/rules.md")
-    advisor = _read("src/overlay/ADVISOR.md")
+    advisor = " ".join(_read("src/overlay/ADVISOR.md").split())
     assert "Neither role" in rules and "production" in rules
-    assert "Time pressure is a request for a date" in rules
-    assert "cites the issue, project document" in rules
+    assert "Time pressure is a request for a date" not in rules
+    assert "cite that source" in advisor
+    assert "present it as a question, not a decision" in advisor
     assert "at most one command" in rules
-    assert "estimates them from remaining" in rules
+    assert "work remaining on the issues" in advisor
+    assert "never permission to drop an agreed check or gate" in advisor
     assert "at most one command" in advisor
 
 
