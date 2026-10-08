@@ -229,6 +229,14 @@ def test_the_installed_copy_is_the_product_not_a_fork_of_it() -> None:
     )
 
 
+def test_the_installed_overlay_is_pinned_to_an_available_release_tag() -> None:
+    """After the first release, the self-installed overlay must keep its tag baseline."""
+    assert _pinned_tag() is not None, (
+        ".trazo/VERSION must name a release tag available in this checkout; "
+        "falling back to the working tree would let src/ and the pinned install drift together"
+    )
+
+
 def test_claude_product_adapters_point_to_shared_trazo_content() -> None:
     """Tool-specific Claude files are discovery wrappers; shared role and workflow
     instructions live in the installable overlay and are also used by Codex."""
