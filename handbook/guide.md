@@ -234,7 +234,7 @@ decision records win on anything they disagree about.
 **To improve Trazo from what a project taught you:** write it down in that project first —
 its decision records and workstreams are the right home, and they are the project's to
 keep. When you are next working in Trazo, promote what is genuinely reusable by hand, on a
-branch, with a row in `.template/LESSONS.md` and a version bump.
+branch, by promoting reusable guidance into `.trazo/rules.md` or a new ADR and including it in the versioned change.
 
 **Working on Trazo itself:** open the Trazo repo in Claude Code as you would any project. `src/` is the product and is where every change is made; `.trazo/` is the pinned install that governs the repo and is never hand-edited, so a rule you change in `src/` governs this repo only after it is released. Its own state lives in `.trazo/project/`, which is never shipped to hosts; the blank scaffolding hosts receive is under `src/overlay/templates/`. Changes go through pull requests like anything else.
 

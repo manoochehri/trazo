@@ -3,10 +3,11 @@
 ## Local
 ```
 make setup     # deps + git hooks (gitleaks, ruff)
-make test
-make run
-make build     # docker image
+make test      # pytest
+make lint      # ruff
 make scan      # scan git history for secrets
+make docs      # preview the handbook locally
+make release   # validate and cut an annotated version tag
 ```
 
 `make scan` scans the full git history in a container. It works from inside a
@@ -50,7 +51,7 @@ Caveat (#44): agents post as the owner's account, so an agent could set `success
 - AWS: `scripts/put_secret.sh <secret-name>` (you run it; it prompts without echoing).
 
 ## Deploy
-TODO once infra exists: branch → PR → CI → merge to main → merge main into `deploy` → approve in GitHub → deploy workflow.
+This repository has no deploy target. The handbook is published by its GitHub Pages workflow.
 
 ## Roll back
 TODO

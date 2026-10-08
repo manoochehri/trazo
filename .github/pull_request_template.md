@@ -9,4 +9,4 @@ Closes #<issue-number> as the **first line of the commit message** (`Closes #<n>
 - [ ] Made a decision? Added `.trazo/project/adr/NNNN-*.md`
 - [ ] Changed a workstream's status or evidence? Updated `.trazo/project/workstreams/`
 - [ ] Numbers reported with sample sizes and measured against external reality
-- [ ] Learned something reusable? Added to `.template/LESSONS.md`
+- [ ] Learned something reusable? Recorded it in `.trazo/rules.md` or a new ADR

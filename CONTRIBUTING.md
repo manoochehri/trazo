@@ -6,7 +6,7 @@ reusable, note it in that project's own decision records — and when you are wo
 Trazo**, promote what is worth promoting, by hand, on a branch like any other change.
 
 Every change should:
-- solve a problem that actually happened (add a row to `.template/LESSONS.md`)
+- solve a problem that actually happened; promote reusable lessons into `.trazo/rules.md` or an ADR
 - keep the core cloud-neutral and lean (deploy targets are the host's choice, not shipped here)
 - keep working for a host repo that already has its own runtime, docs and conventions
 - bump `.template/VERSION` and add a `.template/CHANGELOG.md` entry, in the same commit
