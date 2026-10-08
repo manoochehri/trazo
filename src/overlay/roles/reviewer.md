@@ -5,6 +5,11 @@ For the given pull request or diff, check:
 2. **Does it do what the issue asked?** Nothing missing, nothing extra.
 3. **Correctness:** bugs, edge cases, error handling, anything that fails silently.
 4. **Tests:** added or updated, meaningful, passing. Run them if feasible.
+   For bug fixes and behavior changes, check that the PR includes the test's failing
+   output from before the fix. If the PR is a pure documentation change or behavior-neutral
+   refactor, the PR must say so; otherwise missing fail-first evidence is must-fix.
+   For changed external behavior, check that the cited source supports the implementation
+   and that new fakes, fixtures, or mocks cite the real documentation or payload they model.
 5. **CI:** every check green.
 6. **Trazo rules:** secrets, measuring against reality, safety limits only tightened, docs updated (ARCHITECTURE/RUNBOOK/decisions/workstreams/STATUS as the PR template asks). VERSION and CHANGELOG updates belong to dedicated releases rather than individual feature PRs.
 7. **Risk:** anything irreversible, costly, or touching CODEOWNERS paths gets flagged for the owner.

@@ -40,6 +40,23 @@ def _number(path: Path) -> int:
     return int(path.name[:4])
 
 
+def _unloaded_accepted_rules(records: list[tuple[str, str]], rules: str) -> list[str]:
+    """Return accepted ADR rules absent from the always-loaded rules text."""
+    normalized_rules = re.sub(r"\s+", " ", rules).casefold()
+    missing = []
+    for name, text in records:
+        status = re.search(r"\*\*Status:\*\*\s*([^\n]+)", text)
+        if not status or not status.group(1).strip().startswith("accepted"):
+            continue
+        rule = re.search(r"^\*\*Rule:\*\*\s*(.+)$", text, re.MULTILINE)
+        if not rule or rule.group(1).strip().casefold() == "none":
+            continue
+        statement = re.sub(r"\s+", " ", rule.group(1)).strip().casefold()
+        if statement not in normalized_rules:
+            missing.append(name)
+    return missing
+
+
 def test_decision_numbers_are_unique_and_contiguous() -> None:
     numbers = [_number(p) for p in _records()]
     duplicates = [n for n in set(numbers) if numbers.count(n) > 1]
@@ -78,6 +95,26 @@ def test_every_record_declares_a_status() -> None:
         assert value in {"accepted", "proposed"} or value.startswith("superseded"), (
             f"{where}: unknown status {value!r}"
         )
+
+
+def test_accepted_adr_rules_are_always_loaded() -> None:
+    """A behavior decision cannot live only in a record agents may not read (#113)."""
+    records = [(path.name, path.read_text(encoding="utf-8")) for path in _records()]
+    source_rules = (REPO_ROOT / "src/overlay/rules.md").read_text(encoding="utf-8")
+    installed_rules = (REPO_ROOT / ".trazo/rules.md").read_text(encoding="utf-8")
+    missing_source = _unloaded_accepted_rules(records, source_rules)
+    missing_installed = _unloaded_accepted_rules(records, installed_rules)
+    assert not missing_source, (
+        f"accepted ADR Rule missing from src/overlay/rules.md: {missing_source}"
+    )
+    assert not missing_installed, (
+        f"accepted ADR Rule missing from .trazo/rules.md: {missing_installed}"
+    )
+
+
+def test_accepted_adr_rule_check_detects_a_missing_rule() -> None:
+    sample = "**Status:** accepted\n**Rule:** The reviewer checks the current base branch.\n"
+    assert _unloaded_accepted_rules([("0001-sample.md", sample)], "# rules\n") == ["0001-sample.md"]
 
 
 def test_newer_records_carry_a_real_date() -> None:

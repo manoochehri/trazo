@@ -3,4 +3,3 @@
 /.github/CODEOWNERS      @manoochehri
 /.claude/settings.json   @manoochehri
 /.trazo/project/charter/        @manoochehri
-/config/limits*          @manoochehri
