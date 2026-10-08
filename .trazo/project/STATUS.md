@@ -2,18 +2,15 @@
 
 **Status:** current
 
-**Updated:** 2026-10-08 by engineer (Codex, after the latest milestone merges)
+**Updated:** 2026-10-08 by engineer (Codex, after the latest milestone merge)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
 
 ## Running now
-- No pull requests are open.
-- The pinned-tag comparison for installed copies needs post-release verification after the first release tag.
+- No pull requests are awaiting review or changes.
+- The installed-copy comparison against the first release tag remains post-release verification.
 
 ## Blocked / needs a decision
-- **#113** — implementation plan awaits the requested owner OK.
-- **#149** — needs the owner's decision before implementation.
-- **#134** — owner-only repository settings must be completed before release.
-- **#100** — release waits for the milestone scope and release prerequisites.
+- Owner decisions and owner-only release settings are tracked on the milestone's open issues.
 
 ## Next
-- Resume work when the relevant owner gates clear; reassess release readiness after the remaining milestone issues close.
+- Continue with the first ready milestone issue; release only after the milestone closes and CI is green.
