@@ -26,7 +26,6 @@ def test_no_stacked_pull_requests_are_checked_at_ci_and_workflow_layers() -> Non
 
 
 def test_automatic_branch_deletion_is_checked_and_left_to_the_owner() -> None:
-    ci = _read(".github/workflows/ci.yml")
     kickoff = _read("src/overlay/skills/kickoff.md")
     start = _read("src/overlay/skills/start.md")
     security = _read("src/overlay/roles/security.md")
@@ -37,7 +36,7 @@ def test_automatic_branch_deletion_is_checked_and_left_to_the_owner() -> None:
     assert "do not change the setting yourself" in start
     assert "delete_branch_on_merge" in security
     assert "Automatically delete head branches" in installer
-    assert "github.event_name == 'pull_request'" in ci
-    assert "GH_TOKEN: ${{ github.token }}" in ci
-    assert "gh api \"repos/$REPOSITORY\" --jq '.delete_branch_on_merge'" in ci
-    assert '!= "true"' in ci
+    # GitHub owns this setting. Its API hides the field from the PR workflow's
+    # read-only token, so CI cannot reliably verify it without write permission.
+    ci = _read(".github/workflows/ci.yml")
+    assert "delete_branch_on_merge" not in ci

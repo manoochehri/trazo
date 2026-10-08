@@ -20,8 +20,6 @@ jobs:
         run: gitleaks detect --source . --redact -v
   test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Require pull requests to target the default branch
         if: github.event_name == 'pull_request'
@@ -31,17 +29,6 @@ jobs:
         run: |
           if [[ "$PR_BASE" != "$DEFAULT_BRANCH" ]]; then
             echo "::error::Pull requests must target '$DEFAULT_BRANCH' (got '$PR_BASE')."
-            exit 1
-          fi
-      - name: Require automatic deletion of merged pull request branches
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          DELETE_BRANCH_ON_MERGE="$(gh api "repos/$REPOSITORY" --jq '.delete_branch_on_merge')"
-          if [[ "$DELETE_BRANCH_ON_MERGE" != "true" ]]; then
-            echo "::error::Enable Settings → General → Pull Requests → Automatically delete head branches."
             exit 1
           fi
       - uses: actions/checkout@v7
