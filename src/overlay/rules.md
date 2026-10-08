@@ -66,6 +66,13 @@ Sessions are disposable and contexts reset. Anything that must survive goes in t
 decisions in `.trazo/project/adr/`, work in GitHub Issues, status and plan in `.trazo/project/`. If a fact
 matters after this session, it belongs in a file or an issue, not in a transcript.
 
+## Read referenced decisions before writing
+Before the first file write in a project, inspect its top-level instructions and follow their
+document map. Enumerate referenced directories for standing rules and decisions, skim their
+indexes or contents, and read the applicable current standing records. A pointer is not a read. If the
+map does not name them, look for project-local `decisions/`, `rules/`, `adr/`, or equivalent
+directories; layouts vary. Respect superseded and current status markers.
+
 ## Token budget
 Use one fresh working session per task. Do not poll another session or read its transcript
 for status; status travels through tests, PR reports, and issue comments. A waiting role is

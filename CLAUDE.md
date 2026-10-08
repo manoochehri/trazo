@@ -16,6 +16,10 @@ verified at runtime, not assumed. An import that does not resolve fails silently
 
 **Read first, every session:** [`.trazo/project/charter/charter.md`](.trazo/project/charter/charter.md) and
 [`.trazo/project/STATUS.md`](.trazo/project/STATUS.md). Then open GitHub issues for the current milestone.
+Before the first file write, follow the repository instruction file's document map into referenced
+rule and decision directories, skim their indexes or contents, and read applicable current records.
+If the map does not list them, check project-local `decisions/`, `rules/`, `adr/`, or equivalent paths;
+the layout is project-specific.
 
 ## Where things live
 | Doc | Purpose |
