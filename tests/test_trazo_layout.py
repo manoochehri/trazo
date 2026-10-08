@@ -21,6 +21,8 @@ Two properties are asserted:
 """
 
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -88,6 +90,7 @@ HISTORY = (".trazo/project/adr/", ".template/CHANGELOG.md")
 MARKED = {"CLAUDE.md", "AGENTS.md"}
 BEGIN = b"<!-- trazo:begin -->\n"
 END = b"<!-- trazo:end -->\n"
+GIT = shutil.which("git")
 
 
 def _installed_bytes(rel: str) -> bytes:
@@ -102,6 +105,52 @@ def _installed_bytes(rel: str) -> bytes:
     head, _, rest = data.partition(BEGIN)
     block, _, _tail = rest.partition(END)
     return block
+
+
+def _pinned_tag() -> str | None:
+    """Return the installed release tag once it exists in this checkout.
+
+    Before the first release there is no `.trazo/VERSION`, so the source tree is the
+    only available baseline. After installation, VERSION records the tag that owns the
+    files in `.trazo/`; that immutable tag must remain the comparison baseline while
+    `src/` moves ahead.
+    """
+    version_file = REPO_ROOT / ".trazo/VERSION"
+    if not version_file.is_file():
+        return None
+    assert GIT, ".trazo/VERSION exists, but git is required to verify its pinned tag"
+
+    version_lines = version_file.read_text(encoding="utf-8").splitlines()
+    assert version_lines, ".trazo/VERSION is empty"
+    tag = version_lines[0].strip()
+    assert re.fullmatch(r"v\d+\.\d+\.\d+", tag), (
+        f".trazo/VERSION must start with a release tag, got {tag!r}"
+    )
+    result = subprocess.run(  # noqa: S603 - fixed git argv; tag is constrained to semver
+        [GIT, "rev-parse", "--verify", "--quiet", f"refs/tags/{tag}"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    return tag if result.returncode == 0 else None
+
+
+def _source_bytes(rel: str, tag: str | None) -> bytes:
+    """Read the canonical file from the pinned tag, or from the worktree pre-release."""
+    if tag is None:
+        return (REPO_ROOT / rel).read_bytes()
+    assert GIT is not None
+    result = subprocess.run(  # noqa: S603 - fixed git argv and repository-relative path
+        [GIT, "show", "--no-ext-diff", "--no-textconv", f"{tag}:{rel}"],
+        capture_output=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"could not read {rel} from pinned release {tag}: " + result.stderr.decode(errors="replace")
+    )
+    return result.stdout
 
 
 def _tracked() -> list[Path]:
@@ -164,19 +213,19 @@ def test_the_installed_copy_is_the_product_not_a_fork_of_it() -> None:
     installed copy (or an edit to `src/` that nobody installed) makes the two disagree,
     and this names which file.
 
-    This compares the working trees because no release tag exists yet to pin to (see
-    `.template/CHANGELOG.md`). Once `v0.1.0` is tagged the installed side should be
-    compared with the tagged `src/`, so that `src/` can move ahead of the install -- the
-    frozen-rules cost ADR 0010 states. Until then equality is the accurate claim.
+    Before the first install, compare the working trees. Once `.trazo/VERSION` names an
+    available release tag, compare the installed files with that tag's `src/` so that
+    the product can move ahead while this repository remains pinned (ADR 0010).
     """
+    tag = _pinned_tag()
     drifted = [
         f"{installed} != {source}"
         for installed, source in INSTALLED_FROM_SRC.items()
-        if _installed_bytes(installed) != (REPO_ROOT / source).read_bytes()
+        if _installed_bytes(installed) != _source_bytes(source, tag)
     ]
     assert not drifted, (
-        "the installed copy differs from the canonical source. Edit `src/` (ADR 0010), "
-        "never `.trazo/` directly:\n" + "\n".join(drifted)
+        "the installed copy differs from its canonical source. Edit `src/`, then "
+        "reinstall from the intended release; never edit `.trazo/` directly:\n" + "\n".join(drifted)
     )
 
 
