@@ -4,9 +4,11 @@
 
 **A governance overlay for AI coding agents. Mount it on any repo — new or existing — and agents start working to rules instead of improvising.**
 
-Trazo is built specifically for **Claude Code**, and opinionated in two places: how agents hand work to each other, and whether a result is real. It is deliberately neutral about everything else — language, framework, and where your code runs.
+Trazo ships tested adapters for **Claude Code** and **OpenAI Codex**, and is opinionated in two places: how agents hand work to each other, and whether a result is real. It is deliberately neutral about everything else — language, framework, and where your code runs.
 
-You bring a repo, or an idea. Trazo adds a pinned `.trazo/` overlay and a thin `.claude/` adapter on top: rules, a charter with a pre-registered stop rule, decision records that outlive a session, and three agents that check each other's work. Your code, your build, your deploy — unchanged.
+You bring a repo, or an idea. Trazo adds a pinned `.trazo/` overlay and the adapter for your agent: rules, a charter with a pre-registered stop rule, decision records that outlive a session, and roles that check each other's work. Your code, your build, your deploy — unchanged.
+
+Engineer and PM are working roles (`/eng` and `/pm` in Claude Code, Codex agents for Codex). Reviewer, security, and skeptic are **subagent-only** review roles, kept separate from the agent that builds the change.
 
 > Status: early, and **not yet released**. Distilled from one real project; expect rough edges. The first release, `v0.1.0`, is tracked by the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1); no tag exists until it closes.
 
@@ -42,9 +44,9 @@ Trazo's answer: **the repo is the memory, and the rails are mounted rather than 
 | **The rules** | `.trazo/rules.md` — tool-neutral, read once by any tool's adapter |
 | **Design records** | `.trazo/ARCHITECTURE.md`, `.trazo/ADVISOR.md` (framework files, overwritten on upgrade) |
 | **Blank project state** | `.trazo/project/` created from templates: `charter/charter.md`, `STATUS.md`, `PLAN.md`, `RUNBOOK.md`, `SKEPTIC_BAR.md`, `reports/`, plus blank ADR and workstream templates. Never overwritten on upgrade |
-| **The adapter** | `CLAUDE.md` and `.claude/` for Claude Code, `AGENTS.md` for other agents, written between Trazo's own markers |
-| **AI team** | If you use Claude Code, `.claude/agents/`: `reviewer`, `security`, `skeptic` and `pm`, **pinned to Opus**; the first three are **subagent-only**. `/pm` and `/eng` switch the session's role (they do not switch the model; that is your choice via `/model`). None of them edits a file, but each records its verdict on GitHub, and `/pm` may also reshape the issue graph. See [the team](handbook/team.md) |
-| **Commands** | If you use Claude Code, `.claude/commands/`: `/trazo` (menu), `/kickoff`, `/start`, `/work`, `/check-pr`, `/pm`, `/eng`, `/wrapup`, `/brief`, `/decide` — or just ask in plain English |
+| **The adapter** | `CLAUDE.md` and `.claude/` for Claude Code; `AGENTS.md`, `.codex/agents/`, and `.agents/skills/` for Codex; `AGENTS.md` for other agents that read it |
+| **AI team** | Canonical roles live in `.trazo/roles/`. Claude Code maps them to `.claude/agents/`; Codex maps them to project agents in `.codex/agents/`. Both adapters use the same role definitions. |
+| **Commands and workflows** | Claude Code gets slash commands in `.claude/commands/`; Codex gets discoverable skills in `.agents/skills/`. The adapter maps each tool's entry points to Trazo's shared roles and project docs. |
 | **Secret-read denial** | If you use Claude Code, `.claude/settings.json` denies Claude Code reads of `.env`, `.env.*`, `secrets/`, `*.pem` and `*.key` (only if you have no `settings.json` of your own) |
 
 ### What `/kickoff` sets up, or asks you to add
@@ -82,7 +84,7 @@ The one thing a **mounted** repo must supply is an environment, not a tool: *a o
 ## Requirements
 
 - A GitHub account and the [GitHub CLI](https://cli.github.com/) (`gh auth login`)
-- [Claude Code](https://docs.claude.com/) (or another agent that can read `CLAUDE.md` and run commands)
+- Claude Code, or [OpenAI Codex](https://developers.openai.com/codex/)
 - A way to run your tests in one command — see the mount-time contract above. For a *new* Trazo-owned repo, that means [uv](https://docs.astral.sh/uv/) and Docker.
 - Optional: an account with wherever your project deploys; Trazo ships no deploy target
 
@@ -101,9 +103,15 @@ curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.1.0/scripts/in
 bash install.sh install v0.1.0
 ```
 
+For OpenAI Codex, select its adapter explicitly:
+
+```bash
+bash install.sh install v0.1.0 --adapter codex
+```
+
 > **No release exists yet.** The first tag, `v0.1.0`, is cut by [#100](https://github.com/manoochehri/trazo/issues/100); the command works once it is published.
 
-Your repo keeps its runtime, its build system and its pipeline. The installer copies the framework into `.trazo/`, adds the adapter for your agent (`.claude/` and `CLAUDE.md` if you use Claude Code, `AGENTS.md` for other agents; if your repo already has them, the installer merges between its own markers and never replaces yours), and creates `.trazo/project/` from blank templates. Full options, upgrade and uninstall: [Install, upgrade and uninstall](https://manoochehri.github.io/trazo/install/).
+Your repo keeps its runtime, its build system and its pipeline. The installer copies the framework into `.trazo/`, adds the adapter for your agent, and creates `.trazo/project/` from blank templates. The Codex adapter adds custom role agents under `.codex/agents/` and workflow skills under `.agents/skills/`; existing host files are preserved. Full options, upgrade and uninstall: [Install, upgrade and uninstall](https://manoochehri.github.io/trazo/install/).
 
 Then:
 

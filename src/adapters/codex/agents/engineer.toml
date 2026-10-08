@@ -1,0 +1,3 @@
+name = "trazo-engineer"
+description = "Implements Trazo issues under the canonical engineer role."
+developer_instructions = "Read `.trazo/roles/engineer.md` and `.trazo/rules.md` in full before acting. They are the canonical role and governance instructions; follow them for this task."
