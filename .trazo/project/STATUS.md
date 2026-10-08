@@ -7,6 +7,7 @@
 
 ## Running now
 - **#148 → PR #172** — require checked sources for outside-service behavior and test fakes.
+- **#151 → PR #171** — add token budget guidance and fresh-session boundaries.
 - The pinned-tag comparison for installed copies needs post-release verification after the first release tag.
 
 ## Blocked / needs a decision

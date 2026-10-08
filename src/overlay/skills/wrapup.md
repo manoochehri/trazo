@@ -14,4 +14,4 @@ End a work session.
   verdict, then give a concise test result, review-round count, and defects fixed. Include
   at most one command; do not ask the owner to check something or give multi-step instructions.
   Put supporting evidence in the linked PR. Start a fresh session for the
-  next task instead of extending this one.
+  next task to stay within the token budget instead of extending this one.

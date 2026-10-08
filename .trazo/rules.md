@@ -66,6 +66,14 @@ Sessions are disposable and contexts reset. Anything that must survive goes in t
 decisions in `.trazo/project/adr/`, work in GitHub Issues, status and plan in `.trazo/project/`. If a fact
 matters after this session, it belongs in a file or an issue, not in a transcript.
 
+## Token budget
+Use one fresh working session per task. Do not poll another session or read its transcript
+for status; status travels through tests, PR reports, and issue comments. A waiting role is
+re-invoked when there is an update rather than watching another session. Use subagents only
+when a rule requires a separate context, such as review, security, or skeptic work, not to
+fan out work the main session can do. Keep durable state in the issue tracker, and start a
+fresh chat for the next task instead of extending the current one.
+
 ## Work on branches
 Never push to the default branch. Each change gets an isolated worktree based on fresh
 `origin/<default-branch>` and a pull request against the repository's default branch. Do not
