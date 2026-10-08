@@ -6,7 +6,7 @@
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
 
 ## Running now
-- **#152 → PR #169** — make owner handoffs short, decision-first, and free of homework.
+- **#148 → PR #172** — require checked sources for outside-service behavior and test fakes.
 - The pinned-tag comparison for installed copies needs post-release verification after the first release tag.
 
 ## Blocked / needs a decision
