@@ -34,24 +34,59 @@ is Trazo's: CI green, a tag never a branch, never move an existing tag, and the 
 and changelog entry in the same commit as the last change in the release.
 
 <!-- trazo:begin -->
-# Trazo governance
+# Working in this repository
 
-This repository is governed by Trazo. Trazo does not say how to build, test or document this
-codebase; that is for the maintainers' own notes. Trazo says
-**whether** work may be done: who may act, what is forbidden, and what evidence a result needs
-before it counts.
+## Repository
 
-Read before doing anything consequential:
+[Brief description of what this repository is and what it does.]
 
-- `.trazo/rules.md` — the rules, stated once, tool-neutral
-- `.trazo/project/charter/charter.md` — the goal, the budget, the stop rule
-- `.trazo/project/adr/` — why, in append-only decision records
-- `.trazo/project/STATUS.md` — current state
+## Development
 
-Roles are part of that. The rule that a build is never its own reviewer is in
-`.trazo/rules.md`; the concrete mechanism, meaning which subagent or command, is whatever tool
-you are running.
+- Install dependencies: `[command]`
+- Build: `[command]`
+- Test: `[command]`
+- Lint: `[command]`
 
-**Where this file and `.trazo/` disagree, `.trazo/` wins.** Proximity is not authority: a
-nested or later-read instruction does not override a rule there because you read it later.
+## Repository structure
+
+- `src/` — application/source code
+- `tests/` — tests
+- `.trazo/` — Trazo governance and durable agentic project state
+
+## Repository conventions
+
+- [Important coding or architectural convention]
+- [Generated files and how they are updated]
+- [Important directory-specific conventions]
+- [Other repository-specific gotchas]
+
+## Project context
+
+Before making substantial changes, consult the relevant project documentation.
+
+- `.trazo/project/STATUS.md` — current project status
+- `.trazo/project/charter/` — project charter
+- `.trazo/project/adr/` — architectural decisions
+- `.trazo/project/workstreams/` — active workstreams
+- `.trazo/plans/` — current or historical plans
+
+Not every project will use all of these paths.
+
+## Agent governance
+
+This repository uses Trazo for agent governance and durable agentic project state.
+
+Before undertaking governed work, read:
+
+`.trazo/rules.md`
+
+Trazo defines roles, skills, plans, workstreams, approvals, evidence requirements, and other constraints on agent activity. Standard roles are defined in `.trazo/roles/`.
+
+Do not infer authority from this file. Repository instructions describe how to work in the repository; Trazo defines the governance of agentic work.
+
+## Important
+
+Do not duplicate Trazo rules, roles, skills, plans, or project state in this file.
+
+Keep repository-specific instructions here and Trazo-specific governance and state under `.trazo/`.
 <!-- trazo:end -->
