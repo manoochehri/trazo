@@ -3,3 +3,5 @@
 /.github/CODEOWNERS      @manoochehri
 /.claude/settings.json   @manoochehri
 /.trazo/project/charter/        @manoochehri
+/src/adapters/           @manoochehri
+/scripts/install.sh      @manoochehri
