@@ -7,7 +7,7 @@
 
 ## Running now
 - **#148 → PR #172** — require checked sources for outside-service behavior and test fakes.
-- **#151 → PR #171** — add token budget guidance and fresh-session boundaries.
+- **#150 → PR #173** — tighten PM decision, date, production-access, and engineer handoff boundaries.
 - The pinned-tag comparison for installed copies needs post-release verification after the first release tag.
 
 ## Blocked / needs a decision

@@ -23,6 +23,8 @@ The test for "blocked" is whether **progress stops**, not whether you have a que
 
 When progress does stop:
 
+Questions about sequencing, priority, or scope use this same `needs-pm` handoff; the engineer does not resolve them independently.
+
 1. **Post the question to the issue** with `gh issue comment`. Include what you tried, what you verified, the options you see, and which one you would pick. Do not put it only in chat.
 2. **Label it:** `gh issue edit <n> --add-label needs-pm`.
 3. **Call the `pm` subagent** for an assist, pointing it at the issue number.
