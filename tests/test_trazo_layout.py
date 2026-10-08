@@ -194,6 +194,9 @@ def test_claude_product_adapters_point_to_shared_trazo_content() -> None:
         assert (REPO_ROOT / "src/overlay/roles" / f"{name}.md").is_file(), name
     for name in ("start", "work", "check-pr", "brief", "decide", "kickoff", "trazo", "wrapup"):
         assert (REPO_ROOT / "src/overlay/skills" / f"{name}.md").is_file(), name
+    kickoff = (REPO_ROOT / "src/overlay/skills/kickoff.md").read_text().lower()
+    assert "semilla" not in kickoff
+    assert "templates/docs/" not in kickoff
 
 
 def test_the_product_tree_holds_no_trazo_project_state() -> None:

@@ -132,6 +132,7 @@ def test_codex_adapter_installs_agents_and_skills(host, source):
     assert (host / ".trazo/roles/engineer.md").is_file()
     assert (host / ".trazo/roles/reviewer.md").is_file()
     assert (host / ".trazo/skills/work.md").is_file()
+    assert "installer created" in (host / ".trazo/skills/kickoff.md").read_text()
     assert ".trazo/roles/engineer.md" in (host / ".codex/agents/trazo-engineer.toml").read_text()
     assert not (host / "CLAUDE.md").exists()
     assert not (host / ".claude").exists()
