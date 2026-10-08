@@ -53,6 +53,10 @@ Cutting one per PR produces a version history nobody can read and signals more s
 than the project has: four minor versions in a day reads as `0.9.0` on a three-day-old
 repository, which is a claim, not a fact.
 
+Choose the bump from the milestone's scope: PATCH is fixes only; MINOR changes what a host
+receives in a way that changes agent behavior; MAJOR stays `0` until the owner declares the
+overlay stable (ADR 0013).
+
 Wait for the work to be merged and CI green, then release. Bump `.template/VERSION` and
 write the changelog entry in the *same commit* as the last change in that release, so the
 version and its description are reviewed together and can never disagree.
