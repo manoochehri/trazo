@@ -3,9 +3,12 @@ Closes #<issue-number> as the **first line of the commit message** (`Closes #<n>
 
 ## Checks
 - [ ] Tests added/updated and passing
-- [ ] For a bug or behavior change, the PR includes failing test output from unchanged code; if exempt, say why
+- [ ] Fail-first output: paste failing test output from unchanged code, or add a specific `Fail-first exemption:` below
+- [ ] Review rounds: <number>
+- [ ] defects found and fixed: <summary or none>
+- Fail-first output:
+- Fail-first exemption:
 - [ ] External behavior assumptions cite primary docs or a real response; fakes and fixtures cite what they model
-- [ ] Review rounds: <count>; defects found and fixed: <summary or none>
 - [ ] No secrets, keys, or real data in the diff
 - [ ] Changed the system's shape? Updated `.trazo/ARCHITECTURE.md`
 - [ ] Changed how to run/deploy/recover? Updated `.trazo/project/RUNBOOK.md`

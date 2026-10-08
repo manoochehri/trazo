@@ -8,6 +8,8 @@ For the given pull request or diff, check:
    For bug fixes and behavior changes, check that the PR includes the test's failing
    output from before the fix. If the PR is a pure documentation change or behavior-neutral
    refactor, the PR must say so; otherwise missing fail-first evidence is must-fix.
+   Check that the PR description reports the actual number of review rounds and summarizes
+   defects found and fixed; missing or inaccurate evidence is must-fix.
    For changed external behavior, check that the cited source supports the implementation
    and that new or changed fakes, fixtures, or mocks cite the real documentation or payload
    they model. An uncited fake of an external system is must-fix.
