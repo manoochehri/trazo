@@ -49,6 +49,26 @@ Owner step, once: GitHub repo Settings -> Rules -> Rulesets -> the `protect main
 
 Caveat (#44): agents post as the owner's account, so an agent could set `success` itself. The rule says only the reviewer or security subagent sets it, and the audit trail is the PR review comment that accompanies each status. This is not enforced until #44 gives agent work its own identity.
 
+## Separate GitHub App identity for agent work (#44)
+
+The owner chose a GitHub App for agent identity. Install it only on `manoochehri/trazo` and grant the minimum repository permissions needed for the operations in #115:
+
+| Permission | Access | Used for |
+|---|---|---|
+| Metadata | Read (required) | Repository metadata |
+| Contents | Read and write | Read source, push agent branches, and merge PRs if #115 phase two is approved |
+| Issues | Read and write | Read issues; post comments and update labels |
+| Pull requests | Read and write | Create and update PRs; post reviews/comments; enable auto-merge if #115 phase two is approved |
+| Commit statuses | Read and write | Set `trazo/verdict` and `trazo/security` on a commit |
+
+Do not grant Actions, administration, secrets, deployments, Checks, or organization-wide access for this design. Leave webhook URL and event subscriptions unset until a cloud consumer is approved. The current verdict mechanism uses commit statuses; a future switch to Checks requires a separate design and permission review. GitHub documents the endpoint permissions in [its permissions table](https://docs.github.com/en/rest/authentication/permissions-required-for-github-apps), including [creating refs](https://docs.github.com/en/rest/git/refs#create-a-reference), [creating pull requests](https://docs.github.com/en/rest/pulls/pulls#create-a-pull-request), [submitting reviews](https://docs.github.com/en/rest/pulls/reviews#create-a-review-for-a-pull-request), [merging pull requests](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request), and [creating commit statuses](https://docs.github.com/en/rest/commits/statuses#create-a-commit-status).
+
+**Credential timing:** create and install the App with repository access restricted to this repository, but wait to generate/store its private key until a reviewed token consumer is ready and has documented the exact secret name and rotation/revocation steps. The private key does not expire; GitHub recommends storing it securely and not sharing it broadly ([GitHub App security guidance](https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps/best-practices-for-creating-a-github-app)). At that point, the owner generates the key and enters it directly into the approved secret store. Agents must never read, receive, or handle the key.
+
+Installation tokens require a JWT signed with the private key, are limited by the App's permissions and repository access, and expire after one hour ([installation token guide](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-an-installation-access-token-for-a-github-app)). The consumer must mint short-lived tokens and use the App identity for GitHub operations.
+
+**Current limit:** local sessions still use the owner's `gh` authentication. Do not copy the App private key into a local `.env` file or onto agent-readable disk. GitHub advises native/client apps running on a user's device not to use the App private key. A local-session identity therefore needs a separately reviewed token-broker design. Cloud execution is also not ready: #117 is research-only and forbids production workflow changes until its evidence-backed plan is accepted. Keep #44 open until a supported consumer is implemented and an agent-authored action is verified as the distinct App identity.
+
 ## Secrets
 - Local: copy `.env.example` to `.env` and fill in. `.env` is git-ignored and blocked from Claude Code.
 - AWS: `scripts/put_secret.sh <secret-name>` (you run it; it prompts without echoing).
