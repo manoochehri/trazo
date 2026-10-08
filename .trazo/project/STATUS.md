@@ -2,7 +2,7 @@
 
 **Status:** current
 
-**Updated:** 2026-10-08 by engineer (after the gate audit and status refresh)
+**Updated:** 2026-10-08 by engineer (after the CODEOWNERS PR merged and the GitHub App runbook update)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
 
 ## Running now
