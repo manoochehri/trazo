@@ -10,6 +10,8 @@ End a work session.
 7. Teardown / cleanup: for any merged feature branch that used an isolated worktree, remove the worktree and clean up the local branch:
    `git worktree remove .worktrees/<name> && git branch -d <name>`
    Run `git worktree prune` to keep worktree tracking clean.
-8. Keep the owner-facing wrap-up decision-first and under 15 lines. Include at most one
-   command for the owner; put the rest of the evidence in linked issues or PRs. Start a
-   fresh session for the next task instead of extending this one.
+8. Keep the owner-facing wrap-up short and decision-first. Lead with the PR link and
+  verdict, then give a concise test result, review-round count, and defects fixed. Include
+  at most one command; do not ask the owner to check something or give multi-step instructions.
+  Put supporting evidence in the linked PR. Start a fresh session for the
+  next task to stay within the token budget instead of extending this one.

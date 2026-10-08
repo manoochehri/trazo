@@ -66,6 +66,14 @@ Sessions are disposable and contexts reset. Anything that must survive goes in t
 decisions in `.trazo/project/adr/`, work in GitHub Issues, status and plan in `.trazo/project/`. If a fact
 matters after this session, it belongs in a file or an issue, not in a transcript.
 
+## Token budget
+Use one fresh working session per task. Do not poll another session or read its transcript
+for status; status travels through tests, PR reports, and issue comments. A waiting role is
+re-invoked when there is an update rather than watching another session. Use subagents only
+when a rule requires a separate context, such as review, security, or skeptic work, not to
+fan out work the main session can do. Keep durable state in the issue tracker, and start a
+fresh chat for the next task instead of extending the current one.
+
 ## Work on branches
 Never push to the default branch. Each change gets an isolated worktree based on fresh
 `origin/<default-branch>` and a pull request against the repository's default branch. Do not
@@ -115,8 +123,10 @@ An agent never hands the owner text to paste, and never asks the owner to pass a
 another agent — the owner is a decision gate, not a message bus. A decision made in a
 session is written to the issue it came from, before work continues on it. A verdict that
 lives only in a conversation gates nothing, because the next session cannot see it.
-Messages to the owner lead with the decision or one question, include at most one command
-for the owner, and leave detailed steps in the linked issue or pull request.
+Messages to the owner are short and decision-first: put the decision or one question at
+the top, include at most one command for the owner to run, and do not assign homework
+(such as asking the owner to check something or giving multi-step instructions). Put
+detailed steps and evidence in the linked issue or pull request.
 
 ## Verify, don't assume
 Check library source, live APIs, and real data before relying on behaviour, and mark
