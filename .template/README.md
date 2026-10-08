@@ -7,7 +7,6 @@ the overlay so Trazo can improve from real use.
 
 - `VERSION`: the overlay version this project was mounted from
 - `CHANGELOG.md`: what changed in the overlay, by version
-- `LESSONS.md`: lessons learned from real projects, each tied to a change (or "not yet")
 - `decisions/`: why the overlay is the way it is
 
 **There is no upstream pointer, and no sync command.** Trazo is mounted onto a host repo,

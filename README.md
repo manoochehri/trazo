@@ -205,7 +205,7 @@ src/                       the product: everything a host receives, edited here
 CLAUDE.md                  the Claude Code adapter for .trazo/rules.md
 .claude/                   commands, agents, and permissions
 .github/                   CI, PR template, CODEOWNERS, issue templates, Dependabot
-.template/                 Trazo's own memory: version, changelog, lessons, decisions
+.template/                 Trazo's release version and changelog
 handbook/                  the published documentation
 scripts/                   install.sh (what a host runs) and this repo's helpers (scan.sh, release.sh)
 tests/                     guard tests for the overlay itself
