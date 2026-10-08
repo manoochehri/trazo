@@ -1,6 +1,7 @@
 name: ci
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
 permissions:
@@ -37,6 +38,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Require pull request review and fail-first evidence
+        if: github.event_name == 'pull_request'
+        run: python scripts/check_pr_evidence.py
       - uses: astral-sh/setup-uv@v7
       - run: uv sync
       - name: Check project documentation
