@@ -6,11 +6,11 @@ Canonical Trazo role definitions. These roles represent the standard division of
 
 | Role | Purpose | Model | Edits Code? |
 |------|---------|-------|-------------|
-| **[Engineer](engineer.md)** | Builds, tests, and delivers code changes | Sonnet recommended | Yes |
-| **[PM / Advisor](pm.md)** | Plans, prioritizes, and judges results | Opus recommended | No |
-| **[Reviewer](reviewer.md)** | Reviews pull requests before merge | Opus recommended | No |
-| **[Security](security.md)** | Checks security, permissions, dependencies | Opus recommended | No |
-| **[Skeptic](skeptic.md)** | Breaks quantitative claims before action | Opus recommended | No |
+| **[Engineer](engineer.md)** | Builds, tests, and delivers code changes | Claude Haiku; OpenAI Codex Luna; Cline user-selected | Yes |
+| **[PM / Advisor](pm.md)** | Plans, prioritizes, and judges results | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
+| **[Reviewer](reviewer.md)** | Reviews pull requests before merge | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
+| **[Security](security.md)** | Checks security, permissions, dependencies | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
+| **[Skeptic](skeptic.md)** | Breaks quantitative claims before action | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
 
 ## Role Separation Principle
 

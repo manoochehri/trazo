@@ -455,12 +455,13 @@ def test_settings_are_printed_on_install(host, source):
     assert '"deny"' in out
 
 
-def test_shipped_settings_only_deny():
-    """A loosening of the settings every host receives must be loud, so it fails here."""
+def test_shipped_settings_keep_deny_rules_and_engineer_default():
+    """The installed model default may change; its secret deny rules may only tighten."""
     import json
 
     perms = json.loads((REPO_ROOT / "src/adapters/claude/settings.json").read_text())
-    assert set(perms) == {"permissions"}
+    assert perms["model"] == "haiku"
+    assert set(perms) == {"model", "permissions"}
     assert set(perms["permissions"]) == {"deny"}, "shipped settings may only deny"
 
 

@@ -4,15 +4,15 @@ Trazo runs a small team: you plus several Claude roles, talking to each other th
 
 ## Roles and agents
 
-| Role / Agent | Command | Model | Use for | Edits files? | Updates GitHub? |
-|---|---|---|---|---|---|
-| Engineer (main session) | `/eng` | your choice (see below) | Building: code, tests, git, pull requests | Yes | Yes |
-| PM / advisor | `/pm` | Opus (the `pm` subagent; the `/pm` command keeps your session's model) | Status, planning, priorities, "is this result real?", charter/budget/stop rule, writing issues | No | Issues only — labels, parent/sub-issue, blocked-by, milestone, assignee, type, plus comments. Never rewrites an issue `--body`, never closes one |
-| Reviewer | subagent only | Opus | Reviewing pull requests and diffs before merge | No | Verdict, as a comment on the pull request |
-| Security | subagent only | Opus | Secrets, permissions, workflows, dependencies, infra, repo security settings | No | Findings as a PR comment, or a new issue |
-| Skeptic | subagent only | Opus | Breaking a research/analysis result before it is acted on | No | Verdict, as a comment on the pull request or issue |
+| Role / Agent | Command | Claude Code | OpenAI Codex | Cline | Use for | Edits files? | Updates GitHub? |
+|---|---|---|---|---|---|---|---|
+| Engineer | `/eng`, `/work` | Haiku default; `/work` runs in forked Haiku context | Luna | User chooses provider and model | Building: code, tests, git, pull requests | Yes | Yes |
+| PM / advisor | `/pm` | Sonnet for command turn; Sonnet `pm` subagent | Sol | User chooses provider and model | Status, planning, priorities, "is this result real?", charter/budget/stop rule, writing issues | No | Issues only — labels, parent/sub-issue, blocked-by, milestone, assignee, type, plus comments. Never rewrites an issue `--body`, never closes one |
+| Reviewer | subagent only | Sonnet | Sol | User chooses provider and model | Reviewing pull requests and diffs before merge | No | Verdict, as a comment on the pull request |
+| Security | subagent only | Sonnet | Sol | User chooses provider and model | Secrets, permissions, workflows, dependencies, infra, repo security settings | No | Findings as a PR comment, or a new issue |
+| Skeptic | subagent only | Sonnet | Sol | User chooses provider and model | Breaking a research/analysis result before it is acted on | No | Verdict, as a comment on the pull request or issue |
 
-**Which model runs?** The four subagents (`pm`, `reviewer`, `security`, `skeptic`) are pinned to Opus in their frontmatter, so they run on Opus wherever they are invoked. The main session is the engineer, and its model is whatever you chose with `/model`. A role command does not switch it: `/pm` changes the role for the rest of the conversation, not the model, so for a long planning conversation pick Opus yourself. Pinning the main session's model is tracked in [#116](https://github.com/manoochehri/trazo/issues/116).
+**Which model runs?** A fresh Claude Code host install defaults to Haiku. `/work` runs in the forked Haiku context; `/eng` runs its command turn on Haiku. Claude PM, reviewer, security, and skeptic subagents are pinned to Sonnet, and `/pm` runs its command turn on Sonnet. A Claude role command's model applies for that turn only, then the session returns to its previous model. Codex role agents are pinned to Luna for engineering and Sol for the other roles. Cline has no Trazo model setting: choose the provider and model in Cline. Existing Claude or Codex settings can override defaults.
 
 **No role other than the engineer edits a file** — that is the invariant, and it is why a review cannot quietly grade the same conversation's work. But "no file edits" is not "read-only": every one of these four *writes to GitHub*. The PM reshapes the issue graph, and the reviewer, security and skeptic agents all record their verdict where the next session can see it, because a verdict that lives only in the conversation gates nothing.
 
@@ -24,7 +24,7 @@ Trazo runs a small team: you plus several Claude roles, talking to each other th
 
 They can be used in two ways:
 1. **Direct role switching:** Type `/pm` in Claude Code to switch into the PM role for the rest of the conversation; `/eng` returns to building. Reviewer, security, and skeptic are subagent-only — never role-switch commands — so a review can't grade the same conversation's own work (see `.trazo/project/adr/0003-review-security-github-tracked.md`).
-2. **Subagent delegation:** The same four roles are defined in `.claude/agents/` as Opus subagents (`model: opus`) that never edit files but do post verdicts to GitHub. In engineer mode, Claude Code delegates to reviewer and security automatically as part of `/work` and `/check-pr`, or ad hoc, without switching the whole conversation.
+2. **Subagent delegation:** `/work` runs in a forked Haiku context; PM, reviewer, security, and skeptic agents are pinned to Sonnet. Claude Code delegates to reviewer and security automatically as part of `/work` and `/check-pr`, or ad hoc, without switching the whole conversation.
 
 ## Commands
 
@@ -34,10 +34,10 @@ You don't need to memorize these — `CLAUDE.md` maps plain-English requests to 
 |---|---|
 | `/trazo` | Menu of what you can do right now |
 | `/start` / `/wrapup` | Begin / end a work session |
-| `/work 12` | Implement issue #12 → pull request (reviewer checks it first) |
+| `/work 12` | Implement issue #12 in the forked Haiku context → pull request (reviewer checks it first) |
 | `/check-pr 15` | Review pull request #15 (reviewer, plus security if needed) |
-| `/pm` | Switch session to PM role (planning, priorities, issues) |
-| `/eng` | Return session to engineer role (code, tests, PRs) |
+| `/pm` | Run the PM command turn on Sonnet; use the pinned `pm` subagent for subsequent PM work |
+| `/eng` | Run the engineer command turn on Haiku; later turns use the session's selected model |
 | ask the **security** subagent | Secrets, permissions, infra (no role switch) |
 | ask the **reviewer** subagent | PRs, diffs, safety (no role switch) |
 | ask the **skeptic** subagent | Break a research/analysis result before it counts (no role switch) |

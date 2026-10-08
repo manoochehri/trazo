@@ -69,7 +69,7 @@ flowchart LR
     Reviewer -.->|flags risk| Security
 ```
 
-The PM writes issues, the engineer turns issues into pull requests, and you approve and merge. Only `/pm` and `/eng` switch the session's role directly in Claude Code (they do not switch the model: the subagents are pinned to Opus, the main session's model is yours); the reviewer, security and skeptic checks are subagents the engineer calls on — automatically as part of `/work` and `/check-pr`, or ad hoc ("have security check this", "is this number real?"). Everything is visible, and nothing depends on a chat surviving. See [the team](team.md) for the full roster, and the [playbook](playbook.md) for how a normal day actually runs.
+The PM writes issues, the engineer turns them into pull requests, and you approve and merge. Claude Code uses Haiku for engineering command turns and pins PM, reviewer, security, and skeptic subagents to Sonnet. Codex pins engineer agents to Luna and its other role agents to Sol. Cline users choose their provider and model. Claude role-command model overrides last for one turn; see [the team](team.md) and [playbook](playbook.md) for details.
 
 ## Mounting it
 

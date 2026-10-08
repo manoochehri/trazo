@@ -39,15 +39,17 @@ file that supersedes them. An upgrade never overwrites this state. Everything el
 `.trazo/` is the installed framework and is not hand-edited.
 
 ## The team (subagents in `.claude/agents/`, role commands in `.claude/commands/`)
-Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Role commands (`/pm`) switch the session's role for the rest of the conversation until another role command is used; `/eng` returns to building. `reviewer`, `security`, and `skeptic` are subagent-only — the engineer role delegates one-off checks to them, invoked ad hoc or as part of the `/work` and `/check-pr` routines.
+Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Role commands (`/pm`, `/eng`) set the role prompt for that command turn; the model override does not persist to the next turn. `/work` runs in a forked Haiku context. `pm`, `reviewer`, `security`, and `skeptic` are pinned subagents; reviewer/security checks are delegated automatically in `/work` and `/check-pr` or invoked ad hoc.
 
 | Canonical Role | Claude Implementation | Model | Edits code? |
 |---|---|---|---|
-| **Engineer** (`.trazo/roles/engineer.md`) | `/eng` command (main session) | Sonnet recommended | Yes |
-| **PM / Advisor** (`.trazo/roles/pm.md`) | `/pm` command | Opus recommended | No |
-| **Reviewer** (`.trazo/roles/reviewer.md`) | `reviewer` subagent | Opus recommended | No |
-| **Security** (`.trazo/roles/security.md`) | `security` subagent | Opus recommended | No |
-| **Skeptic** (`.trazo/roles/skeptic.md`) | `skeptic` subagent | Opus recommended | No |
+| **Engineer** (`.trazo/roles/engineer.md`) | `/eng` command (main session) | Haiku for the `/eng` turn; Haiku recommended for engineering | Yes |
+| **PM / Advisor** (`.trazo/roles/pm.md`) | `/pm` command and `pm` subagent | Sonnet for the `/pm` turn and pinned `pm` subagent | No |
+| **Reviewer** (`.trazo/roles/reviewer.md`) | `reviewer` subagent | Sonnet (pinned) | No |
+| **Security** (`.trazo/roles/security.md`) | `security` subagent | Sonnet (pinned) | No |
+| **Skeptic** (`.trazo/roles/skeptic.md`) | `skeptic` subagent | Sonnet (pinned) | No |
+
+Claude Code restores the session's previous model after a role command's turn. Use the pinned subagents for PM, reviewer, security, and skeptic work that must run on Sonnet. `/eng` sets Haiku for its turn; a fresh host install uses Haiku as the default when the host has no existing `.claude/settings.json`.
 
 For complete role definitions including purpose, permissions, and constraints, see the canonical files in `.trazo/roles/`.
 
