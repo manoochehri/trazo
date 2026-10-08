@@ -413,6 +413,13 @@ reviews them; add these lines to .github/CODEOWNERS (replace @owner):
   /.claude/settings.json     @owner
   /.github/workflows/        @owner
   /.github/CODEOWNERS        @owner
+
+The installer does not change GitHub repository settings. Ask the owner to enable
+Settings > General > Pull Requests > Automatically delete head branches. Verify with:
+
+  gh api repos/OWNER/REPO --jq .delete_branch_on_merge
+
+The result should be true.
 EOF
 }
 
