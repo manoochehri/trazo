@@ -13,4 +13,4 @@
 - Owner decisions and owner-only release settings are tracked on the milestone's open issues.
 
 ## Next
-- Continue with the next ready milestone issue; release only when the milestone is closed and CI is green.
+- Continue with the next ready milestone issue; release only when it has zero open issues and CI is green.
