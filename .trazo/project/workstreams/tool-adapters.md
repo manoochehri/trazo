@@ -1,7 +1,8 @@
 # Workstream: tool adapters beyond Claude Code
 
-**Status:** researching — decision recorded in
-[0008](../adr/0008-agents-md-is-the-cross-tool-adapter.md); no adapter verified yet
+**Status:** current
+**Workstream status:** researching — decision recorded in
+[0008](../adr/0008-agents-md-is-the-cross-tool-adapter.md); Codex is now an observed adapter
 **Owner:** manoochehri   **Issue(s):** #53, #87, parent #48
 
 ## Hypothesis / goal
@@ -35,6 +36,7 @@ recorded here. Tools considered and *not* tested are listed as such, rather than
 |---|---|---|---|
 | 2026-09-30 | `AGENTS.md` is Linux-Foundation-stewarded (Agentic AI Foundation), used in 60k+ repos, nearest-file-wins, nested files supported | 1 standards site | [agents.md](https://agents.md/) |
 | 2026-09-30 | No adapter observed working yet. Trazo ships `CLAUDE.md` only; `AGENTS.md`, `.clinerules`, `.cursor/rules`, `.gemini/GEMINI.md` are all absent from this repo | 0 tools run | — |
+| 2026-10-08 | A fresh Codex session read `AGENTS.md` and `.trazo/rules.md`, understood a plain-English issue request, and created a branch and test. One sample; it did not prove explicit skill invocation or repeatability. | 1 Codex run | [#156 evidence](https://github.com/manoochehri/trazo/issues/156#issuecomment-6065955792) |
 
 ## Open questions
 

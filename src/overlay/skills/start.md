@@ -1,7 +1,7 @@
 Start a work session.
 Use one fresh session for each task; do not continue a completed task's context into the next one.
 1. Run `git worktree prune` and check `git worktree list` for any orphaned or stale worktrees from crashed or interrupted sessions. Report them if found.
-2. Read the repository instruction file, `.trazo/rules.md`, `.trazo/project/charter/charter.md`, `.trazo/project/STATUS.md`, `.trazo/project/PLAN.md`, and the latest `.trazo/project/reports/` entry. When you read `.trazo/project/STATUS.md`, check its `**Updated:**` line: if it is more than a few days old, or names a phase that the work queue in step 3 contradicts, say so in one line rather than treating it as current (#54, #109).
+2. Read the repository instruction file and `.trazo/rules.md`. Read current project docs under `.trazo/project/`, including `.trazo/project/charter/charter.md`, `.trazo/project/STATUS.md`, `.trazo/project/PLAN.md`, and the latest report; skip any doc marked `**Status:** superseded by ...`. When you read STATUS, check its `**Updated:**` line: if it is more than a few days old, or names a phase that the work queue in step 3 contradicts, say so in one line rather than treating it as current (#54, #109).
    Also check `gh api "repos/$(gh repo view --json nameWithOwner --jq .nameWithOwner)" --jq .delete_branch_on_merge`. If false, report an owner action to enable **Automatically delete head branches** in repository Settings → General → Pull Requests; do not change the setting yourself.
 3. Report the work queue as these four groups, in this order. Everything below is a native field, so nothing is inferred from label names or body text — get it all in one call:
 

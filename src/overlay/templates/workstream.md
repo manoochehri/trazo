@@ -1,6 +1,7 @@
 # Workstream: TITLE
 
-**Status:** idea | researching | building | promising | live | dead
+**Status:** current
+**Workstream status:** idea | researching | building | promising | live | dead
 **Owner:** TODO   **Issue(s):** #
 
 ## Hypothesis / goal

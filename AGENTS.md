@@ -10,6 +10,7 @@ Instructions for coding agents working in this repository. This part is this rep
 
     make test       # uv run pytest
     make lint       # ruff check + ruff format --check
+    make docs-check # validate project-doc status, links, issues and freshness
     make fmt        # ruff check --fix + ruff format
     make scan       # scripts/scan.sh — secret scan over full git history
     make docs       # mkdocs serve, local preview

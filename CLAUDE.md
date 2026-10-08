@@ -24,17 +24,19 @@ verified at runtime, not assumed. An import that does not resolve fails silently
 | `.trazo/roles/` | Canonical role definitions (engineer, PM, reviewer, security, skeptic) |
 | `.trazo/project/charter/` | Why, goal, success criteria, budget, hard constraints, stop rule |
 | `.trazo/project/adr/` | Numbered decision records. Append-only; supersede, never edit |
-| `.trazo/project/workstreams/` | One file per feature/experiment/strategy, with status and evidence |
+| `.trazo/project/workstreams/` | Open hypotheses and the evidence gathered while work continues |
+| `.trazo/project/reports/` | Completed investigations and their cited evidence |
 | `.trazo/ARCHITECTURE.md` | How the system is built (with diagram) |
 | `.trazo/ADVISOR.md` | The advisor/PM role |
-| `.trazo/project/PLAN.md` | Milestones and timeline |
-| `.trazo/project/STATUS.md` | Current state only; replaced each session |
+| `.trazo/project/PLAN.md` | Link to the GitHub milestone that owns current scope and ordering |
+| `.trazo/project/STATUS.md` | Short pointer to current project state; replaced each session |
 | `.trazo/project/RUNBOOK.md` | How to run, test, deploy, roll back, recover |
 | `.trazo/project/SKEPTIC_BAR.md` | The bar a result must clear before the skeptic passes it; filled in per project |
 | GitHub Issues | Tasks. Labels: bug, feature, research, infra, needs-decision, needs-pm, P0, P1, P2, epic |
 
 `.trazo/project/` is this project's own state: charter, decision records, workstreams, STATUS,
-PLAN, RUNBOOK, SKEPTIC_BAR and reports. An upgrade never overwrites it. Everything else in
+PLAN, RUNBOOK, SKEPTIC_BAR and reports. Documents carry `**Status:** current` or a link to the
+file that supersedes them. An upgrade never overwrites this state. Everything else in
 `.trazo/` is the installed framework and is not hand-edited.
 
 ## The team (subagents in `.claude/agents/`, role commands in `.claude/commands/`)

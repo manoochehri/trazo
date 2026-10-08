@@ -1,18 +1,20 @@
 # Status
 
+**Status:** current
+
 > Replaced (not appended) at the end of every session by `/wrapup`. Keep under one screen.
 
 **Updated:** YYYY-MM-DD by TODO
-**Phase / milestone:** TODO
+**Phase / milestone:** [Link to current GitHub milestone](TODO)
 
 ## Running now
-- TODO
+- Select from the milestone's open issues and dependency fields.
 
 ## Recently done
-- TODO
+- See the milestone's closed issues.
 
 ## Blocked / needs a decision
-- TODO
+- Blockers and decision requests live on the affected issues.
 
 ## Next
-- TODO
+- Continue the milestone queue; this file is only a pointer to current state.

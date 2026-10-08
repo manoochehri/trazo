@@ -1,6 +1,7 @@
 # Workstream: CLAUDE.md `@import` behavior
 
-**Status:** researching — complete, no open questions (feeds the Trazo adapter design)
+**Status:** current
+**Workstream status:** researching — complete, no open questions (feeds the Trazo adapter design)
 **Owner:** manoochehri   **Issue(s):** #38, parent #35, feeds #33 §4
 
 ## Hypothesis / goal

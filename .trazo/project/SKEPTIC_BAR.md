@@ -1,5 +1,7 @@
 # The bar
 
+**Status:** current
+
 A result must clear every item here before the `skeptic` subagent passes it, and before
 it reaches a decision-maker or a permanent record (`.trazo/project/adr/`, `.trazo/project/workstreams/`,
 `.trazo/project/reports/`).
