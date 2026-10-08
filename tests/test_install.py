@@ -118,6 +118,16 @@ def test_agents_adapter_only(host, source):
     assert not (host / ".claude").exists()
 
 
+def test_kickoff_product_and_installed_copy_use_current_layout(host, source):
+    run(host, "install", "v0.1.0", "--adapter", "claude", source=source)
+    product = REPO_ROOT / "src/adapters/claude/commands/kickoff.md"
+    installed = host / ".claude/commands/kickoff.md"
+    assert installed.read_bytes() == product.read_bytes()
+    for text in (installed.read_text(), (host / ".trazo/skills/kickoff.md").read_text()):
+        assert "semilla" not in text.lower()
+        assert "templates/docs/" not in text
+
+
 def test_codex_adapter_installs_agents_and_skills(host, source):
     run(host, "install", "v0.1.0", "--adapter", "codex", source=source)
     agents = (host / "AGENTS.md").read_text()
