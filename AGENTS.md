@@ -41,6 +41,11 @@ This file connects the host's operating instructions to Trazo. Read
 `.trazo/rules.md` before governed work. The host's own instructions say how to build and
 test its code; Trazo says which roles, approvals, and acceptance gates apply.
 
+Before the first file write, follow the repository instruction file's document map into
+referenced rule and decision directories. Skim their indexes or contents and read applicable
+current records; a pointer is not a read. If the map does not name them, check project-local
+`decisions/`, `rules/`, `adr/`, or equivalent paths. Project layouts vary.
+
 ## Route plain-English requests
 
 Use the matching Trazo skill for a request even when the owner does not name a command:

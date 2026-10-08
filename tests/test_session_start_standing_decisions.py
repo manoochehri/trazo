@@ -13,7 +13,7 @@ def test_core_rule_reads_referenced_project_decisions_before_writing():
     rules = _read("src/overlay/rules.md")
     assert "Before the first file write" in rules
     assert "document map" in rules
-    assert "read applicable standing records" in rules
+    assert "read the applicable current standing records" in rules
     assert all(path in rules for path in ("decisions/", "rules/", "adr/"))
 
 
