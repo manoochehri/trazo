@@ -2,11 +2,11 @@
 
 **Status:** current
 
-**Updated:** 2026-10-08 by engineer (Codex, while PR #176 is in review)
+**Updated:** 2026-10-08 by engineer (while #156 audit follow-up is in progress)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
 
 ## Running now
-- PR #176 adds CI enforcement for #149 and is awaiting CI and owner review.
+- CI enforcement for #149 is merged; the #156 audit follow-up is in progress.
 - The installed-copy comparison against the first release tag remains post-release verification.
 
 ## Blocked / needs a decision
