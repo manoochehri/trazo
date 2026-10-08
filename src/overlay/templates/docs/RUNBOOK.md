@@ -1,5 +1,7 @@
 # Runbook
 
+**Status:** current
+
 ## Local
 TODO: the one command that builds and tests hermetically from a fresh worktree.
 

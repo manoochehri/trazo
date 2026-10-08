@@ -49,17 +49,9 @@ def test_neither_file_carries_a_placeholder() -> None:
         assert hit is None, f"{path.name} carries the placeholder {hit.group(0)!r} (#54)"
 
 
-def test_every_milestone_has_a_target_date() -> None:
-    """`M1 | | |` is a row that cannot be planned against, and M2 is the row the
-    charter's stop rule fires on -- #27 has nothing to watch without it."""
-    rows = [
-        ln
-        for ln in _text(PLAN).splitlines()
-        if re.match(r"^\|\s*M\d", ln) and not ln.startswith("|---")
-    ]
-    assert len(rows) >= 2, f"expected the milestone rows in PLAN.md, found {len(rows)}"
-    for row in rows:
-        cells = [c.strip() for c in row.strip("|").split("|")]
-        assert len(cells) == 4, f"milestone row is not name/date/exit/status: {row!r}"
-        assert ISO_DATE.search(cells[1]), f"milestone {cells[0]!r} has no real target date: {row!r}"
-        assert cells[3], f"milestone {cells[0]!r} has no status: {row!r}"
+def test_plan_links_to_the_live_release_milestone() -> None:
+    """GitHub owns milestone dates, scope, issue state, and completion."""
+    plan = _text(PLAN)
+    assert re.search(r"\[[^\]]+\]\(https://github\.com/.+/milestone/\d+\)", plan), (
+        "PLAN.md should link to the live release milestone instead of copying its state"
+    )

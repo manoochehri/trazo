@@ -1,10 +1,13 @@
 # Runbook
 
+**Status:** current
+
 ## Local
 ```
 make setup     # deps + git hooks (gitleaks, ruff)
 make test      # pytest
 make lint      # ruff
+make docs-check # validate project-doc status, links, issues and freshness
 make scan      # scan git history for secrets
 make docs      # preview the handbook locally
 make release   # validate and cut an annotated version tag

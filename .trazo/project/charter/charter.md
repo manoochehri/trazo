@@ -1,5 +1,7 @@
 # Charter
 
+**Status:** current
+
 > Filled in at kickoff. Changes rarely; changes need a decision record.
 
 **Project:** semilla

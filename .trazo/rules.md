@@ -98,7 +98,17 @@ owner decision before dropping one.
 Tasks, priorities, dependencies and blockers are labels and relationships on issues, not
 sentences in a report. A work queue that has to parse prose to answer "what is ready" will
 answer it wrongly. Use the CLI's native fields rather than inferring from label names or
-body text.
+body text. Project docs link to these records instead of copying their changing state.
+
+| Question | Record |
+|---|---|
+| What work is open, blocked, or awaiting a decision? | GitHub issue fields and relationships |
+| What belongs in a release? | The GitHub milestone |
+| Why was a durable behavior chosen? | An accepted ADR |
+| What was researched and what evidence supports it? | A workstream for ongoing work; a report for a completed investigation |
+
+One question has one authoritative home. STATUS and PLAN point to the relevant issue,
+milestone, ADR, workstream, or report; they do not maintain a second copy of its state.
 
 ## Hand off through the repo, not through a person
 An agent never hands the owner text to paste, and never asks the owner to pass a message to
