@@ -1,4 +1,3 @@
-<!-- trazo:begin -->
 # CLAUDE.md
 
 The Claude Code adapter. It states no rules of its own: the rules live once, tool-neutral, in
@@ -21,6 +20,7 @@ verified at runtime, not assumed. An import that does not resolve fails silently
 | Doc | Purpose |
 |---|---|
 | `.trazo/rules.md` | The rules, tool-neutral. This file only adapts them. |
+| `.trazo/roles/` | Canonical role definitions (engineer, PM, reviewer, security, skeptic) |
 | `.trazo/project/charter/` | Why, goal, success criteria, budget, hard constraints, stop rule |
 | `.trazo/project/adr/` | Numbered decision records. Append-only; supersede, never edit |
 | `.trazo/project/workstreams/` | One file per feature/experiment/strategy, with status and evidence |
@@ -37,15 +37,17 @@ PLAN, RUNBOOK, SKEPTIC_BAR and reports. An upgrade never overwrites it. Everythi
 `.trazo/` is the installed framework and is not hand-edited.
 
 ## The team (subagents in `.claude/agents/`, role commands in `.claude/commands/`)
-Role commands (`/pm`) switch the session's role for the rest of the conversation until another role command is used; `/eng` returns to building. `reviewer`, `security`, and `skeptic` are subagent-only — the engineer role delegates one-off checks to them, invoked ad hoc or as part of the `/work` and `/check-pr` routines. How each satisfies a rule is in the table above.
+Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Role commands (`/pm`) switch the session's role for the rest of the conversation until another role command is used; `/eng` returns to building. `reviewer`, `security`, and `skeptic` are subagent-only — the engineer role delegates one-off checks to them, invoked ad hoc or as part of the `/work` and `/check-pr` routines.
 
-| Role / Agent | Command | Model | Use for | Edits code? |
-|---|---|---|---|---|
-| Engineer (main session) | `/eng` | default (Sonnet) | Building: code, tests, git, pull requests | Yes |
-| PM / advisor | `/pm` | Opus | Status, planning, priorities, "is this result real?", charter/budget/stop rule, writing issues | No |
-| Reviewer (subagent only) | ask the **reviewer** subagent | Opus | Reviewing pull requests and diffs before merge | No |
-| Security (subagent only) | ask the **security** subagent | Opus | Secrets, permissions, workflows, dependencies, infra, repo security settings | No |
-| Skeptic (subagent only) | ask the **skeptic** subagent | Opus | Breaking a research/analysis result before it is acted on | No |
+| Canonical Role | Claude Implementation | Model | Edits code? |
+|---|---|---|---|
+| **Engineer** (`.trazo/roles/engineer.md`) | `/eng` command (main session) | Sonnet recommended | Yes |
+| **PM / Advisor** (`.trazo/roles/pm.md`) | `/pm` command | Opus recommended | No |
+| **Reviewer** (`.trazo/roles/reviewer.md`) | `reviewer` subagent | Opus recommended | No |
+| **Security** (`.trazo/roles/security.md`) | `security` subagent | Opus recommended | No |
+| **Skeptic** (`.trazo/roles/skeptic.md`) | `skeptic` subagent | Opus recommended | No |
+
+For complete role definitions including purpose, permissions, and constraints, see the canonical files in `.trazo/roles/`.
 
 ## Plain English → routine
 The owner shouldn't need to remember commands. Map requests to routines:
@@ -77,21 +79,3 @@ disagree, `rules.md` is right and this section is the bug.
 | A result is not a result until it has been checked | The **skeptic** subagent checks it against [`.trazo/project/SKEPTIC_BAR.md`](.trazo/project/SKEPTIC_BAR.md) and returns *holds* / *holds with caveats* / *does not hold*. If it cannot run, say the result is unverified rather than proceeding. |
 | Hand off through the repo | Every subagent verdict on a pull request posts as a real `gh pr review --comment`, verdict word as the first line. `--approve` / `--request-changes` are refused when the agent and the PR author are one account. A security finding not tied to a PR becomes a GitHub issue. |
 | Leave state in the repo | End a session with `/wrapup`. A PR that claims to close an issue carries `Closes #<n>` in the **commit message**, not only the body: a squash merge keeps only the commit message. |
-<!-- trazo:end -->
-
-## This repository
-
-Notes specific to Trazo's own repo, outside the shipped block above. Claude Code does not
-load `AGENTS.md`, so the repo-specific guidance is repeated here.
-
-- Secrets: the owner enters them with `scripts/put_secret.sh`; new config goes in `.env.example`.
-- Verdicts post as `gh pr review --comment`. `--approve` and `--request-changes` are refused
-  while the agent and the PR author are the same account, which is every PR here (#44).
-- The closing keyword (`Closes #<n>:`) must be the first line of the commit message. A squash
-  merge keeps only commit messages, so a body-only or mid-prose keyword closes nothing (#61, #68).
-- Decision records: `.trazo/project/adr/0003-review-security-github-tracked.md` (review and
-  security tracked on GitHub) and `.trazo/project/adr/0010-src-canonical-trazo-pinned.md`
-  (`src/` is canonical; `.trazo/` is the installed copy, never hand-edited).
-- Why the import must load from the repository root: `.trazo/project/workstreams/claude-md-imports.md` (#38).
-- A host receives blank templates (`src/overlay/templates/`) and `/kickoff` copies them into
-  its own `.trazo/project/`; this repo's `.trazo/project/` is its own state and is never shipped.

@@ -4,3 +4,5 @@
 /.claude/settings.json   @manoochehri
 /.trazo/project/charter/        @manoochehri
 /config/limits*          @manoochehri
+/src/adapters/           @manoochehri
+/scripts/install.sh      @manoochehri
