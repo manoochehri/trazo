@@ -67,9 +67,10 @@ decisions in `.trazo/project/adr/`, work in GitHub Issues, status and plan in `.
 matters after this session, it belongs in a file or an issue, not in a transcript.
 
 ## Work on branches
-Never push to the default branch. Each change gets an isolated worktree
-(`git worktree add .worktrees/<name> -b <name> origin/main`) and a pull request against
-`main`. CI must pass. One agent deploys at a time.
+Never push to the default branch. Each change gets an isolated worktree based on fresh
+`origin/<default-branch>` and a pull request against the repository's default branch. Do not
+stack pull requests: work that depends on an unmerged pull request waits for it to merge,
+then starts from the updated default branch. CI must pass. One agent deploys at a time.
 
 ## Roles are separated
 An agent that builds work should not be the only one reviewing it. Review, security and
