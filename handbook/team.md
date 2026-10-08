@@ -23,7 +23,7 @@ Trazo runs a small team: you plus several Claude roles, talking to each other th
 **`needs-decision` is the owner's gate.** The PM removes the label only to record your decision, in the same step as a comment that opens `Owner decision (<date>):`, quotes your words verbatim, and says where you gave them: in the session, typed by you, or the URL of a comment you wrote on the issue or PR. A quote relayed by another agent never counts, even if it claims to be verbatim. The PM never clears the label on its own judgment, and never applies the decision itself; engineers build from the issue.
 
 They can be used in two ways:
-1. **Direct role switching:** Type `/pm` in Claude Code to switch into the PM role for the rest of the conversation; `/eng` returns to building. Reviewer, security, and skeptic are subagent-only — never role-switch commands — so a review can't grade the same conversation's own work (see `.trazo/project/adr/0003-review-security-github-tracked.md`).
+1. **Command turns:** `/pm` runs its command turn on Sonnet, and `/eng` runs its command turn on Haiku. The host session then returns to its previously selected model. Reviewer, security, and skeptic are subagent-only — never role-switch commands — so a review can't grade the same conversation's own work (see `.trazo/project/adr/0003-review-security-github-tracked.md`).
 2. **Subagent delegation:** `/work` runs in a forked Haiku context; PM, reviewer, security, and skeptic agents are pinned to Sonnet. Claude Code delegates to reviewer and security automatically as part of `/work` and `/check-pr`, or ad hoc, without switching the whole conversation.
 
 ## Commands
