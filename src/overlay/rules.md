@@ -100,6 +100,9 @@ reviews that judgment.
 An agent that builds work should not be the only one reviewing it. Review, security and
 skeptic run in their own context, never in the conversation that produced the work —
 asking a second question in one session inherits the same blind spots.
+Changes to secrets, permissions, workflow files, dependencies, or infrastructure require a
+separate security review before merge. A command or skill may route that review but cannot
+be its only trigger.
 
 Neither role (engineer or PM) accesses production — including deploying, querying, or
 running production checks — unless the issue or the owner explicitly asks for it.

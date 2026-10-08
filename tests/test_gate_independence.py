@@ -17,6 +17,17 @@ def test_core_rule_applies_gates_outside_commands_and_skills():
     assert "repository settings and rulesets, then CI and" in rules
 
 
+def test_sensitive_change_requires_security_review_without_a_routine():
+    required = (
+        "Changes to secrets, permissions, workflow files, dependencies, or infrastructure "
+        "require a separate security review before merge"
+    )
+    for path in ("src/overlay/rules.md", ".trazo/rules.md"):
+        rules = " ".join(_read(path).split())
+        assert required in rules
+        assert "cannot be its only trigger" in rules
+
+
 def test_external_behavior_and_fail_first_are_checked_by_reviewers():
     rules = _read("src/overlay/rules.md")
     reviewer = _read("src/overlay/roles/reviewer.md")
