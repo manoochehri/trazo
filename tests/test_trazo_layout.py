@@ -180,28 +180,20 @@ def test_the_installed_copy_is_the_product_not_a_fork_of_it() -> None:
     )
 
 
-def test_the_product_tree_carries_every_adapter() -> None:
-    """`src/adapters/claude/` is the product a host receives, so every live agent and
-    command must exist there, byte for byte.
-
-    The failure this prevents is quiet: someone edits `.claude/commands/foo.md`, the repo
-    works, the tests pass, and the change simply never reaches a host. That had already
-    happened to four files by #96: `src/` held the older text of `reviewer.md`, `eng.md`,
-    `start.md` and `work.md`. Asserted by name so a missing or stale one names itself.
-    """
-    stale: list[str] = []
-    for kind in ("agents", "commands"):
-        live = REPO_ROOT / ".claude" / kind
-        product = REPO_ROOT / ADAPTERS / "claude" / kind
-        for path in sorted(live.glob("*.md")):
-            twin = product / path.name
-            if not twin.exists():
-                stale.append(f"{path.name}: not in {ADAPTERS}/claude/{kind}/")
-            elif twin.read_bytes() != path.read_bytes():
-                stale.append(f"{path.name}: differs from {ADAPTERS}/claude/{kind}/{path.name}")
-        shipped_only = {p.name for p in product.glob("*.md")} - {p.name for p in live.glob("*.md")}
-        assert not shipped_only, f"{kind} shipped but not installed: {sorted(shipped_only)}"
-    assert not stale, "the live adapters and the product tree disagree:\n" + "\n".join(stale)
+def test_claude_product_adapters_point_to_shared_trazo_content() -> None:
+    """Tool-specific Claude files are discovery wrappers; shared role and workflow
+    instructions live in the installable overlay and are also used by Codex."""
+    for name in ("pm", "reviewer", "security", "skeptic"):
+        text = (REPO_ROOT / ADAPTERS / "claude/agents" / f"{name}.md").read_text()
+        target = ".trazo/ADVISOR.md" if name == "pm" else f".trazo/roles/{name}.md"
+        assert target in text, name
+    for name in ("start", "work", "check-pr", "brief", "decide", "kickoff", "trazo", "wrapup"):
+        text = (REPO_ROOT / ADAPTERS / "claude/commands" / f"{name}.md").read_text()
+        assert f".trazo/skills/{name}.md" in text, name
+    for name in ("engineer", "pm", "reviewer", "security", "skeptic"):
+        assert (REPO_ROOT / "src/overlay/roles" / f"{name}.md").is_file(), name
+    for name in ("start", "work", "check-pr", "brief", "decide", "kickoff", "trazo", "wrapup"):
+        assert (REPO_ROOT / "src/overlay/skills" / f"{name}.md").is_file(), name
 
 
 def test_the_product_tree_holds_no_trazo_project_state() -> None:
@@ -242,7 +234,8 @@ def test_no_file_points_at_a_path_that_does_not_exist() -> None:
                 # A bare directory or a shorthand like `.trazo/adr/0003` is prose.
                 if not (REPO_ROOT / ref).exists() and "." not in Path(ref).name:
                     continue
-                if not (REPO_ROOT / ref).exists():
+                product_ref = REPO_ROOT / "src/overlay" / ref.removeprefix(".trazo/")
+                if not (REPO_ROOT / ref).exists() and not product_ref.exists():
                     dangling.append(f"{path.relative_to(REPO_ROOT)}:{lineno}: {ref}")
 
     assert not dangling, "paths that do not exist (issue #50 done-when):\n" + "\n".join(dangling)

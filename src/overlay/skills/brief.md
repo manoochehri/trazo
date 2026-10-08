@@ -1,0 +1,1 @@
+Short status: CI on main and open PRs; open issues by milestone and label (call out needs-decision); days to next milestone vs. its exit criteria; if deployed, run the runbook's status command and summarize health and month-to-date cost. Plain language, under 15 lines. Change nothing.

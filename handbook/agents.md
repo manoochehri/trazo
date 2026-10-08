@@ -72,7 +72,7 @@ Trazo never overwrites one.
 The relationship above is tool-neutral — that is the point of it. A repo that runs
 Claude Code, Cline and Cursor does not need three sets of rules. It needs one
 `.trazo/rules.md`, and whatever each tool reads to reach it: `CLAUDE.md`,
-`AGENTS.md`, or something else. Same rules, different door.
+`AGENTS.md`, native skill metadata, or native agent metadata. Same rules, different door.
 
 ## What is not claimed here
 
@@ -83,9 +83,16 @@ may not follow. A Claude Code `@` import is *mechanical* — the contents are in
 session starts, with no tool call and no choice. That difference is real, and it is why the
 `CLAUDE.md` adapter uses an import rather than a link.
 
-Whether a given non-Claude tool follows a pointer inside an `AGENTS.md` is **not yet
-verified here.** This repository ships a `CLAUDE.md` that is runtime-tested; it does not
-ship a proven answer for every other tool, and it would rather say so than imply one.
+Codex support is runtime-tested with `codex-cli 0.162.0-alpha.2`. Codex reads the root
+[`AGENTS.md`](https://developers.openai.com/codex/guides/agents-md/), discovers project skills
+under [`.agents/skills/`](https://learn.chatgpt.com/docs/build-skills), and supports project
+agents in [`.codex/agents/`](https://learn.chatgpt.com/docs/agent-configuration/subagents).
+Trazo installs thin Codex wrappers there; canonical roles and workflow
+content remain under `.trazo/roles/` and `.trazo/skills/`, alongside `.trazo/rules.md` and
+project state. A read-only `codex exec` smoke test explicitly invoked `$trazo-work` and
+confirmed skill discovery and rule loading. A second session delegated to the installed
+`trazo-reviewer` agent, which loaded its canonical role and rules in a separate context.
+Claude's `CLAUDE.md` import remains runtime-tested separately.
 
 ## Where to go next
 

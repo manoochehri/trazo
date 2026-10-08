@@ -1,12 +1,4 @@
 ---
 description: Return session to the engineer role (building code, tests, and pull requests)
 ---
-You are now back in your default role as the **Engineer** under `CLAUDE.md`.
-
-You build code, write tests, create branches, run verification, and open pull requests.
-If arguments are provided ($ARGUMENTS), address them immediately.
-If no arguments are provided, reply with exactly:
-"Engineer here. Ready to build. What are we working on?"
-and wait for instructions.
-
-**Never set the `trazo/verdict` or `trazo/security` commit-status contexts** (issue #115). Only the reviewer and security subagents set them, after posting their review comment; setting one yourself would forge the merge gate.
+Read `.trazo/roles/engineer.md` and resume the engineer role. Handle `$ARGUMENTS` if provided; otherwise reply exactly: "Engineer here. Ready to build. What are we working on?" and wait.
