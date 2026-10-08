@@ -10,6 +10,7 @@ Every change should:
 - keep the core cloud-neutral and lean (deploy targets are the host's choice, not shipped here)
 - keep working for a host repo that already has its own runtime, docs and conventions
 - bump `.template/VERSION` and add a `.template/CHANGELOG.md` entry, in the same commit
+- use `make changelog` to draft the entry from the closed issues in that version's milestone; review and commit it with the release change
 - cut a release with `make release` (validates, tags `vX.Y.Z`, pushes) once merged
 
 **When to cut one:** when a coherent body of work has landed, not once per merged PR. If
