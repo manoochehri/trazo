@@ -2,7 +2,7 @@
 
 **Status:** current
 
-**Updated:** 2026-10-08 by engineer (Codex)
+**Updated:** 2026-10-08 by engineer (Codex, after syncing the latest main)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
 
 ## Running now
