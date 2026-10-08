@@ -1,55 +1,25 @@
-# Working in this repository
+# Trazo adapter for Codex and AGENTS.md readers
 
-## Repository
+This file connects the host's operating instructions to Trazo. Read
+`.trazo/rules.md` before governed work. The host's own instructions say how to build and
+test its code; Trazo says which roles, approvals, and acceptance gates apply.
 
-[Brief description of what this repository is and what it does.]
+## Route plain-English requests
 
-## Development
+Use the matching Trazo skill for a request even when the owner does not name a command:
 
-- Install dependencies: `[command]`
-- Build: `[command]`
-- Test: `[command]`
-- Lint: `[command]`
+| Request | Skill or role |
+|---|---|
+| “Work on issue 12”, “fix this”, or another implementation request | `trazo-work` |
+| “What is next?”, “catch me up”, or a status request | `trazo-start` |
+| “Is PR 15 ready?”, “review this PR”, or “can I merge?” | `trazo-check-pr` |
+| “Should we do this?” or a prioritization question | `trazo-pm` |
+| “Help” or “what can I do?” | `trazo-menu` |
 
-## Repository structure
+Codex skills are installed under `.agents/skills/`; role agents are under
+`.codex/agents/`. If the matching skill is not available to invoke, read its installed
+`SKILL.md` and follow it. Do not answer with a command for the owner to run when the
+plain-English request already asks you to do the work.
 
-- `src/` — application/source code
-- `tests/` — tests
-- `.trazo/` — Trazo governance and durable agentic project state
-
-## Repository conventions
-
-- [Important coding or architectural convention]
-- [Generated files and how they are updated]
-- [Important directory-specific conventions]
-- [Other repository-specific gotchas]
-
-## Project context
-
-Before making substantial changes, consult the relevant project documentation.
-
-- `.trazo/project/STATUS.md` — current project status
-- `.trazo/project/charter/` — project charter
-- `.trazo/project/adr/` — architectural decisions
-- `.trazo/project/workstreams/` — active workstreams
-- `.trazo/plans/` — current or historical plans
-
-Not every project will use all of these paths.
-
-## Agent governance
-
-This repository uses Trazo for agent governance and durable agentic project state.
-
-Before undertaking governed work, read:
-
-`.trazo/rules.md`
-
-Trazo defines roles, skills, plans, workstreams, approvals, evidence requirements, and other constraints on agent activity. Standard roles are defined in `.trazo/roles/`.
-
-Do not infer authority from this file. Repository instructions describe how to work in the repository; Trazo defines the governance of agentic work.
-
-## Important
-
-Do not duplicate Trazo rules, roles, skills, plans, or project state in this file.
-
-Keep repository-specific instructions here and Trazo-specific governance and state under `.trazo/`.
+The skills contain the workflows; this adapter only routes requests to them. Their
+instructions and `.trazo/rules.md` remain canonical.

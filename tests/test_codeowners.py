@@ -6,6 +6,8 @@ then matched no rule at all and could be edited without the owner's review.
 """
 
 import fnmatch
+import shutil
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +38,19 @@ def _covers(pattern: str, path: str) -> bool:
     return fnmatch.fnmatch(Path(path).name, pattern)
 
 
+def _tracked_paths() -> set[str]:
+    git = shutil.which("git")
+    assert git, "git is required to inspect tracked paths"
+    result = subprocess.run(  # noqa: S603 - resolved executable, fixed read-only argv
+        [git, "ls-files", "--cached"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return set(result.stdout.splitlines())
+
+
 def test_codeowners_protects_itself():
     """Without a rule matching the file itself, it can be edited unreviewed."""
     covered_by = [pattern for pattern, _ in _rules() if _covers(pattern, ".github/CODEOWNERS")]
@@ -63,3 +78,14 @@ def test_codeowners_owners_are_handles():
     for pattern, owners in _rules():
         for owner in owners:
             assert owner.startswith("@"), f"{owner!r} on {pattern!r} is not an @handle"
+
+
+def test_every_codeowners_pattern_matches_a_tracked_path():
+    tracked = _tracked_paths()
+    for pattern, _ in _rules():
+        normalized = pattern.lstrip("/")
+        matches = [path for path in tracked if fnmatch.fnmatchcase(path, normalized)]
+        if normalized.endswith("/"):
+            directory = normalized.rstrip("/")
+            matches.extend(path for path in tracked if path.startswith(f"{directory}/"))
+        assert matches, f"CODEOWNERS pattern {pattern!r} matches no tracked path"

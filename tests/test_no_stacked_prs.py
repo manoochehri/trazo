@@ -36,3 +36,7 @@ def test_automatic_branch_deletion_is_checked_and_left_to_the_owner() -> None:
     assert "do not change the setting yourself" in start
     assert "delete_branch_on_merge" in security
     assert "Automatically delete head branches" in installer
+    # GitHub owns this setting. Its API hides the field from the PR workflow's
+    # read-only token, so CI cannot reliably verify it without write permission.
+    ci = _read(".github/workflows/ci.yml")
+    assert "delete_branch_on_merge" not in ci

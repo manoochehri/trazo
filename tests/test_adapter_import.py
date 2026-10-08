@@ -148,6 +148,22 @@ def test_the_adapters_a_host_receives_point_at_a_path_a_host_also_has():
         )
 
 
+def test_agents_adapter_routes_plain_english_to_codex_workflows():
+    """A Codex host should reach the same workflows without memorizing commands (#156)."""
+    agents = (REPO_ROOT / "src/adapters/AGENTS.md").read_text(encoding="utf-8")
+    for route in (
+        "Work on issue 12",
+        "`trazo-work`",
+        "`trazo-start`",
+        "`trazo-check-pr`",
+        "`trazo-pm`",
+        "`.agents/skills/`",
+        "`.codex/agents/`",
+    ):
+        assert route in agents, f"AGENTS.md must route plain-English requests: missing {route}"
+    assert "Do not answer with a command for the owner to run" in agents
+
+
 # Words and shapes that are true of one repository's build, tests or docs and so are false
 # in a host. The shipped adapter is written into a host's own file (#133), where a claim
 # like `make setup` or "Baseline: 132 passed" would be an instruction about a codebase the

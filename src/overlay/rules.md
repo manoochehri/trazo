@@ -72,10 +72,27 @@ Never push to the default branch. Each change gets an isolated worktree based on
 stack pull requests: work that depends on an unmerged pull request waits for it to merge,
 then starts from the updated default branch. CI must pass. One agent deploys at a time.
 
+## Gates hold regardless of how work starts
+A requirement that controls safety, permission, or acceptance applies whether a request
+arrives through a command or skill, plain English, or another adapter. Put each gate at
+the strongest layer that can enforce it: repository settings and rulesets, then CI and
+tests, then these always-loaded rules and the role instructions used for delegation.
+Commands and skills may explain a gate, but must not be its only enforcement. If no
+stronger layer can carry a judgment, keep it in the always-loaded rules or the role that
+reviews that judgment.
+
 ## Roles are separated
 An agent that builds work should not be the only one reviewing it. Review, security and
 skeptic run in their own context, never in the conversation that produced the work —
 asking a second question in one session inherits the same blind spots.
+
+The PM decides project questions and cites the issue, project document, or checked
+measurement behind each decision. The PM owns dates and estimates them from remaining
+work; revise a date only when the work changes and state why. The engineer implements the
+issue and sends questions about priority, sequencing, or scope to the PM. Neither role
+queries production, deploys, or runs production checks unless the issue or owner asks.
+Time pressure is a request for a date, not permission to skip an agreed gate; record an
+owner decision before dropping one.
 
 ## State lives in GitHub, not in prose
 Tasks, priorities, dependencies and blockers are labels and relationships on issues, not
@@ -88,11 +105,24 @@ An agent never hands the owner text to paste, and never asks the owner to pass a
 another agent — the owner is a decision gate, not a message bus. A decision made in a
 session is written to the issue it came from, before work continues on it. A verdict that
 lives only in a conversation gates nothing, because the next session cannot see it.
+Messages to the owner lead with the decision or one question, include at most one command
+for the owner, and leave detailed steps in the linked issue or pull request.
 
 ## Verify, don't assume
 Check library source, live APIs, and real data before relying on behaviour, and mark
 anything unverified. Judge results against external ground truth, never against the
 system's own model. Every number carries its sample size.
+For external API behavior, cite the primary documentation or a real response. Build fakes,
+fixtures, and mocks from those sources and cite them; do not invent their behavior from
+memory. If no source is available, stop and ask the PM to resolve the gap before relying
+on the behavior.
+
+## Tests are evidence
+For a bug fix or behavior change, write the regression test first and run it against the
+unchanged code. Record the failing output in the pull request so the reviewer can see what
+the change corrects. If the test did not fail first, say why. Pure documentation changes
+and refactors that do not change behavior are exempt; identify the exemption in the pull
+request. A reviewer treats missing fail-first evidence as must-fix.
 
 ## A result is not a result until it has been checked
 A quantitative, experimental, or empirical claim goes to the skeptic before it reaches a
@@ -108,6 +138,12 @@ enters them with a script, and new config goes in the env example as a placehold
 ## Ask before guessing
 For anything expensive, irreversible, or ambiguous, stop and ask, and record the question
 on the issue. Label it so the queue shows it.
+
+## Session budget
+Use one working session per task. Do not poll another session or its transcript; status
+travels through tests, pull request reports, and issue comments. Use a separate agent
+context only when a rule requires independent review, security review, or skepticism.
+Record durable state in the tracker and start a fresh session for the next task.
 
 ## End every session
 Update status, write the decision records, label the issues, and leave the tree clean.
