@@ -2,15 +2,15 @@
 
 **Status:** current
 
-**Updated:** 2026-10-08 by engineer (while #156 audit follow-up is in progress)
+**Updated:** 2026-10-08 by engineer (after the gate audit closed)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
 
 ## Running now
-- CI enforcement for #149 is merged; the #156 audit follow-up is in progress.
-- The installed-copy comparison against the first release tag remains post-release verification.
+- Track #149's evidence adoption: one eligible PR is complete; two more are required.
+- The installed-copy comparison in #124 waits for the first release tag.
 
 ## Blocked / needs a decision
-- Owner decisions and owner-only release settings are tracked on the milestone's open issues.
+- #134 requires owner-only release safeguards; #115 waits on #44; #100 needs release-version clarification.
 
 ## Next
-- Continue with the first ready milestone issue; release only after the milestone closes and CI is green.
+- Continue #149's evidence check and resolve release prerequisites; tag only when the milestone is empty and CI is green.
