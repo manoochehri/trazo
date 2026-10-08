@@ -80,9 +80,6 @@ curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.1.0/scripts/in
 bash install.sh install v0.1.0
 ```
 
-!!! note "No release exists yet"
-    The first tag, `v0.1.0`, is cut by [#100](https://github.com/manoochehri/trazo/issues/100); the command works once it is published.
-
 It copies the framework into `.trazo/`, adds the adapter for the agent you use (`CLAUDE.md` and `.claude/` for Claude Code, `AGENTS.md` for others; [the same `.trazo/rules.md` drives any of them](overlay.md)), and creates `.trazo/project/` for your own state. An existing `AGENTS.md`, `CLAUDE.md` or `.claude/` stays yours: the installer only writes between its own markers. See [Install, upgrade and uninstall](install.md) for options, and [`AGENTS.md` and Trazo](agents.md) for how the two files relate. Your runtime, your build system and your pipeline stay exactly as they are; Trazo mandates no tool for a mounted repo, on purpose.
 
 The next step: open the repo in Claude Code and run `/kickoff`. It interviews you (idea, success criteria, budget, deadline, constraints, stop rule), shows you the charter and plan for approval, then creates labels, milestones and first issues, adds a ruleset on `main`, and turns on GitHub secret scanning. The installer and `/kickoff` do not add CI, a Dockerfile or CODEOWNERS; those stay yours (the installer prints suggested CODEOWNERS lines).

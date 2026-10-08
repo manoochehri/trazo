@@ -3,11 +3,6 @@
 Trazo is installed into your repository from a release tag, by one script. Nothing is
 copied from a template repository and nothing is fetched from a moving branch.
 
-!!! note "No release exists yet"
-    The first tag, `v0.1.0`, is cut by [#100](https://github.com/manoochehri/trazo/issues/100).
-    Until it exists, `install v0.1.0` has nothing to fetch and refuses. The commands below
-    work as written once the tag is published.
-
 ## Install
 
 From the root of your git repository:

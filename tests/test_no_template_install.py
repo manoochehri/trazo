@@ -45,13 +45,17 @@ def test_detector_matches_line_continuations() -> None:
     assert not _violations("x", "gh repo create foo\n--template unrelated\n")
 
 
-def test_install_command_always_carries_the_no_release_note() -> None:
-    """Until #100 cuts v0.1.0 the command fetches nothing; #100 removes these notes."""
+def test_install_docs_do_not_claim_the_released_tag_is_missing() -> None:
+    """Once #100 releases v0.1.0, install docs must not say the tag is unavailable."""
     for rel in DOCS:
         text = (REPO_ROOT / rel).read_text(encoding="utf-8")
-        if "install.sh install" in text:
-            assert "no release exists yet" in text.lower(), (
-                f"{rel}: install command without the note"
+        lowered = text.lower()
+        if "install.sh install" in lowered:
+            assert "no release exists yet" not in lowered, (
+                f"{rel}: install instructions still say no release exists"
+            )
+            assert "works once `v0.1.0` is cut" not in lowered, (
+                f"{rel}: install instructions still say v0.1.0 is not cut"
             )
 
 

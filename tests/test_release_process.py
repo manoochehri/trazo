@@ -41,9 +41,8 @@ RULES = REPO_ROOT / ".trazo" / "rules.md"
 GIT = shutil.which("git")
 SH = shutil.which("bash")
 
-# The first version released under the tag process defined by ADR 0006. Earlier
-# versions were released without tags and are deliberately not backfilled.
-PROCESS_VERSION = "0.6.0"
+# The first real release under the tag process defined by ADR 0006.
+PROCESS_VERSION = "0.1.0"
 
 pytestmark = pytest.mark.skipif(
     not (GIT and SH), reason="git and bash are needed to read release tags"
@@ -90,10 +89,9 @@ def test_every_merged_changelog_version_has_a_tag():
 
     Two deliberate limits, both about not inventing history:
 
-    - **Versions before 0.6.0 are exempt.** They were released before this process
-      existed (ADR 0006) and were never tagged. Backfilling tags onto commits nobody
-      tagged would fabricate a release record; `.template/CHANGELOG.md` says so
-      explicitly instead.
+    - **Pre-release history is exempt.** Version headings below 0.1.0 are historical
+      development notes, not released entries. Backfilling tags would fabricate
+      release records; `.template/CHANGELOG.md` labels them as such.
     - **Unmerged work is exempt.** The check applies once the release commit is
       reachable from the default branch, because that is when the version becomes real.
       On the PR that introduces the changelog entry the tag cannot exist yet, and
