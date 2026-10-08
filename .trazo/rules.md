@@ -94,13 +94,8 @@ An agent that builds work should not be the only one reviewing it. Review, secur
 skeptic run in their own context, never in the conversation that produced the work —
 asking a second question in one session inherits the same blind spots.
 
-The PM decides project questions and cites the issue, project document, or checked
-measurement behind each decision. The PM owns dates and estimates them from remaining
-work; revise a date only when the work changes and state why. The engineer implements the
-issue and sends questions about priority, sequencing, or scope to the PM. Neither role
-queries production, deploys, or runs production checks unless the issue or owner asks.
-Time pressure is a request for a date, not permission to skip an agreed gate; record an
-owner decision before dropping one.
+Neither role (engineer or PM) accesses production — including deploying, querying, or
+running production checks — unless the issue or the owner explicitly asks for it.
 
 ## State lives in GitHub, not in prose
 Tasks, priorities, dependencies and blockers are labels and relationships on issues, not
@@ -132,10 +127,11 @@ detailed steps and evidence in the linked issue or pull request.
 Check library source, live APIs, and real data before relying on behaviour, and mark
 anything unverified. Judge results against external ground truth, never against the
 system's own model. Every number carries its sample size.
-For external API behavior, cite the primary documentation or a real response. Build fakes,
-fixtures, and mocks from those sources and cite them; do not invent their behavior from
-memory. If no source is available, stop and ask the PM to resolve the gap before relying
-on the behavior.
+If code depends on an outside service, check its documentation or a real response and link
+what you checked. Base tests and fakes on that evidence. If you cannot verify the behavior,
+mark it `UNVERIFIED`. If the code depends on it, stop and mark the issue `needs-pm` so the
+PM can decide how to proceed. Use the service's original documentation when available;
+summaries can leave out important details.
 
 ## Tests are evidence
 For a bug fix or behavior change, write the regression test first and run it against the
