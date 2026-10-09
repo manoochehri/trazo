@@ -7,14 +7,14 @@ For what Trazo is and what's included, see the [README](https://github.com/manoo
 
 ## 1. The AI team
 
-Trazo runs a small team: you plus several Claude roles. **The agents don't talk to each other directly; they communicate through GitHub.** The PM writes issues, the engineer turns issues into pull requests, the reviewer comments on pull requests, and you approve and merge. Everything is visible, and nothing depends on a chat surviving.
+Trazo gives you the same roles in Claude Code and OpenAI Codex, plus a generic adapter for agents that read `AGENTS.md`. This guide uses Claude Code examples; Codex provides matching project agents and skills. **Agents communicate through GitHub.** The PM writes issues, the engineer opens pull requests, the reviewer comments, and you approve and merge.
 
 | Role | Who | Where they work | Triggered by |
 |---|---|---|---|
 | **Owner** | You | GitHub (phone or laptop), Claude app | You |
-| **PM / advisor** | Claude, the `pm` subagent pinned to Sonnet | Claude chat; scheduled GitHub runs | You, or a daily schedule |
-| **Engineer** | Claude Code, `/work` in the forked Haiku context | VS Code on your machine, or GitHub Actions | You, or `@claude` on an issue |
-| **Reviewer** | Claude, the `reviewer` subagent pinned to Sonnet | GitHub pull requests | Automatically on every pull request (once the section 3 workflows are added), or on request in Claude Code |
+| **PM / advisor** | Claude `pm` subagent; Codex `trazo-pm` agent | Claude chat or Code; Codex | You, or an optional schedule |
+| **Engineer** | Claude Code `/work`; Codex `trazo-engineer` agent | Your machine, or optional GitHub automation | You, or `@claude` when that workflow is installed |
+| **Reviewer** | Claude `reviewer` subagent; Codex `trazo-reviewer` agent | Pull requests | On request, or automatically when its optional workflow is installed |
 
 **Neither AI keeps memory between sessions.** The repo does. Every session starts by reading the docs and ends by updating them.
 
@@ -75,7 +75,7 @@ you + PM (chat)  →  issues  →  engineer  →  pull request  →  reviewer + 
 
 ## 3. Setting up the automated team (GitHub Actions)
 
-The automatic parts run on GitHub using Anthropic's official Claude Code GitHub Action. Three workflows:
+This section describes optional GitHub automation for Claude Code using Anthropic's official Claude Code GitHub Action. Codex's project agents and skills work from the local Codex project setup; they do not require these workflows. The optional Claude workflows are:
 
 | Workflow | Role | Runs when |
 |---|---|---|
@@ -118,14 +118,14 @@ bash install.sh install v0.1.0
 claude
 ```
 
-Then type `/kickoff`. Options, upgrade and uninstall are in [Install, upgrade and uninstall](install.md).
+Then start the adapter's kickoff workflow: `/kickoff` in Claude Code or the installed `trazo-kickoff` skill in Codex. Options, upgrade and uninstall are in [Install, upgrade and uninstall](install.md).
 
 ### Option C: what the installer does to an existing repo
 Your repo keeps its runtime, its build system and its pipeline. The installer adds one directory, optionally an adapter for your agent, and you satisfy one contract.
 
 1. **Declare the environment.** Trazo requires *a one-command, reproducible build/test environment an agent can run hermetically from a fresh worktree*. If you do not have one, this is the only thing to build first, whether a `Makefile` target, a `docker compose run test`, a nix shell or a devcontainer. See [What is `.trazo/`](overlay.md).
 2. **Install.** The framework lands in `.trazo/` (from `src/overlay/` at the release tag), and `.trazo/project/` is created from blank templates only if it does not exist.
-3. **Add the adapter for your agent.** The installer inserts it into `CLAUDE.md` and/or `AGENTS.md` between markers and copies `.claude/` for Claude Code. Any other agent reads the same `.trazo/rules.md` through its own equivalent. If your repo already has these files, everything outside the markers is left untouched; an existing `AGENTS.md` is the host's file, see [`AGENTS.md` and Trazo](agents.md).
+3. **Add the adapter for your agent.** Claude Code uses `CLAUDE.md` and `.claude/`; Codex uses `AGENTS.md`, `.codex/agents/`, and `.agents/skills/`. Other compatible agents use the generic `AGENTS.md` adapter. Existing host content outside Trazo's marked blocks is left untouched; see [`AGENTS.md` and Trazo](agents.md).
 4. **Fill in the charter.** Run `/kickoff` and answer the interview. The stop rule is the part worth taking seriously: it is the only thing that decides whether to keep going, and it has to be written before the results exist.
 5. **Leave `docs/` blank, and do not copy Trazo's own state across.** A repo's Trazo state is in `.trazo/project/`, which `/kickoff` fills from the blank templates. Trazo's own `.trazo/project/` is about Trazo, not about your project.
 
@@ -234,7 +234,7 @@ its decision records and workstreams are the right home, and they are the projec
 keep. When you are next working in Trazo, promote what is genuinely reusable by hand, on a
 branch, by promoting reusable guidance into `.trazo/rules.md` or a new ADR and including it in the versioned change.
 
-**Working on Trazo itself:** open the Trazo repo in Claude Code as you would any project. `src/` is the product and is where every change is made; `.trazo/` is the pinned install that governs the repo and is never hand-edited, so a rule you change in `src/` governs this repo only after it is released. Its own state lives in `.trazo/project/`, which is never shipped to hosts; the blank scaffolding hosts receive is under `src/overlay/templates/`. Changes go through pull requests like anything else.
+**Working on Trazo itself:** open the Trazo repo in Claude Code or Codex. `src/` is the product and is where every change is made; `.trazo/` is the pinned install that governs the repo and is never hand-edited. Its own state lives in `.trazo/project/`, which is never shipped to hosts; blank scaffolding lives under `src/overlay/templates/`. Changes go through pull requests like anything else.
 
 **Releasing:** a release is a GitHub milestone named `vX.Y.Z`. Its description is the goal and its issues are the scope. When it has 0 open issues and CI is green, bump `.template/VERSION` with the changelog entry and run `make release`, which refuses while the milestone has open issues. Tags are immutable: never move one that exists.
 

@@ -2,7 +2,7 @@
 
 **A governance overlay for AI coding agents. Mount it on any repo — new or existing — and agents start working to rules instead of improvising.**
 
-Trazo is built specifically for **Claude Code**, and it is opinionated in two places: how agents hand work to each other, and whether a result is real. It is deliberately neutral about everything else — language, framework, and where your code runs.
+Trazo ships tested adapters for **Claude Code** and **OpenAI Codex**, plus a generic `AGENTS.md` adapter for other agents that read it. It is opinionated about how agents hand work to each other and how they check results, while staying neutral about your language, framework, and where your code runs.
 
 [:material-download: Install](install.md){ .md-button .md-button--primary }
 [:material-book-open-page-variant: Read the playbook](playbook.md){ .md-button }
@@ -21,9 +21,9 @@ Almost every serious repo already exists, with its own runtime, toolchain and pi
 - **Results look better than they are.** Agents grade work against their own assumptions instead of reality.
 - **Safety limits drift.** An agent "helpfully" loosens a threshold nobody approved.
 
-A starter template does not fix these — it fixes them for the empty repo you start from, and you are not starting from one. And the tool it mandates is the tool you were trying to escape.
+A starter template only fixes these for a new repo, and most projects already have a codebase. Trazo mounts into an existing repo instead.
 
-Trazo's answer: **the repo is the memory, and the rails are mounted rather than imposed.** It adds a pinned `.trazo/` overlay and a thin `.claude/` adapter. Your code, your build, your deploy — unchanged.
+Trazo's answer: **the repo is the memory, and the rails are mounted rather than imposed.** It adds a pinned `.trazo/` overlay and the adapter for your agent. Your code, build, and deploy setup stay yours.
 
 ## What it adds
 
@@ -82,7 +82,7 @@ bash install.sh install v0.1.0
 
 It copies the framework into `.trazo/`, adds the adapter for the agent you use (`CLAUDE.md` and `.claude/` for Claude Code, `AGENTS.md` for others; [the same `.trazo/rules.md` drives any of them](overlay.md)), and creates `.trazo/project/` for your own state. An existing `AGENTS.md`, `CLAUDE.md` or `.claude/` stays yours: the installer only writes between its own markers. See [Install, upgrade and uninstall](install.md) for options, and [`AGENTS.md` and Trazo](agents.md) for how the two files relate. Your runtime, your build system and your pipeline stay exactly as they are; Trazo mandates no tool for a mounted repo, on purpose.
 
-The next step: open the repo in Claude Code and run `/kickoff`. It interviews you (idea, success criteria, budget, deadline, constraints, stop rule), shows you the charter and plan for approval, then creates labels, milestones and first issues, adds a ruleset on `main`, and turns on GitHub secret scanning. The installer and `/kickoff` do not add CI, a Dockerfile or CODEOWNERS; those stay yours (the installer prints suggested CODEOWNERS lines).
+After installing the adapter, start a fresh agent session and use its kickoff workflow (`/kickoff` in Claude Code or `$trazo-kickoff` in Codex). It interviews you, presents the charter and plan for approval, then helps set up GitHub labels, milestones, and issues. The installer and kickoff do not add CI, a Dockerfile, or CODEOWNERS; those stay yours.
 
 ## A normal day
 
@@ -94,7 +94,11 @@ Ten to fifteen minutes of your attention: a morning briefing, a decision or two,
 
 ## Layout and releases
 
-`src/` is the product and `.trazo/` is the pinned install that governs a repository; `.trazo/project/` is that repository's own state (charter, decision records, workstreams, STATUS, PLAN, RUNBOOK), never overwritten on upgrade. A host starts from blank templates, not from Trazo's own state. A release is a GitHub milestone, and the tag is cut when it has no open issues; tags are never moved. See [What is `.trazo/`](overlay.md).
+`v0.1.0` is the first published release. Its source lives under `src/`; `.trazo/` is this repository's pinned install. A host receives the framework and blank project templates, then keeps its own charter, decisions, and status under `.trazo/project/`. A release is tracked by a GitHub milestone and published as an immutable tag. See [What is `.trazo/`](overlay.md) and the [changelog](changelog.md).
+
+## Lessons learned
+
+The first release clarified a few habits that make the framework easier to use. See the short [v0.1.0 lessons learned](lessons.md) list.
 
 ## Deploying
 
