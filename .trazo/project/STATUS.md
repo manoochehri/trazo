@@ -15,4 +15,4 @@
 - Owner-only release settings and decisions are tracked on the v0.2.0 milestone's open issues.
 
 ## Next
-- Complete the adoption stage for issue #185, then continue with the next ready v0.2.0 issue; release only when that milestone has zero open issues and CI is green.
+- Continue with the next ready v0.2.0 issue; release only when that milestone has zero open issues and CI is green.
