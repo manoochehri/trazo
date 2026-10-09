@@ -3,6 +3,8 @@
 How a Trazo project actually runs: the daily loop, who does what, and what to do in every common situation.
 For setup and reference, see the [guide](guide.md).
 
+Examples below use Claude Code commands. Codex provides corresponding `trazo-*` skills and role agents; install details are in [Install](install.md).
+
 ---
 
 ## The team
@@ -20,7 +22,7 @@ Claude Code defaults to Haiku in a fresh Trazo host install. `/work` uses the fo
 
 **How they talk:** through GitHub (issues, pull requests, comments) and the `.trazo/project/` folder. Not through chat memory. Any session can be closed and a fresh one picks up from the repo.
 
-**You talk to all of them in one Claude Code window, in plain English.** `/pm` runs its command turn on Sonnet; for continued planning, invoke the pinned `pm` subagent. A Claude role command does not change the session model after its turn. `/eng` runs its command turn on Haiku. Reviewer and security are subagent-only — the engineer session invokes them, automatically as part of `/work` and `/check-pr`, or ad hoc. Commands are optional shortcuts (type `/trazo` for a menu).
+**You can work with them in Claude Code or Codex, in plain English.** In Claude Code, `/pm` and `/eng` set the model for that command turn, while the pinned subagents handle continued PM work and independent review. Codex uses its installed role agents and skills. In both adapters, reviewer and security stay separate from the engineer. Commands and skills are shortcuts; ask naturally if you prefer.
 
 ---
 

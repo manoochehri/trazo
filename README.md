@@ -10,7 +10,7 @@ You bring a repo, or an idea. Trazo adds a pinned `.trazo/` overlay and the adap
 
 Engineer and PM are working roles (`/eng` and `/pm` in Claude Code, Codex agents for Codex). Reviewer, security, and skeptic are **subagent-only** review roles, kept separate from the agent that builds the change.
 
-> Status: early; distilled from one real project, so expect rough edges. The first release, `v0.1.0`, is tracked by the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
+> Status: early; distilled from one real project, so expect rough edges. The first release, [`v0.1.0`](https://github.com/manoochehri/trazo/tree/v0.1.0), is published; its scope is recorded in the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1).
 
 [📖 Full documentation](https://manoochehri.github.io/trazo/) · new here? [the guide](handbook/guide.md) · already running a project? [the playbook](handbook/playbook.md)
 
@@ -27,7 +27,7 @@ Almost every serious repo already exists, with its own runtime, toolchain and pi
 - **Results look better than they are.** Agents grade work against their own assumptions instead of reality.
 - **Safety limits drift.** An agent "helpfully" loosens a threshold nobody approved.
 
-A starter template does not fix these — it fixes them for the empty repo you start from, and you are not starting from one. And the tool it mandates is the tool you were trying to escape.
+A starter template only fixes these for a new repo, and most projects already have a codebase. Trazo mounts into an existing repo instead.
 
 Trazo's answer: **the repo is the memory, and the rails are mounted rather than imposed.** Everything durable — goal, budget, design, decisions, status, results — lives as plain markdown in the repo, so any fresh agent session reads it and picks up where the last one stopped.
 
@@ -176,7 +176,7 @@ feature branch → pull request (CI) → main → deploy branch → approve → 
 
 ## How Trazo improves
 
-Trazo's own memory lives in `.template/`: `CHANGELOG.md` and the decisions behind its design. `VERSION` names the version being cut, so before `v0.1.0` it does not describe a release.
+Trazo's own release notes live in `.template/CHANGELOG.md`; `.template/VERSION` names the current version. The first published release is `v0.1.0`.
 
 **A release is a GitHub milestone.** The milestone `vX.Y.Z` carries the release goal in its description and its scope as its issues. The tag is cut when that milestone has 0 open issues and CI is green, and `make release` refuses to tag while any are open. Tags are immutable: a published tag is never moved, so a host that pinned it always gets the same files. A version is a coherent body of work, not one per merged pull request.
 
@@ -192,7 +192,7 @@ Trazo is **mounted** onto a host repo, not forked, so there is no upstream to sy
 src/                       the product: everything a host receives, edited here
   overlay/                 tool-neutral core: rules.md, ADVISOR.md, ARCHITECTURE.md
     templates/             blank charter, adr, workstream and docs/ for a host
-  adapters/                AGENTS.md, CLAUDE.md and claude/ (commands, agents)
+  adapters/                AGENTS.md, CLAUDE.md, claude/ and codex/ (agents, skills)
 .trazo/                    the pinned install that governs this repo; never hand-edited
   rules.md                 the rules, tool-neutral
   project/                 this repo's own state; never shipped, never overwritten

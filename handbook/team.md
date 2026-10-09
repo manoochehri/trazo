@@ -1,6 +1,6 @@
 # The team
 
-Trazo runs a small team: you plus several Claude roles, talking to each other through GitHub, not through chat memory.
+Trazo gives Claude Code and Codex the same roles, with a generic `AGENTS.md` adapter for other compatible agents. The team works through GitHub, not chat memory.
 
 ## Roles and agents
 
