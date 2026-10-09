@@ -1,4 +1,4 @@
-"""Guards for the work-queue report in `.claude/commands/start.md` (issue #37).
+"""Guards for the work-queue report in `src/overlay/skills/start.md` (issue #37).
 
 `/start` used to summarize state and leave the queue implicit, so the owner still had
 to read the issue list and work out who was waiting on whom -- the relay problem #35
@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-START = REPO_ROOT / ".claude" / "commands" / "start.md"
+START = REPO_ROOT / "src" / "overlay" / "skills" / "start.md"
 
 # The four groups, in the order the report must present them.
 GROUPS = ("Waiting on you", "Blocked on the PM", "Ready to work", "Epics in flight")

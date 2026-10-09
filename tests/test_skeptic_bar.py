@@ -23,13 +23,13 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SKEPTIC = REPO_ROOT / ".claude" / "agents" / "skeptic.md"
+SKEPTIC = REPO_ROOT / "src" / "overlay" / "roles" / "skeptic.md"
 BAR = REPO_ROOT / ".trazo" / "project" / "SKEPTIC_BAR.md"
-CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
-RULES = REPO_ROOT / ".trazo" / "rules.md"
-WORK = REPO_ROOT / ".claude" / "commands" / "work.md"
-ADVISOR = REPO_ROOT / ".trazo" / "ADVISOR.md"
-KICKOFF = REPO_ROOT / ".claude" / "commands" / "kickoff.md"
+CLAUDE_MD = REPO_ROOT / "src" / "adapters" / "CLAUDE.md"
+RULES = REPO_ROOT / "src" / "overlay" / "rules.md"
+WORK = REPO_ROOT / "src" / "overlay" / "skills" / "work.md"
+ADVISOR = REPO_ROOT / "src" / "overlay" / "ADVISOR.md"
+KICKOFF = REPO_ROOT / "src" / "overlay" / "skills" / "kickoff.md"
 
 # The issue's own requirements, as assertions.
 VERDICTS = ("holds", "holds with caveats", "does not hold")
@@ -47,10 +47,11 @@ def _frontmatter(path: Path) -> str:
 
 
 def test_skeptic_exists_with_the_role_the_issue_specifies() -> None:
-    """Read-only, Opus, and named so the subagent can be invoked at all."""
-    fm = _frontmatter(SKEPTIC)
+    """Read-only, pinned to Sonnet, and named so the subagent can be invoked."""
+    adapter = REPO_ROOT / "src" / "adapters" / "claude" / "agents" / "skeptic.md"
+    fm = _frontmatter(adapter)
     assert re.search(r"^name: skeptic$", fm, re.MULTILINE)
-    assert re.search(r"^model: opus$", fm, re.MULTILINE)
+    assert re.search(r"^model: sonnet$", fm, re.MULTILINE)
     tools = re.search(r"^tools: (.+)$", fm, re.MULTILINE)
     assert tools, "no tools: line, so the subagent cannot be invoked"
     assert tools.group(1) == "Read, Grep, Glob, Bash", (
@@ -169,7 +170,7 @@ def test_advisor_and_kickoff_carry_the_rule() -> None:
     )
 
     kickoff = _text(KICKOFF)
-    assert ".trazo/project/SKEPTIC_BAR.md" in kickoff, (
+    assert "SKEPTIC_BAR.md" in kickoff, (
         "the bar is per-project, so kickoff is the only place it can be filled in"
     )
     assert re.search(r"specialise", kickoff), "kickoff must say which lines to replace"

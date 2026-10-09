@@ -6,7 +6,7 @@ Check, as relevant:
 - **Exposure:** no open inbound ports without reason; nothing public that shouldn't be.
 - **CI/CD:** third-party actions pinned; `pull_request_target` avoided or safe; deploys gated by the `production` environment.
 - **Dependencies:** known-vulnerable versions; unexpected new packages.
-- **Repo settings:** branch protection on `main`, secret scanning and push protection on, CODEOWNERS covering safety paths — including `.github/CODEOWNERS` itself, with every path still matching a real file (a mangled path protects nothing; issue #14).
+- **Repo settings:** branch protection on the default branch, automatic deletion of merged PR head branches enabled (`delete_branch_on_merge`), secret scanning and push protection on, CODEOWNERS covering safety paths — including `.github/CODEOWNERS` itself, with every path still matching a real file (a mangled path protects nothing; issue #14).
 
 Reply with findings ranked by severity (critical / high / medium / low), each with the concrete fix and who must do it (owner vs. engineer). Never ask for or display secret values.
 
