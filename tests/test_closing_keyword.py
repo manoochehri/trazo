@@ -27,10 +27,10 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-WORK = REPO_ROOT / ".claude" / "commands" / "work.md"
-WRAPUP = REPO_ROOT / ".claude" / "commands" / "wrapup.md"
-REVIEWER = REPO_ROOT / ".claude" / "agents" / "reviewer.md"
-CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
+WORK = REPO_ROOT / "src" / "overlay" / "skills" / "work.md"
+WRAPUP = REPO_ROOT / "src" / "overlay" / "skills" / "wrapup.md"
+REVIEWER = REPO_ROOT / "src" / "overlay" / "roles" / "reviewer.md"
+CLAUDE_MD = REPO_ROOT / "src" / "adapters" / "CLAUDE.md"
 PR_TEMPLATE = REPO_ROOT / ".github" / "pull_request_template.md"
 
 CLOSING_KEYWORD = re.compile(

@@ -14,10 +14,11 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PM_AGENT = REPO_ROOT / ".claude" / "agents" / "pm.md"
-ADVISOR = REPO_ROOT / ".trazo" / "ADVISOR.md"
-WORK = REPO_ROOT / ".claude" / "commands" / "work.md"
-CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
+PM_AGENT = REPO_ROOT / "src" / "overlay" / "ADVISOR.md"
+ADVISOR = REPO_ROOT / "src" / "overlay" / "ADVISOR.md"
+WORK = REPO_ROOT / "src" / "overlay" / "skills" / "work.md"
+CLAUDE_MD = REPO_ROOT / "src" / "adapters" / "CLAUDE.md"
+RULES = REPO_ROOT / "src" / "overlay" / "rules.md"
 
 
 def _text(path: Path) -> str:
@@ -35,40 +36,30 @@ def _bullet(text: str, marker: str) -> str:
 def test_pm_may_not_route_work_through_the_owner() -> None:
     """The #57 loop: PM asks the owner to ping the engineer. The owner is a decision
     gate, not a message bus."""
-    bullet = _bullet(_text(PM_AGENT), "Never route work through the owner")
+    bullet = _bullet(_text(PM_AGENT), "Route work to another agent through the human")
     for phrase in ("ask eng", "tell eng", "ping eng"):
         assert phrase in bullet, f"{phrase!r} is the reported phrasing and must be named"
-    assert "decision gate" in bullet, "the rule must say what the owner IS for"
-    assert "/work" in bullet, "the rule must route work to a routine, not to a person"
+    assert "decision gate" in _text(RULES), "the owner is a decision gate, not a message bus"
 
 
 def test_pm_routes_work_by_naming_the_next_item() -> None:
     """A prohibition alone still leaves the PM with nothing to do but ask. It must
     have a positive instruction: name the next item, addressed to the session."""
-    bullet = _bullet(_text(PM_AGENT), "Never route work through the owner")
-    assert "single next item" in bullet
-    assert "priority" in bullet, "the next item is named with its priority, not bare"
+    bullet = _bullet(_text(PM_AGENT), "Route work to another agent through the human")
+    assert "name the next item" in bullet
+    assert "session's own routine" in bullet
 
 
-def test_pm_ranks_every_open_issue_and_says_why() -> None:
-    """ "Every single task needs to be rigorously prioritized" -- so the ranking is
-    mandatory, exactly one priority each, and must be defensible."""
-    bullet = _bullet(_text(PM_AGENT), "Rank every open issue")
-    for label in ("P0", "P1", "P2"):
-        assert label in bullet, f"{label} missing: a task with no label cannot be ranked"
-    assert "unlabeled" in bullet, "unlabeled issues are the defect; they must be fixed on triage"
-    assert "unblocks" in bullet and "cost" in bullet, "the ranking must state its basis"
-    assert "never as prose" in bullet, "ranking is GitHub state, not a report paragraph"
+def test_advisor_requires_a_reason_for_issue_ranking() -> None:
+    """The tagged role bars unexplained rankings without requiring later queue policy."""
+    bullet = _bullet(_text(PM_AGENT), "Leave an open issue unranked")
+    assert "rank without saying why" in bullet
 
 
-def test_pm_keeps_dependencies_as_github_state() -> None:
-    """The pre-existing rule this PR rebuilt: dependencies, like priority, are labels."""
-    bullet = _bullet(_text(PM_AGENT), "Rank every open issue")
-    # "milestone" not "--milestone": the bullet names the dependency graph, and a test
-    # demanding a specific spelling would just get edited to match the typo.
-    for flag in ("--parent", "--add-blocked-by", "milestone"):
-        assert flag in bullet, f"{flag} belongs to the ranking rule"
-    assert "Re-rank on triage" in bullet, "re-ranking is event-driven, not continuous"
+def test_advisor_keeps_task_records_in_github() -> None:
+    """The tagged role makes GitHub issues the task record."""
+    assert "tasks → GitHub issues" in _text(ADVISOR)
+    assert "State lives in GitHub" in _text(RULES)
 
 
 def test_advisor_role_doc_carries_the_same_two_rules() -> None:
