@@ -133,6 +133,29 @@ the top, include at most one command for the owner to run, and do not assign hom
 (such as asking the owner to check something or giving multi-step instructions). Put
 detailed steps and evidence in the linked issue or pull request.
 
+## Attribute role-authored GitHub posts
+Until roles have separate GitHub identities, append this footer to each role-authored issue
+description or comment, including bodies created with `gh issue create`, replaced with
+`gh issue edit --body`, comments posted with `gh issue comment`, and reviews posted with
+`gh pr review --comment`:
+
+`<emoji> Posted by <role> via <adapter>[ (model: <model>)][ · agent <id> or session <id>]`
+
+Use the short role labels `eng`, `pm`, `reviewer`, `security`, and `skeptic`; use the configured
+name for a custom role. Choose a role-appropriate emoji (`🛠️` for eng, `🧭` for pm, `🔎` for
+reviewer, `🛡️` for security, and `🧪` for skeptic). Include the exact active model only when
+the current role context identifies it. For IDs, prefer a role's agent ID when exposed;
+otherwise include the session ID when exposed. Label the included identifier as `agent` or
+`session` so readers know which it is. Omit unknown fields instead of guessing or printing
+placeholders. Do not inspect local application databases or logs to discover IDs.
+Use the active model reported in the role context; model settings in adapter configuration
+files are defaults and may be overridden. Include runtime IDs only when the adapter exposes
+them to the role context. Do not append a second footer when a body already has one.
+
+For a review verdict, keep the verdict word as the first line. Put the footer after the
+verdict and its findings. The footer is self-reported attribution: GitHub still records the
+shared account as the author, and the footer does not verify which agent wrote the post.
+
 ## Verify, don't assume
 Check library source, live APIs, and real data before relying on behaviour, and mark
 anything unverified. Judge results against external ground truth, never against the

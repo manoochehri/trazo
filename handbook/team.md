@@ -16,6 +16,8 @@ Trazo gives Claude Code and Codex the same roles, with a generic `AGENTS.md` ada
 
 **No role other than the engineer edits a file** — that is the invariant, and it is why a review cannot quietly grade the same conversation's work. But "no file edits" is not "read-only": every one of these four *writes to GitHub*. The PM reshapes the issue graph, and the reviewer, security and skeptic agents all record their verdict where the next session can see it, because a verdict that lives only in the conversation gates nothing.
 
+Role-authored issue descriptions and GitHub comments end with a **role attribution footer** under the shared rules. Claude Code and Codex use their native adapters; other tools, including Cline, use the `AGENTS.md` adapter. The footer includes the exact active model and agent ID (or session ID when no agent ID is exposed) only when the role context provides them. Unknown fields are omitted. GitHub still shows the shared account as author, so the footer is self-reported attribution, not an independently verified identity.
+
 !!! note "Review verdicts are comments, not approvals"
 
     Reviewer, security and skeptic post `gh pr review --comment`, never `--approve` or `--request-changes`. GitHub rejects both while the agent and the PR author are the same account — which is every pull request here, because agents share the owner's identity ([#44](https://github.com/manoochehri/trazo/issues/44)). The moment agents get their own identity, these become real blocking reviews. Until then, **a green CI run is your merge gate, not a reviewer approval.**
