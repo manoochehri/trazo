@@ -69,7 +69,7 @@ flowchart LR
     Reviewer -.->|flags risk| Security
 ```
 
-The PM writes issues, the engineer turns them into pull requests, and you approve and merge. Claude Code uses Haiku for engineering command turns and pins PM, reviewer, security, and skeptic subagents to Sonnet. Codex pins engineer agents to Luna and its other role agents to Sol. Cline users choose their provider and model. Claude role-command model overrides last for one turn; see [the team](team.md) and [playbook](playbook.md) for details.
+The PM writes issues, the engineer turns them into pull requests, and you approve and merge. Claude Code uses Haiku for engineering command turns and pins PM, reviewer, security, and skeptic subagents to Sonnet. Codex pins engineer agents to Luna and its other role agents to Sol. Users of other compatible agents choose their provider and model. Claude role-command model overrides last for one turn; see [the team](team.md) and [playbook](playbook.md) for details.
 
 ## Mounting it
 
