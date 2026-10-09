@@ -12,8 +12,9 @@ halves in place.
 Cross-file on purpose: the #36 review established that a test guarding one file
 passes happily while another contradicts it.
 
-Scope is the *operative* files -- the ones an agent executes: `.claude/agents/*.md`,
-`.claude/commands/*.md`, and `CLAUDE.md`. Descriptive prose is deliberately out:
+Scope is the *operative* files -- the ones an agent executes: the tagged canonical
+`.trazo/roles/` and `.trazo/skills/`, their Claude adapters, and `CLAUDE.md`. Descriptive
+prose is deliberately out:
 `handbook/playbook.md` (rewritten by #33/#40) and `.trazo/project/STATUS.md` (session status,
 replaced by `/wrapup`) may describe the old mechanism, but they instruct nothing.
 """
@@ -23,16 +24,14 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
-CLAUDE_DIR = REPO_ROOT / ".claude"
 
 # The five files issue #47 names, each of which prescribes the mechanism.
 PRESCRIBING_FILES = (
-    CLAUDE_DIR / "agents" / "reviewer.md",
-    CLAUDE_DIR / "agents" / "security.md",
-    CLAUDE_DIR / "commands" / "check-pr.md",
-    CLAUDE_DIR / "commands" / "work.md",
-    CLAUDE_MD,
+    REPO_ROOT / "src/overlay/roles/reviewer.md",
+    REPO_ROOT / "src/overlay/roles/security.md",
+    REPO_ROOT / "src/overlay/skills/check-pr.md",
+    REPO_ROOT / "src/overlay/skills/work.md",
+    REPO_ROOT / "src/adapters/CLAUDE.md",
 )
 
 # `.trazo/project/adr/0003` is append-only: the record #44 produces supersedes it by name,
@@ -51,11 +50,12 @@ PRESCRIBED_APPROVAL = re.compile(
 
 
 def _operative_files() -> list[Path]:
-    """Agent definitions, role commands, and the root rules -- what an agent executes."""
+    """Canonical roles/skills, their Claude adapters, and root rules."""
     return (
-        sorted(CLAUDE_DIR.glob("agents/*.md"))
-        + sorted(CLAUDE_DIR.glob("commands/*.md"))
-        + [CLAUDE_MD]
+        sorted((REPO_ROOT / "src/adapters/claude").rglob("*.md"))
+        + sorted((REPO_ROOT / "src/overlay/roles").glob("*.md"))
+        + sorted((REPO_ROOT / "src/overlay/skills").glob("*.md"))
+        + [REPO_ROOT / "src/adapters/CLAUDE.md"]
     )
 
 

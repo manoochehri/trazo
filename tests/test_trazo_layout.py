@@ -46,16 +46,27 @@ MOVED = (
 PRODUCT = "src"
 OVERLAY = "src/overlay"
 ADAPTERS = "src/adapters"
+CLAUDE_ADAPTERS = REPO_ROOT / ADAPTERS / "claude"
 
-# Installed copy -> canonical source. Every row is a file a host receives; none of them
-# is edited in place on the left-hand side.
+# Installed copy -> canonical source. Enumerate every shipped overlay and Claude adapter
+# file so the pinned self-install cannot silently omit a skill, template, role, or command.
 INSTALLED_FROM_SRC = {
-    ".trazo/rules.md": "src/overlay/rules.md",
-    ".trazo/ADVISOR.md": "src/overlay/ADVISOR.md",
-    ".trazo/ARCHITECTURE.md": "src/overlay/ARCHITECTURE.md",
+    **{
+        f".trazo/{path.relative_to(REPO_ROOT / OVERLAY).as_posix()}": path.relative_to(
+            REPO_ROOT
+        ).as_posix()
+        for path in (REPO_ROOT / OVERLAY).rglob("*")
+        if path.is_file()
+    },
+    **{
+        f".claude/{path.relative_to(CLAUDE_ADAPTERS).as_posix()}": path.relative_to(
+            REPO_ROOT
+        ).as_posix()
+        for path in CLAUDE_ADAPTERS.rglob("*")
+        if path.is_file()
+    },
     "CLAUDE.md": "src/adapters/CLAUDE.md",
     "AGENTS.md": "src/adapters/AGENTS.md",
-    ".claude/settings.json": "src/adapters/claude/settings.json",
 }
 
 # ADR 0011: ours lives in `.trazo/project/`; the host's is a template under `src/`.
