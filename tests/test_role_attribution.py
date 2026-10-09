@@ -45,6 +45,7 @@ def test_native_adapters_name_model_and_id_sources_and_fallbacks() -> None:
     codex = _flat(CODEX) + " " + _flat(CODEX_WORK)
     assert "session_id" in claude and "agent_id" in claude
     assert "Claude Code hook input includes `session_id`" in claude
+    assert "Headless JSON output" in claude and "Agent SDK messages" in claude
     assert "active model" in claude and "only when" in claude
     assert "CODEX_THREAD_ID" not in codex, "do not rely on undocumented Codex internals"
     assert "CODEX_SESSION_ID" not in codex, "do not rely on undocumented Codex internals"
