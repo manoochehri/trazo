@@ -2,7 +2,7 @@
 
 **Status:** current
 
-**Updated:** 2026-10-08 by engineer (after v0.1.0 closed and main advanced through #186)
+**Updated:** 2026-10-08 by engineer (after v0.1.0 closed and the migration baseline was established)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.2.0 milestone](https://github.com/manoochehri/trazo/milestone/4); the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1) is closed.
 
 ## Running now
