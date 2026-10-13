@@ -22,11 +22,12 @@ routing rule could not be applied.
   - CODEOWNERS and the safety limits it protects
   - `.github/workflows/` (CI and CD workflows)
   - core dependency manifests and locks (for example `pyproject.toml`, `package.json`)
-  - `.trazo/` governance schemas, rules and roles
+  - security configuration
+  - `src/` and `.trazo/` governance schemas, rules and roles (`src/` is canonical, ADR 0010)
   - interface or contract definitions, and cross-workstream integration
   - high architectural uncertainty, such as the baseline contracts in a new milestone
   Path rules are a floor for routing, not a permission. A path match still gets the separate
-  security review that ADR 0003 already requires for these paths.
+  security review that `.trazo/rules.md` ("Roles are separated") requires for these paths.
 - **Label: `tier:senior`.** It is the only routing field. `status:escalated` is not used. It
   already exists on the repository with the description "Escalated to the senior engineer tier
   (ADR 0016)".
