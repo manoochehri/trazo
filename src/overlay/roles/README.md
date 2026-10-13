@@ -11,7 +11,7 @@ Canonical Trazo role definitions. These roles represent the standard division of
 | **[Reviewer](reviewer.md)** | Reviews pull requests before merge | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
 | **[Security](security.md)** | Checks security, permissions, dependencies | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
 | **[Skeptic](skeptic.md)** | Breaks quantitative claims before action | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
-| **[Architect](architect.md)** | Advises on system structure and design fit, on demand only | Claude Opus (pending owner confirmation, #193); OpenAI Codex not yet mapped; Cline user-selected | No |
+| **[Architect](architect.md)** | Advises on system structure and design fit, on demand only | Claude Opus (pending owner confirmation, #193); OpenAI Codex Astra; Cline user-selected | No |
 
 ## Role Separation Principle
 

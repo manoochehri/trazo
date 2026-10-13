@@ -36,12 +36,13 @@ the charter's AI budget for little return, so the role runs only when a trigger 
   produce the work being judged; until an Architect subagent exists, the owner decides whether
   to act on the finding. Destructive
   infrastructure rollbacks, production deployments, and token-budget overrides stay human-only.
-- **Model mapping (amends 0015, pending owner confirmation on #193):**
+- **Model mapping (amends 0015):**
   - Claude Code: Opus, through an `/architect` command that sets Opus for its turn, like `/pm`.
     The Architect has no pinned subagent in this record.
-  - OpenAI Codex: **not mapped.** No Codex agent file is shipped by this record. The owner's name
-    "Astra" has no identifier verified against OpenAI's documentation, so the agent is held until
-    #193 records the owner's model decision and the identifier is verified and linked.
+  - OpenAI Codex: `gpt-6-astra`. The owner decided on #193 that Codex is Astra (owner's words:
+    "codex shuld be astra"). The identifier is verified on OpenAI's model page:
+    https://developers.openai.com/api/docs/models/gpt-6-astra (Model ID `gpt-6-astra`).
+  - Claude Code's Opus mapping above is still pending the owner's confirmation on #193.
   - Cline: unchanged. Each user selects both provider and model.
 - **Non-builder:** the Architect does not write application code, implement features, or manage task
   worktrees.
@@ -66,13 +67,13 @@ the charter's AI budget for little return, so the role runs only when a trigger 
   reaches this repository's own `.trazo/roles/` only at the next release install. The same applies to
   the `/architect` command and the Codex agent. The install is tracked with the release, as ADR 0016
   does for `senior-eng`.
-- No Codex agent is installed. `src/adapters/codex/agents/` has no `architect.toml` in this record.
-  Adding one is a follow-up after #193 records the owner's model decision and the identifier is
-  verified against OpenAI's documentation.
+- The Codex agent `src/adapters/codex/agents/architect.toml` uses `gpt-6-astra`, the verified
+  identifier. The OpenAI page does not list Codex as a surface, so Codex availability of this model
+  is not verified there.
 - The `needs-decision` label on #193 is cleared only when this record merges and the owner has
-  confirmed the Claude model mapping on #193. The Codex mapping stays open. The #192 engineer-tier
-  question remains open and is not settled here.
+  confirmed the Claude model mapping on #193. The #192 engineer-tier question remains open and is
+  not settled here.
 
 **Revisit** when the first Architect invocation shows whether the triggers fire at the expected rate,
-when the owner confirms the model mapping, when the Codex identifier is verified, or when #192's
-lead/integrator decision lands.
+when the owner confirms the Claude model mapping, when Codex availability of `gpt-6-astra` is
+verified, or when #192's lead/integrator decision lands.
