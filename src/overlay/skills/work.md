@@ -14,7 +14,7 @@ Implement issue $ARGUMENTS.
 
 ## Watch CI, fix obvious failures, then request review
 
-Run this loop after every push to the pull request. The first push in step 4 may be an incomplete first commit, so a green check on it proves nothing. Do not run the loop's exit to review on an incomplete change: when a push is incomplete, check its results, then return to step 5 instead of going on.
+Run this loop after every push to the pull request. The first push in step 4 may be an incomplete first commit, so a green check on it proves nothing. While step 5 is unfinished, the push is incomplete: a failing check on it is expected, so do not fix it, do not escalate it, and do not count it toward the bounds. Return to step 5 and finish the change. Only a complete change goes on to review.
 
 1. **Wait:** run `gh pr checks <number> --watch` and let the checks finish.
 2. **All checks pass on a complete change:** go on to the review request in step 6. If the change is still incomplete, return to step 5.
