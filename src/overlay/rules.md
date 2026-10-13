@@ -62,6 +62,9 @@ write the changelog entry in the *same commit* as the last change in that releas
 version and its description are reviewed together and can never disagree.
 
 ## The repo is the memory
+
+Feature PRs do not edit `.trazo/project/STATUS.md`. Only `/wrapup` refreshes it after merges,
+in a separate PR containing only `.trazo/project/` changes.
 Sessions are disposable and contexts reset. Anything that must survive goes in the repo:
 decisions in `.trazo/project/adr/`, work in GitHub Issues, status and plan in `.trazo/project/`. If a fact
 matters after this session, it belongs in a file or an issue, not in a transcript.
