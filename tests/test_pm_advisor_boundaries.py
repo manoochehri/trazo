@@ -72,3 +72,52 @@ def test_engineer_routes_scope_calls_through_work_handoff() -> None:
     assert "Questions about sequencing, priority, or scope" in work
     assert "same `needs-pm` handoff" in work
     assert "`needs-pm` handoff" in command
+
+
+def _open_items_section() -> str:
+    advisor = " ".join(ADVISOR.read_text(encoding="utf-8").split())
+    return advisor.split("## Open items", 1)[1].split("## How to respond", 1)[0]
+
+
+def test_pm_leaves_no_open_item_unowned() -> None:
+    """Issue #194: every open item ends the turn dispatched, as an owner question, or blocked."""
+    section = _open_items_section()
+
+    assert "No turn ends with an unowned open item" in section
+    assert "*dispatched*" in section and "recorded on the issue" in section
+    assert "*owner question*" in section and "`needs-decision`" in section
+    assert "*blocked*" in section and "what unblocks it" in section
+
+
+def test_pm_dispatch_table_routes_each_kind_of_item() -> None:
+    section = _open_items_section()
+
+    assert "fact about code or real data -> eng" in section
+    assert "skeptic" in section and "number" in section
+    assert "reviewer" in section
+    assert "security" in section and "secrets" in section
+    assert "owner-level choice" in section and "needs-decision" in section
+
+
+def test_pm_posts_dispatches_and_answers_on_the_issue() -> None:
+    section = _open_items_section()
+
+    assert "answer is posted on the issue" in section
+    assert "dispatch is posted when it starts" in section
+
+
+def test_pm_does_not_ask_permission_to_file_clear_work() -> None:
+    section = _open_items_section()
+
+    assert "Do not ask permission to file" in section
+    assert "clear and reversible" in section
+    assert "If the owner says they are exploring" in section and "file nothing" in section
+
+
+def test_pm_limits_batch_sequence_and_cap_dispatch() -> None:
+    section = _open_items_section()
+
+    assert "batch related questions into one eng session" in section
+    assert "cap concurrent spawned agents" in section
+    assert "sequence the skeptic after the evidence exists" in section
+    assert "never investigates or edits code" in section
