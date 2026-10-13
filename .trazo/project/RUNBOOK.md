@@ -54,7 +54,7 @@ Caveat (#44): agents post as the owner's account, so an agent could set `success
 - Owner, once: `gh secret set ANTHROPIC_API_KEY --repo manoochehri/trazo` (prompts for the value with hidden input), and set a monthly spend cap in the Anthropic console.
 - Owner, to enable: set the repository variable `AUTO_REVIEW_ENABLED` to `true` (Settings -> Secrets and variables -> Actions -> Variables).
 - Rollback, kill switch: set `AUTO_REVIEW_ENABLED` to anything but `true`. No code change is needed.
-- The workflow writes `trazo/verdict` as `failure` only, when a review does not finish. It never writes `success`; a clean review leaves the status unset until ADR 0017's open decision (#213) is made.
+- The report job writes `trazo/verdict` from `scripts/report_verdict.py` (ADR 0020, #213). It writes `success` only for a `github-actions[bot]` review on the head, submitted after the run started, whose first line is exactly `merge`. Everything else is `failure`, including a review that did not finish. A clean PR therefore turns green without `/check-pr`. The bot login is unverified until the first live run; check it on the PR.
 - A `failure` from the report job is terminal for the gate: that head is skipped on re-run. To retry a transient failure, push a new commit or run `/check-pr` on the head.
 
 ## Separate GitHub App identity for agent work (#44)

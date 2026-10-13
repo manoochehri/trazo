@@ -117,14 +117,46 @@ def test_agent_job_has_no_pytest_or_pr_code_execution_in_its_allowlist():
     assert 'CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"' in review
 
 
-def test_only_the_report_job_writes_a_status_and_only_failure():
+def test_only_the_report_job_writes_a_status_and_only_its_decided_state():
     report = job("report")
     assert "statuses: write" in report
     assert "context=trazo/verdict" in report
-    assert "state=failure" in report
-    assert "state=success" not in workflow_text()
     assert "state=pending" not in workflow_text()
     assert "trazo/security" not in workflow_text()
+    # Success only ever comes from the decision script. The workflow writes failure literals only
+    # on its fail-closed paths.
+    assert "state=success" not in workflow_text()
+    assert "scripts/report_verdict.py" in report
+
+
+def test_report_job_tokens_are_read_only_except_the_status_write():
+    report = job("report")
+    assert "pull-requests: read" in report
+    assert "actions: read" in report
+    assert "pull-requests: write" not in report
+    assert "contents: write" not in report
+
+
+def test_report_job_runs_the_base_branch_script_not_the_pr_head():
+    report = job("report")
+    assert "ref: ${{ github.event.pull_request.base.sha }}" in report
+    assert "persist-credentials: false" in report
+    assert "ref: ${{ github.event.pull_request.head" not in report
+
+
+def test_report_job_fails_closed_when_the_review_did_not_succeed():
+    report = job("report")
+    assert 'REVIEW_RESULT" != "success"' in report or 'REVIEW_RESULT}" != "success"' in report
+
+
+def test_adr_0020_supersedes_the_success_clause_and_keeps_0017():
+    adr = (REPO_ROOT / ".trazo/project/adr/0020-verdict-success-from-bot-review.md").read_text()
+    assert "Supersedes" in adr
+    assert "0017" in adr
+    assert "What the workflow may write" in adr
+    assert "#213" in adr
+    assert "github-actions[bot]" in adr
+    assert "accepted" in adr.lower()
 
 
 def test_report_job_runs_after_review_even_when_review_is_cancelled_or_times_out():

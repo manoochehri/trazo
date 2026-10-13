@@ -3,7 +3,8 @@ name: review
 # PR content never holds a commit-status write token:
 #   gate    reads trazo/verdict on the head and decides whether to review at all
 #   review  runs the reviewer subagent from the base branch; it writes nothing to statuses
-#   report  writes trazo/verdict failure when the review did not finish; it never writes success
+#   report  writes trazo/verdict from scripts/report_verdict.py: success only for a bot review that
+#           says merge on this head, submitted after this run started (ADR 0020, #213); failure otherwise
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review]
@@ -98,20 +99,46 @@ jobs:
       needs.gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
+      # statuses: write sets trazo/verdict. pull-requests: read and actions: read let the
+      # decision script read the bot's review and this run's start time. Nothing else.
       statuses: write
+      pull-requests: read
+      actions: read
     steps:
-      - name: end red unless the review finished
+      # The base branch supplies the decision script, so the PR cannot change how it decides.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - name: decide trazo/verdict from the bot review on this head
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEW_RESULT: ${{ needs.review.result }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+          BOT_LOGIN: github-actions[bot]
+        run: |
+          # The review must have finished. Anything else is failure, without reading reviews.
+          if [[ "$REVIEW_RESULT" != "success" ]]; then
+            printf 'state=failure\nreason=automatic review did not finish (%s)\n' "$REVIEW_RESULT" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The run start time bounds which reviews count. A missing start time fails closed.
+          RUN_STARTED_AT=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" -q .run_started_at || true)
+          export RUN_STARTED_AT HEAD_SHA BOT_LOGIN
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" \
+            | python3 scripts/report_verdict.py >> "$GITHUB_OUTPUT" \
+            || printf 'state=failure\nreason=could not decide from reviews\n' >> "$GITHUB_OUTPUT"
+      - name: set trazo/verdict
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.pull_request.head.sha }}
-          REVIEW_RESULT: ${{ needs.review.result }}
+          STATE: ${{ steps.decide.outputs.state }}
+          REASON: ${{ steps.decide.outputs.reason }}
         run: |
-          # Writes failure only. A clean review leaves the status to the reviewer's own run.
-          if [[ "$REVIEW_RESULT" == "success" ]]; then
-            echo "Review finished; the workflow sets no status on success."
-            exit 0
-          fi
           gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
-            -f state=failure -f context=trazo/verdict \
-            -f description="Automatic review did not finish (${REVIEW_RESULT}); see the run log" \
+            -f state="$STATE" -f context=trazo/verdict \
+            -f description="$REASON" \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
