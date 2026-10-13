@@ -43,6 +43,10 @@ and writes `trazo/verdict`:
    does not change this, because it comes from the same run as the `merge` and cannot be a check on it.
 6. Reviews from `/check-pr` are posted from the owner's account. They do not count here, because
    `/check-pr` keeps setting its own status under #115.
+7. Before writing, preserve an existing terminal `trazo/verdict` (`success` or `failure`)
+   and a `pending` verdict created by anyone other than `github-actions[bot]`. This avoids replacing
+   a manual review that has completed or is in progress. If the status read fails, write `failure`.
+   The read and write are separate operations; the residual race below remains.
 
 The report job reads reviews with `pull-requests: read` and the run start time with `actions: read`. It
 has no `contents: write` and no `pull-requests: write`. The review job still has no status token.
