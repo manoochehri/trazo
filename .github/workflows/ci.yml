@@ -10,7 +10,7 @@ jobs:
   secrets-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: {fetch-depth: 0}
       - name: install gitleaks
         run: |
@@ -35,13 +35,13 @@ jobs:
             echo "::error::Pull requests must target '$DEFAULT_BRANCH' (got '$PR_BASE')."
             exit 1
           fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - name: Require pull request review and fail-first evidence
         if: github.event_name == 'pull_request'
         run: python scripts/check_pr_evidence.py
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
       - run: uv sync
       - name: Check project documentation
         env:
@@ -53,13 +53,13 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: docker build -t app:ci .
   docs-updated:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: {fetch-depth: 0}
       - name: infra changes need ARCHITECTURE or RUNBOOK updates
         run: |
