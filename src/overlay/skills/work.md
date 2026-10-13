@@ -1,6 +1,6 @@
 Implement issue $ARGUMENTS.
 
-1. Read the issue (`gh issue view`), AGENTS.md and `.trazo/rules.md`, and any docs it links.
+1. Read the issue (`gh issue view`), AGENTS.md and `.trazo/rules.md`, and any docs it links. Read `.trazo/project/ARCHITECTURE_CONTRACT.md` if it exists: build the change against its component boundaries and interfaces, and run the acceptance commands it names. If it is missing or still has a `REQUIRED` placeholder, say so in the plan.
 2. Explain your plan in a few lines and list anything unclear. When the issue touches external behavior, list each assumed behavior with its source or `UNVERIFIED`; any `UNVERIFIED` behavior the code depends on blocks the change. Then wait for my OK — unless the run is unattended, which means it was started by an agent mention on an issue or by a schedule. In that case post the plan to the issue with `gh issue comment` and carry on. Nothing else counts as unattended; if I'm slow to reply, you are still waiting for me.
 3. Do not stack work on an unmerged pull request. If this issue depends on an open PR, wait for that PR to merge, then start from fresh `origin/<default-branch>`. Find the repository's default branch with `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`, fetch it, and create a dedicated worktree from `origin/<default-branch>`:
    `git worktree add .worktrees/issue-<number>-<short-name> -b issue-<number>-<short-name> origin/<default-branch>`

@@ -147,6 +147,20 @@ def _pinned_tag() -> str | None:
     return tag if result.returncode == 0 else None
 
 
+def _in_pinned_release(rel: str, tag: str | None) -> bool:
+    """True when `rel` exists in the pinned release, or before the first release at all."""
+    if tag is None:
+        return True
+    assert GIT is not None
+    result = subprocess.run(  # noqa: S603 - fixed git argv and repository-relative path
+        [GIT, "cat-file", "-e", f"{tag}:{rel}"],
+        capture_output=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    return result.returncode == 0
+
+
 def _source_bytes(rel: str, tag: str | None) -> bytes:
     """Read the canonical file from the pinned tag, or from the worktree pre-release."""
     if tag is None:
@@ -229,10 +243,13 @@ def test_the_installed_copy_is_the_product_not_a_fork_of_it() -> None:
     the product can move ahead while this repository remains pinned (ADR 0010).
     """
     tag = _pinned_tag()
+    # A product file added to src/ after the pinned tag has no installed copy until the next
+    # release (ADR 0010), so it is not drift. Only files the pinned release carries are compared.
     drifted = [
         f"{installed} != {source}"
         for installed, source in INSTALLED_FROM_SRC.items()
-        if _installed_bytes(installed) != _source_bytes(source, tag)
+        if _in_pinned_release(source, tag)
+        and _installed_bytes(installed) != _source_bytes(source, tag)
     ]
     assert not drifted, (
         "the installed copy differs from its canonical source. Edit `src/`, then "
