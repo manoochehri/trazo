@@ -65,6 +65,8 @@ version and its description are reviewed together and can never disagree.
 Sessions are disposable and contexts reset. Anything that must survive goes in the repo:
 decisions in `.trazo/project/adr/`, work in GitHub Issues, status and plan in `.trazo/project/`. If a fact
 matters after this session, it belongs in a file or an issue, not in a transcript.
+Feature pull requests do not edit `.trazo/project/STATUS.md`. `/wrapup` is its only writer, and it writes
+STATUS in its own pull request after merges.
 
 ## Read referenced decisions before writing
 Before the first file write in a project, inspect its top-level instructions and follow their

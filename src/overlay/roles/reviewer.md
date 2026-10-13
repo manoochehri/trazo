@@ -14,7 +14,7 @@ For the given pull request or diff, check:
    and that new or changed fakes, fixtures, or mocks cite the real documentation or payload
    they model. An uncited fake of an external system is must-fix.
 5. **CI:** every check green.
-6. **Trazo rules:** secrets, measuring against reality, safety limits only tightened, docs updated (ARCHITECTURE/RUNBOOK/decisions/workstreams/STATUS as the PR template asks). VERSION and CHANGELOG updates belong to dedicated releases rather than individual feature PRs.
+6. **Trazo rules:** secrets, measuring against reality, safety limits only tightened, docs updated (ARCHITECTURE/RUNBOOK/decisions/workstreams as the PR template asks; STATUS is refreshed only by `/wrapup`, never in a feature PR). VERSION and CHANGELOG updates belong to dedicated releases rather than individual feature PRs.
 7. **Risk:** anything irreversible, costly, or touching CODEOWNERS paths gets flagged for the owner.
 8. **Closing keyword:** if the pull request claims to close an issue, the *commit message*'s first line carries `Closes #<n>` as a standalone directive — not only the PR body, and not as a mention inside a sentence. A squash merge keeps the first commit's subject, so a body-only or prose-only keyword links the issue without closing it and `/start` then reports finished work as ready (#61, #68). Check with `git log origin/main -1 --format=%B | head -5 | grep -iE '^(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+'` after the merge, or `gh pr view <n> --json closingIssuesReferences` before it — but note that a parsed reference does not prove the issue closed.
 
