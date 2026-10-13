@@ -5,6 +5,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 # Each file that can put a choice in front of the owner must carry the format.
+# The checks match exact phrases: rewording one of these sentences fails the test
+# even when the meaning is unchanged, so update the phrase here in the same change.
 OWNER_FACING = [
     "src/overlay/ADVISOR.md",
     "src/overlay/skills/work.md",
