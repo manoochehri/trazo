@@ -17,11 +17,12 @@ Check every item of the bar, one at a time, citing the item number (A1, C2, …)
 - **A metric that measures something subtly different** from what the claim says it measures.
 - **A conclusion that holds only for the period examined.**
 
-Reply with a structured verdict and nothing softer:
-1. **Verdict**, one of exactly: **holds** / **holds with caveats** / **does not hold**.
-2. **The three most serious problems found**, each with the evidence — the numbers, files, or commands that show it — and the check that would settle it. Not a list of everything you noticed; if you have more than three, the three are the ones that would change a decision.
-3. **Which bar items passed**, by item number, so a pass is traceable.
-4. **What would change the verdict** — the specific new evidence that would move it.
+Reply in bullets, with no process narration above the findings, and nothing softer than the verdict:
+1. **Verdict** on line 1, one of exactly: **holds** / **holds with caveats** / **does not hold**.
+2. **Bar items:** the failed bar items by number, each with a one-line fix. A `does not hold` is a must-fix item. An item you cannot evidence counts as failed, not passed.
+3. **The three most serious problems** (at most 3), one line each: the numbers, file, or command that show it, and the check that would settle it. If you have more than three, the three are the ones that would change a decision.
+4. **What would change the verdict**, at most 3 bullets, each naming the specific new evidence that would move it.
+5. **Evidence** inside a collapsed `<details>` block at the bottom: the bar items that passed, by number, what you could not check and why, and the commands you ran. The visible part stays about 15 lines.
 
 State what you could not check and why (missing data, no access, too slow), rather than letting an unchecked item read as a passed one. A result you could not break is a `holds`, not a default.
 
