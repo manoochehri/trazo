@@ -35,7 +35,7 @@ Questions about sequencing, priority, or scope use this same `needs-pm` handoff;
 You never classify whether something is the owner's call yourself: you apply `needs-pm` and let the PM decide. While the PM is looking, keep building anything that doesn't depend on the answer. Once it escalates to `needs-decision`, that issue is stopped until the owner clears it.
 
 ## Merge gate
-`trazo/verdict` (set by the reviewer subagent; `trazo/security` by the security subagent) is the commit status that makes a PR mergeable once the owner marks it a required check. It is per head SHA, so every push resets it: after pushing fixes, re-request review so the reviewer sets it again on the new head. The engineer never sets these contexts; do not run `gh api .../statuses` for `trazo/verdict` or `trazo/security` yourself.
+`trazo/verdict` (set by the reviewer subagent, or by the automatic review's report job from a bot `merge` on the head, ADR 0020; `trazo/security` by the security subagent) is the commit status that makes a PR mergeable once the owner marks it a required check. It is per head SHA, so every push resets it: after pushing fixes, re-request review so the reviewer sets it again on the new head. The engineer never sets these contexts; do not run `gh api .../statuses` for `trazo/verdict` or `trazo/security` yourself.
 
 Use one working session per task. Do not poll another session or its transcript; put
 progress in the issue and PR, then start a fresh session for the next task.
