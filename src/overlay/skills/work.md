@@ -12,6 +12,19 @@ Implement issue $ARGUMENTS.
 6. Ask the **reviewer** subagent to review the PR; verify that the PR base branch is `main`. The subagent posts its verdict directly on the PR as a `gh pr review --comment` with the verdict word as the first line of the body (not just a chat summary) — not `--approve` / `--request-changes`, which GitHub refuses while the agent and the PR author are the same account, i.e. every PR here (#44); switch back when #44 gives agent work its own identity. Fix must-fix items and push. If the change touches secrets, permissions, workflows, dependencies, or infra, also ask the **security** subagent — it posts findings tied to this PR the same way via `gh pr review --comment`; a security finding unrelated to this PR becomes its own GitHub issue instead. If the change makes or relies on a **quantitative, experimental, or empirical claim** — a measured number, a benchmark, a cost or performance figure, an A/B or backtest result — also ask the **skeptic** subagent before the claim ships: it checks the result against `.trazo/project/SKEPTIC_BAR.md` and returns *holds* / *holds with caveats* / *does not hold*, and a `does not hold` is a must-fix item. A claim that is merely *believed* is not evidence, and code that encodes a number nobody checked encodes the bug too.
 7. Report the PR link and verdict first, then a concise test result, review-round count, and defects fixed. Keep the owner message short and decision-first, include at most one command, and do not ask the owner to check something or give multi-step instructions. Put supporting evidence in the linked PR.
 
+## Watch CI, fix obvious failures, then request review
+
+Do this after every push to the pull request: the first push in step 4 and each push after it. Do not stop at the push.
+
+1. **Wait:** run `gh pr checks <number> --watch` and let the checks finish.
+2. **All checks pass:** go on to step 6.
+3. **A check fails with a mechanical cause:** read the failing log with `gh run view <run-id> --log-failed`, then fix it on the same branch and pull request. Mechanical causes are a missing required field (such as the PR evidence field), a stale or colliding document number (such as an ADR number that another PR took on `main` while this work was in progress), formatting or lint, and any failure whose cause the log states plainly. Push the fix and return to step 1.
+4. **The cause is not obvious, or the fix would change scope, behavior or acceptance criteria to make the check pass:** stop. Run `gh issue edit <n> --add-label needs-pm`, post the failing log excerpt and what you tried with `gh issue comment`, and call the `pm` subagent, as in *When you hit something that blocks progress*. Do not guess at the fix.
+
+Bounds: make at most 2 fix attempts per failing check. If the same check still fails after the second fix, escalate under step 4. Never set `trazo/verdict` or `trazo/security`, and never merge.
+
+Only after all checks pass, ask the **reviewer** subagent to review (step 6). A review requested before checks pass reviews code that may still change.
+
 ## When a decision arrives
 
 Whichever way it arrives — the `pm` subagent's answer, the owner answering in chat, or `/decide` — put it on the issue with `gh issue comment` *before* you build on it: the decision, who made it, and what it unblocks. Then work from the issue, not from this transcript. The chat line afterwards is a pointer with the issue link, never the record. A decision that exists only in this conversation dies with the session, and the next one re-asks it.
