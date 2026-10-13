@@ -34,10 +34,13 @@ and writes `trazo/verdict`:
    response, and a review job that did not finish.
 4. Security subagent reviews start with `PASS (...)` or `FAIL (...)`. A `FAIL` on the head fails the gate
    whatever the order of reviews. A `PASS` on the head is needed on its own, and it is ignored otherwise.
-5. A pull request that changes `.github/`, `CODEOWNERS`, `pyproject.toml` or `uv.lock` needs a security
-   `PASS` on the head before a bot `merge` can set `success`. Without one the gate fails. This keeps the
-   security review that `/check-pr` routes for those paths (rules: a separate security review before
-   merge for workflows, dependencies and permissions).
+5. **A pull request that changes a sensitive path never gets `success` from the bot.** Sensitive paths are
+   every path in the base branch's `.github/CODEOWNERS`, plus `scripts/`, `.claude/`, `Makefile`,
+   `Dockerfile`, `.pre-commit-config.yaml`, `pyproject.toml`, `uv.lock`, `.env.example`, and any path
+   containing `secret`. Both names of a renamed file count. A listing that does not match the PR's
+   file count counts as sensitive. For these PRs the report job writes `failure`, and a person sets the
+   status through `/check-pr`, which routes a separate security review. A security `PASS` from the bot
+   does not change this, because it comes from the same run as the `merge` and cannot be a check on it.
 6. Reviews from `/check-pr` are posted from the owner's account. They do not count here, because
    `/check-pr` keeps setting its own status under #115.
 
@@ -46,10 +49,12 @@ has no `contents: write` and no `pull-requests: write`. The review job still has
 
 ## Accepted risks
 
-- **Prompt injection.** A malicious diff could persuade the reviewer to write `merge`, and the gate would
-  then turn green. The owner accepted this. The mitigations stay in place: the review runs from a
-  base-branch checkout, the PR title, body and diff are treated as data, the review job has no status
-  token, and the owner can turn the workflow off with `AUTO_REVIEW_ENABLED`.
+- **Prompt injection.** A malicious diff could persuade the reviewer to write `merge` on a non-sensitive PR,
+  and the gate would then turn green. The owner accepted this. Sensitive PRs are excluded (item 5). The
+  bot's security review is not an independent check for this risk: it runs in the same job, under the same
+  bot account, reading the same diff, so one injected run can produce both results. The mitigations that
+  stay in place: the review runs from a base-branch checkout, the PR title, body and diff are treated as
+  data, the review job has no status token, and the owner can turn the workflow off with `AUTO_REVIEW_ENABLED`.
 - **Forgery that already exists.** This is not new with 0020. The owner's own token can write
   `trazo/verdict` directly ([#44](https://github.com/manoochehri/trazo/issues/44)). A pull request that
   adds a workflow with `statuses: write` can write it too ([#212](https://github.com/manoochehri/trazo/issues/212)).
@@ -64,13 +69,15 @@ has no `contents: write` and no `pull-requests: write`. The review job still has
 ## Consequences
 
 - A clean automatic review now sets `success`, so a clean PR no longer needs a manual `/check-pr`.
-- **Not enforced today:** `.github/CODEOWNERS` names the owner for `.github/workflows/`, but the live
-  `protect main` ruleset does not enforce it. It has `require_code_owner_review: false` and
-  `required_approving_review_count: 0`, and it requires `trazo/verdict` but not `trazo/security`. So a
-  bot `merge` plus green CI can merge a PR that changes this workflow, unless the security pass rule
-  above blocks it. Only the owner can change the ruleset. This record does not assume that owner review
-  is in place.
+- **Not enforced today:** `.github/CODEOWNERS` names the owner for `.github/workflows/` and the other
+  sensitive paths, but the live `protect main` ruleset does not enforce it. It has
+  `require_code_owner_review: false` and `required_approving_review_count: 0`, and it requires
+  `trazo/verdict` but not `trazo/security`. This record does not assume that owner review is in place.
+- For a sensitive PR the bot cannot set `success`, so the gate stays red until a person sets it through
+  `/check-pr`. That person is the owner's account, which the ruleset does not distinguish from any other
+  merge. Nothing else on the gate separates a reviewed sensitive change from an unreviewed one.
 - The #115 rule that only the reviewer sets `trazo/verdict` now has one more path: the report job, from a
-  bot review that says `merge`. The rule text in the reviewer role and the RUNBOOK says so.
+  bot review that says `merge` on a non-sensitive PR. The rule text in the reviewer role and the RUNBOOK
+  says so.
 - Owner decision needed on #213: make `trazo/security` a required check, or turn on code-owner review with
-  a bypass for the owner. Until then the sensitive-path rule above is the only gate on those paths.
+  a bypass for the owner. Only the owner can change the ruleset.

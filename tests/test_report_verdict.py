@@ -127,28 +127,105 @@ def test_security_fail_before_a_merge_verdict_still_fails_the_gate():
     assert decide([security, reviewer])[0] == "failure"
 
 
-def test_sensitive_paths_need_a_security_pass_on_this_head():
+def test_sensitive_paths_never_get_success_from_the_bot():
     reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
     assert decide([reviewer], sensitive=True)[0] == "failure"
     assert decide([reviewer], sensitive=False)[0] == "success"
 
 
-def test_sensitive_paths_pass_with_a_security_pass_on_this_head():
+def test_sensitive_paths_stay_failure_even_with_a_security_pass_on_this_head():
     reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
     security = review(SECURITY_PASS, submitted="2026-10-13T10:10:00Z", rid=2)
-    assert decide([reviewer, security], sensitive=True)[0] == "success"
-
-
-def test_sensitive_paths_with_a_security_pass_on_an_earlier_head_fail():
-    reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
-    old_security = review(SECURITY_PASS, commit=OTHER, submitted="2026-10-13T10:10:00Z", rid=2)
-    assert decide([reviewer, old_security], sensitive=True)[0] == "failure"
+    assert decide([reviewer, security], sensitive=True)[0] == "failure"
 
 
 def test_security_fail_on_sensitive_paths_is_a_failure():
     reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
     security = review(SECURITY_FAIL, submitted="2026-10-13T10:10:00Z", rid=2)
     assert decide([reviewer, security], sensitive=True)[0] == "failure"
+
+
+def test_security_fail_formats_are_all_a_veto():
+    reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
+    for body in ("`FAIL` (security)", "FAIL. see below", "**FAIL** (security)", "fail"):
+        security = review(body, submitted="2026-10-13T10:10:00Z", rid=2)
+        assert decide([reviewer, security])[0] == "failure", body
+
+
+CODEOWNERS = (REPO_ROOT / ".github" / "CODEOWNERS").read_text()
+CODEOWNERS_PATHS = [
+    line.split("#", 1)[0].split()[0]
+    for line in CODEOWNERS.splitlines()
+    if line.split("#", 1)[0].strip()
+]
+
+
+def test_every_codeowners_pattern_is_sensitive():
+    assert CODEOWNERS_PATHS, "CODEOWNERS has no patterns to check"
+    patterns = report_verdict.codeowners_patterns(CODEOWNERS)
+    for raw in CODEOWNERS_PATHS:
+        path = raw.lstrip("/")
+        if path.endswith("/"):
+            path = path + "some-file.txt"
+        assert report_verdict.is_sensitive_path(path, patterns), raw
+
+
+def test_named_sensitive_paths_are_sensitive():
+    patterns = report_verdict.codeowners_patterns(CODEOWNERS)
+    for path in (
+        ".github/workflows/review.yml",
+        ".claude/settings.json",
+        "src/adapters/claude/settings.json",
+        "scripts/install.sh",
+        "scripts/report_verdict.py",
+        "scripts/put_secret.sh",
+        ".trazo/project/charter/charter.md",
+        "Makefile",
+        "Dockerfile",
+        ".pre-commit-config.yaml",
+        "pyproject.toml",
+        "uv.lock",
+        "config/secrets.yaml",
+    ):
+        assert report_verdict.is_sensitive_path(path, patterns), path
+
+
+def test_ordinary_paths_are_not_sensitive():
+    patterns = report_verdict.codeowners_patterns(CODEOWNERS)
+    for path in ("src/overlay/roles/reviewer.md", "tests/test_x.py", "docs/guide.md"):
+        assert not report_verdict.is_sensitive_path(path, patterns), path
+
+
+def test_classify_flags_a_rename_out_of_a_sensitive_path():
+    listing = "src/renamed.py\t.github/workflows/review.yml\n"
+    assert report_verdict.classify(listing, "1", CODEOWNERS) is True
+
+
+def test_classify_flags_a_listing_that_does_not_match_the_file_count():
+    listing = "src/a.py\n"
+    assert report_verdict.classify(listing, "2", CODEOWNERS) is True
+
+
+def test_classify_passes_an_ordinary_complete_listing():
+    listing = "src/a.py\ttests/old_a.py\n"
+    assert report_verdict.classify(listing, "1", CODEOWNERS) is False
+
+
+def test_classify_cli_prints_the_flag():
+    import subprocess
+    import sys
+
+    codeowners = REPO_ROOT / ".github" / "CODEOWNERS"
+    # Runs this repo's own script with fixed arguments.
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, str(SCRIPT), "--sensitive", str(codeowners)],
+        input=".github/workflows/review.yml\n",
+        capture_output=True,
+        text=True,
+        env={"CHANGED_FILES": "1", "PATH": "/usr/bin:/bin"},
+        check=True,
+    )
+    assert result.stdout.strip() == "sensitive=true"
 
 
 def test_a_failed_security_review_is_matched_by_its_first_word_not_the_whole_line():

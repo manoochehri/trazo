@@ -135,13 +135,17 @@ jobs:
           fi
           RUN_STARTED_AT=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" -q .run_started_at) \
             || finish failure "could not read the review run start time"
-          files=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" -q '.[].filename') \
+          changed_files=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" -q .changed_files) \
+            || finish failure "could not count the changed files"
+          # Both names of a renamed file are listed. The file count checks for a truncated listing.
+          listing=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
+            -q '.[] | [.filename, (.previous_filename // "")] | @tsv') \
             || finish failure "could not list the changed files"
-          # Workflows, CODEOWNERS and dependencies need a security pass before a bot merge counts.
-          sensitive=false
-          if [[ -n "$(printf '%s\n' "$files" | grep -E '^(\.github/|CODEOWNERS$|pyproject\.toml$|uv\.lock$)' || true)" ]]; then
-            sensitive=true
-          fi
+          # The base branch's CODEOWNERS and the extra paths in the script decide what is sensitive.
+          sensitive_out=$(printf '%s\n' "$listing" \
+            | CHANGED_FILES="$changed_files" python3 scripts/report_verdict.py --sensitive .github/CODEOWNERS) \
+            || finish failure "could not classify the changed files"
+          sensitive=${sensitive_out#sensitive=}
           export RUN_STARTED_AT HEAD_SHA BOT_LOGIN SENSITIVE="$sensitive"
           result=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
             | python3 scripts/report_verdict.py) \

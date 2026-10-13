@@ -193,3 +193,27 @@ def test_adr_states_security_never_sets_the_verdict_context():
 
 def test_adr_states_every_push_to_a_non_draft_pr_is_reviewed():
     assert "every push to a non-draft pr" in ADR.read_text().lower()
+
+
+def test_decide_step_fails_closed_on_partial_reads():
+    report = job("report")
+    assert "set -o pipefail" in report
+    assert "per_page=100" in report
+
+
+def test_decide_step_checks_renames_and_the_file_count():
+    report = job("report")
+    assert "previous_filename" in report
+    assert "changed_files" in report
+    assert "--sensitive .github/CODEOWNERS" in report
+
+
+def test_decide_step_writes_the_output_once_through_finish():
+    report = job("report")
+    assert "finish()" in report
+    assert report.count('>> "$GITHUB_OUTPUT"') == 2  # finish() and the single decided write
+    assert 'printf \'%s\\n\' "$result" >> "$GITHUB_OUTPUT"' in report
+
+
+def test_report_job_checks_out_contents_under_its_own_permissions():
+    assert "contents: read" in job("report")
