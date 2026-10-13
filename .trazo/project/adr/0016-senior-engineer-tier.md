@@ -1,6 +1,6 @@
 # 0016: Senior engineer is an escalation tier above eng
 
-**Date:** 2026-10-13  **Status:** superseded in part by [0017](0017-senior-tier-routing-accepted.md) (N, path routing and label accepted there)
+**Date:** 2026-10-13  **Status:** superseded in part by [0018](0018-senior-tier-routing-accepted.md) (N, path routing and label accepted there)
 
 Owner direction on [#192](https://github.com/manoochehri/trazo/issues/192#issuecomment-6095022087),
 [#192 escalation](https://github.com/manoochehri/trazo/issues/192#issuecomment-6095043089) and the

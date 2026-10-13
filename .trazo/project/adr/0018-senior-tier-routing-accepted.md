@@ -1,4 +1,4 @@
-# 0017: Senior tier routing and escalation are accepted
+# 0018: Senior tier routing and escalation are accepted
 
 **Date:** 2026-10-13  **Status:** accepted — settles the open points of [0016](0016-senior-engineer-tier.md)
 
