@@ -58,7 +58,51 @@ def test_agent_checks_out_the_base_branch_never_the_pr_head():
 
 
 def test_agent_loads_only_base_settings():
-    assert "--setting-sources user" in job("review")
+    # The checkout is the trusted base SHA, so project settings are the base's own.
+    review = job("review")
+    assert "--setting-sources project" in review
+    assert "--setting-sources user" not in review
+
+
+def allowed_tools():
+    m = re.search(r'--allowedTools "([^"]*)"', job("review"))
+    assert m, "review job has no --allowedTools list"
+    return [t.strip() for t in m.group(1).split(",")]
+
+
+def test_agent_allowlist_has_no_bare_file_tools_or_git_history():
+    tools = allowed_tools()
+    for bare in ("Read", "Grep", "Glob"):
+        assert bare not in tools, f"bare {bare} lets the agent read outside the workspace"
+    for scoped in ("Read(./**)", "Grep(./**)", "Glob(./**)"):
+        assert scoped in tools
+    review = job("review")
+    assert "git diff" not in review
+    assert "git log" not in review
+    assert "git show" not in review
+
+
+def test_agent_denies_host_secrets_and_runner_temp_reads():
+    review = job("review")
+    m = re.search(r'--disallowedTools "([^"]*)"', review)
+    assert m, "review job has no --disallowedTools list"
+    denied = m.group(1)
+    for rule in (
+        "Read(//proc/**)",
+        "Read(//sys/**)",
+        "Read(//home/runner/work/_temp/**)",
+        "Read(~/**)",
+        "Read(//tmp/**)",
+    ):
+        assert rule in denied
+
+
+def test_agent_prompt_never_reads_pr_comments():
+    prompt = job("review").split("prompt: |")[1].split("claude_args")[0]
+    assert "gh pr view --comments" in prompt  # named only as a command the agent must not run
+    stripped = prompt.replace("gh pr view --comments", "").replace("gh pr review --comment", "")
+    assert "comments" not in stripped
+    assert "do not run" in prompt.lower()
 
 
 def test_agent_job_cannot_write_commit_statuses():

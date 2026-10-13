@@ -22,8 +22,11 @@ review.
 2. **Gate.** Draft PRs are skipped. A head SHA that already has a terminal `trazo/verdict` (success or
    failure) is skipped. The gate job reads that status and nothing else.
 3. **Base code, PR data.** The review job checks out the base branch, so the PR cannot supply the
-   reviewer's settings, hooks or instructions. It loads only user-level settings
-   (`--setting-sources user`). The PR title, body, diff and comments are read as data.
+   reviewer's settings, hooks or instructions. It loads only the base branch's project settings
+   (`--setting-sources project`), which are the trusted base SHA's own. The PR title, body and diff are
+   read as data. The agent does not read PR comments (anyone can write one), and the prompt forbids
+   `gh pr view --comments`. Read, Grep and Glob are scoped to the workspace, with a deny list for host
+   paths (`/proc`, `/sys`, runner temp, home, `/tmp`).
 4. **No status writes from the agent.** The review job has no commit-status write permission and no
    `gh api` access. Neither the reviewer nor the security subagent sets a status in this run.
 5. **Failure, never a silent pending.** A separate report job writes `trazo/verdict` as `failure` when
@@ -43,7 +46,7 @@ The workflow writes `trazo/verdict` only as `failure`, and only when the review 
 never writes `success` or `pending`. The rule that only the reviewer sets `trazo/verdict` success (#115)
 therefore still holds, and no LLM output can grant a merge gate.
 
-**Open decision for the owner.** On a clean review the workflow leaves the status unset, so the PR
+**Open decision for the owner (#213).** On a clean review the workflow leaves the status unset, so the PR
 stays blocked until a status is set. Options: (a) a reviewer run with status access, from `/check-pr`
 on the owner's machine, which sets `success` or `failure` as today; (b) a deterministic job that
 writes `success` from a trusted, non-LLM check. Option (b) needs its own design review, because an
@@ -61,6 +64,8 @@ LLM verdict must not reach the gate. This record does not choose between them.
 ## Consequences
 
 - Cost is per non-draft PR head that has no verdict yet. Every push to a non-draft PR costs one review.
+  Until #213 is decided, a PR that merges also costs a second review from `/check-pr`, because a clean
+  automatic review sets no status. The cost is doubled on every merged head.
   It is bounded by the monthly spend cap set in the Anthropic console, and by the kill switch.
 - `ANTHROPIC_API_KEY` must be stored as a GitHub Actions secret by the owner. It is not stored in
   AWS Secrets Manager, and the engineer does not read it.
@@ -69,5 +74,7 @@ LLM verdict must not reach the gate. This record does not choose between them.
 - The agent can still post a review with `gh pr review`. It is prompted not to approve or request
   changes, and GitHub refuses a bot approval in this repository, so the residual risk is a comment
   with a wrong verdict word. The security review should weigh this.
-- The workflow uses the action pinned to commit `1d6de8c`, not a tag, and the checkout pinned to its
-  commit SHA. Whether Actions accepts the action's tag-object SHA was not checked; the pin is a commit.
+- The workflow pins `anthropics/claude-code-action` to commit `1d6de8c` (v1.0.248) and `actions/checkout`
+  to commit `3d3c42e` (v7.0.1). Both were checked with `git/commits`, and both are commit objects, not tag objects.
+- A PR that edits `.github/workflows/review.yml` changes the workflow that runs on that PR. Only owner
+  review enforced through CODEOWNERS stops that, and the ruleset does not enforce it today. See #212.
