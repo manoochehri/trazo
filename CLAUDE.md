@@ -92,6 +92,10 @@ disagree, `rules.md` is right and this section is the bug.
 
 ## This repository
 
+Feature PRs do not edit `.trazo/project/STATUS.md`; `/wrapup` refreshes it in a separate
+PR containing only `.trazo/project/` changes. Use `make docs-check-wrapup` for its freshness
+and issue-state checks.
+
 Notes specific to Trazo's own repo, outside the shipped block above. Claude Code does not
 load `AGENTS.md`, so the repo-specific guidance is repeated here.
 

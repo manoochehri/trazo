@@ -10,7 +10,8 @@ Instructions for coding agents working in this repository. This part is this rep
 
     make test       # uv run pytest
     make lint       # ruff check + ruff format --check
-    make docs-check # validate project-doc status, links, issues and freshness
+    make docs-check # validate project-doc headers, links and status-refresh scope
+    make docs-check-wrapup # also validate STATUS issue references and freshness
     make fmt        # ruff check --fix + ruff format
     make scan       # scripts/scan.sh — secret scan over full git history
     make docs       # mkdocs serve, local preview
@@ -19,6 +20,7 @@ CI must pass before merge. Run `make test`; all tests must pass.
 
 ## Conventions
 
+- Feature PRs do not edit `.trazo/project/STATUS.md`; `/wrapup` refreshes it in a separate PR containing only `.trazo/project/` changes.
 - Branch per change, in its own worktree. Never push to the default branch.
 - Any claim that something is shipped, fixed, or working must be backed by a
   command you ran in this session. If you haven't checked, say so.
