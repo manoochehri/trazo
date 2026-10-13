@@ -121,3 +121,15 @@ def test_pm_limits_batch_sequence_and_cap_dispatch() -> None:
     assert "cap concurrent spawned agents" in section
     assert "sequence the skeptic after the evidence exists" in section
     assert "never investigates or edits code" in section
+
+
+def test_pm_agent_may_spawn_subagents_but_never_posts_a_verdict() -> None:
+    agent = (REPO_ROOT / "src/adapters/claude/agents/pm.md").read_text(encoding="utf-8")
+    tools = next(line for line in agent.splitlines() if line.startswith("tools:"))
+
+    assert "Agent" in [t.strip() for t in tools.split(":", 1)[1].split(",")]
+    assert "never write or post a verdict" in " ".join(agent.split())
+    assert "You may spawn any subagent you need" in " ".join(agent.split())
+    assert "ADR 0019" in agent
+    assert "their own context" in " ".join(agent.split())
+    assert "`trazo/verdict`" in agent and "`trazo/security`" in agent

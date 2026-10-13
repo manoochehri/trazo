@@ -1,4 +1,4 @@
-# 0019: Architect is an on-demand advisory role above engineering
+# 0020: Architect is an on-demand advisory role above engineering
 
 **Date:** 2026-10-13  **Status:** accepted
 
