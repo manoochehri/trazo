@@ -2,6 +2,11 @@
 
 The report job turns a bot review into trazo/verdict. These tests pin the decision on
 fixtures, so the rule is checked without running GitHub Actions.
+
+Fixture fields are the ones the script reads from GitHub's pull request review object
+(https://docs.github.com/en/rest/pulls/reviews: id, body, commit_id, submitted_at, user.login).
+The security first lines (`PASS (security re-review at <sha>)`, `FAIL (...)`) match the real
+reviews on PR #210, checked with `gh api repos/manoochehri/trazo/pulls/210/reviews`.
 """
 
 import importlib.util
@@ -19,6 +24,8 @@ HEAD = "a" * 40
 OTHER = "b" * 40
 STARTED = "2026-10-13T10:00:00Z"
 BOT = "github-actions[bot]"
+SECURITY_PASS = "PASS (security re-review at " + HEAD + ")\n\nNo findings."
+SECURITY_FAIL = "FAIL (security re-review at " + HEAD + ")\n\n- must-fix"
 
 
 def review(body, login=BOT, commit=HEAD, submitted="2026-10-13T10:05:00Z", rid=1):
@@ -31,8 +38,8 @@ def review(body, login=BOT, commit=HEAD, submitted="2026-10-13T10:05:00Z", rid=1
     }
 
 
-def decide(reviews):
-    return report_verdict.decide(reviews, HEAD, STARTED, BOT)
+def decide(reviews, sensitive=False):
+    return report_verdict.decide(reviews, HEAD, STARTED, BOT, sensitive)
 
 
 def test_bot_merge_on_head_after_run_start_sets_success():
@@ -102,10 +109,56 @@ def test_pending_review_without_a_submit_time_does_not_count():
     assert decide([review("merge", submitted=None)])[0] == "failure"
 
 
-def test_security_review_with_pass_does_not_override_a_merge_verdict():
+def test_security_pass_does_not_override_a_merge_verdict():
     reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
-    security = review("pass\n\nNo findings.", submitted="2026-10-13T10:10:00Z", rid=2)
+    security = review(SECURITY_PASS, submitted="2026-10-13T10:10:00Z", rid=2)
     assert decide([reviewer, security])[0] == "success"
+
+
+def test_security_fail_after_a_merge_verdict_fails_the_gate():
+    reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
+    security = review(SECURITY_FAIL, submitted="2026-10-13T10:10:00Z", rid=2)
+    assert decide([reviewer, security])[0] == "failure"
+
+
+def test_security_fail_before_a_merge_verdict_still_fails_the_gate():
+    security = review(SECURITY_FAIL, submitted="2026-10-13T10:05:00Z", rid=1)
+    reviewer = review("merge", submitted="2026-10-13T10:10:00Z", rid=2)
+    assert decide([security, reviewer])[0] == "failure"
+
+
+def test_sensitive_paths_need_a_security_pass_on_this_head():
+    reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
+    assert decide([reviewer], sensitive=True)[0] == "failure"
+    assert decide([reviewer], sensitive=False)[0] == "success"
+
+
+def test_sensitive_paths_pass_with_a_security_pass_on_this_head():
+    reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
+    security = review(SECURITY_PASS, submitted="2026-10-13T10:10:00Z", rid=2)
+    assert decide([reviewer, security], sensitive=True)[0] == "success"
+
+
+def test_sensitive_paths_with_a_security_pass_on_an_earlier_head_fail():
+    reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
+    old_security = review(SECURITY_PASS, commit=OTHER, submitted="2026-10-13T10:10:00Z", rid=2)
+    assert decide([reviewer, old_security], sensitive=True)[0] == "failure"
+
+
+def test_security_fail_on_sensitive_paths_is_a_failure():
+    reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
+    security = review(SECURITY_FAIL, submitted="2026-10-13T10:10:00Z", rid=2)
+    assert decide([reviewer, security], sensitive=True)[0] == "failure"
+
+
+def test_a_failed_security_review_is_matched_by_its_first_word_not_the_whole_line():
+    reviewer = review("merge", submitted="2026-10-13T10:05:00Z", rid=1)
+    security = review(
+        "FAIL (security re-review at 42cd655d6b4eb51af4a7eac0623988ac9aa032b0)\n\nSee below.",
+        submitted="2026-10-13T10:10:00Z",
+        rid=2,
+    )
+    assert decide([reviewer, security])[0] == "failure"
 
 
 def test_run_reads_paginated_json_and_decides():

@@ -32,9 +32,13 @@ and writes `trazo/verdict`:
    malformed verdict overrides an earlier `merge`.
 3. **`failure`** in every other case. That includes no qualifying review, an API error, an unreadable
    response, and a review job that did not finish.
-4. Security subagent reviews use `pass` and `fail` as their first line. The script does not count them,
-   so they neither set nor override the verdict.
-5. Reviews from `/check-pr` are posted from the owner's account. They do not count here, because
+4. Security subagent reviews start with `PASS (...)` or `FAIL (...)`. A `FAIL` on the head fails the gate
+   whatever the order of reviews. A `PASS` on the head is needed on its own, and it is ignored otherwise.
+5. A pull request that changes `.github/`, `CODEOWNERS`, `pyproject.toml` or `uv.lock` needs a security
+   `PASS` on the head before a bot `merge` can set `success`. Without one the gate fails. This keeps the
+   security review that `/check-pr` routes for those paths (rules: a separate security review before
+   merge for workflows, dependencies and permissions).
+6. Reviews from `/check-pr` are posted from the owner's account. They do not count here, because
    `/check-pr` keeps setting its own status under #115.
 
 The report job reads reviews with `pull-requests: read` and the run start time with `actions: read`. It
@@ -60,7 +64,13 @@ has no `contents: write` and no `pull-requests: write`. The review job still has
 ## Consequences
 
 - A clean automatic review now sets `success`, so a clean PR no longer needs a manual `/check-pr`.
-- Owner review through CODEOWNERS is still required before merge, because `.github/workflows/` is
-  protected. The bot cannot approve.
+- **Not enforced today:** `.github/CODEOWNERS` names the owner for `.github/workflows/`, but the live
+  `protect main` ruleset does not enforce it. It has `require_code_owner_review: false` and
+  `required_approving_review_count: 0`, and it requires `trazo/verdict` but not `trazo/security`. So a
+  bot `merge` plus green CI can merge a PR that changes this workflow, unless the security pass rule
+  above blocks it. Only the owner can change the ruleset. This record does not assume that owner review
+  is in place.
 - The #115 rule that only the reviewer sets `trazo/verdict` now has one more path: the report job, from a
   bot review that says `merge`. The rule text in the reviewer role and the RUNBOOK says so.
+- Owner decision needed on #213: make `trazo/security` a required check, or turn on code-owner review with
+  a bypass for the owner. Until then the sensitive-path rule above is the only gate on those paths.

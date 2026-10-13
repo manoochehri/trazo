@@ -5,10 +5,11 @@ JSON on stdin (one or more arrays, as `gh api --paginate` prints them) and write
 `reason=` lines for the workflow's GITHUB_OUTPUT.
 
 Success needs a review from the bot login that is on the head commit, was submitted after this
-run started, and whose first line is exactly `merge`. The latest such review decides. Anything
-else is failure, including unreadable input. Security reviews use `pass` and `fail`, so they
-are not counted and cannot overturn a reviewer's verdict. The reason text is fixed, never copied
-from a review, so a review cannot inject text into the workflow.
+run started, and whose first line is exactly `merge`. The latest such reviewer verdict decides.
+A security review on the head whose first word is `FAIL` always fails the gate, whatever the
+order. A security `PASS` is ignored. Anything else is failure, including unreadable input. The
+reason text is fixed, never copied from a review or an exception, so nothing from a review can
+reach the workflow's output or the status description.
 """
 
 import json
@@ -17,7 +18,8 @@ import sys
 from datetime import datetime
 
 DEFAULT_BOT_LOGIN = "github-actions[bot]"
-SECURITY_WORDS = ("pass", "fail")
+SECURITY_CLEAR = "pass"
+SECURITY_BLOCK = "fail"
 
 
 def parse_time(value):
@@ -28,6 +30,12 @@ def first_line(body):
     if not body or not body.strip():
         return ""
     return body.strip().splitlines()[0].strip()
+
+
+def first_word(body):
+    # Security reviews start `PASS (security re-review at <sha>)` or `FAIL (...)`.
+    words = first_line(body).split()
+    return words[0].strip("*:").lower() if words else ""
 
 
 def read_reviews(text):
@@ -45,9 +53,11 @@ def read_reviews(text):
     return reviews
 
 
-def decide(reviews, head_sha, run_started_at, bot_login):
+def decide(reviews, head_sha, run_started_at, bot_login, sensitive=False):
     started = parse_time(run_started_at)
-    candidates = []
+    verdicts = []
+    security_fail = False
+    security_pass = False
     for review in reviews:
         if (review.get("user") or {}).get("login") != bot_login:
             continue
@@ -56,26 +66,37 @@ def decide(reviews, head_sha, run_started_at, bot_login):
         submitted = review.get("submitted_at")
         if not submitted or parse_time(submitted) < started:
             continue
-        verdict = first_line(review.get("body"))
-        if verdict.lower() in SECURITY_WORDS:
+        body = review.get("body")
+        word = first_word(body)
+        if word == SECURITY_CLEAR:
+            security_pass = True
             continue
-        candidates.append((parse_time(submitted), review.get("id") or 0, verdict))
-    if not candidates:
+        if word == SECURITY_BLOCK:
+            security_fail = True
+            continue
+        verdicts.append((parse_time(submitted), review.get("id") or 0, first_line(body)))
+    if security_fail:
+        return "failure", "a security review on this head failed"
+    if sensitive and not security_pass:
+        # A change to workflows, CODEOWNERS or dependencies needs a security pass on this head.
+        return "failure", "changed paths need a security review on this head, and there is none"
+    if not verdicts:
         return "failure", "no bot review on this head was submitted after the review run started"
-    _, _, verdict = max(candidates)
+    _, _, verdict = max(verdicts)
     if verdict == "merge":
         return "success", "bot review on this head says merge"
     return "failure", "bot review on this head does not say exactly merge"
 
 
-def run(text, head_sha, run_started_at, bot_login):
+def run(text, head_sha, run_started_at, bot_login, sensitive=False):
     if not run_started_at:
         return "failure", "no review run start time"
     try:
         reviews = read_reviews(text)
-        return decide(reviews, head_sha, run_started_at, bot_login)
-    except (ValueError, TypeError, AttributeError, KeyError) as exc:
-        return "failure", f"could not read reviews: {exc}"
+        return decide(reviews, head_sha, run_started_at, bot_login, sensitive)
+    except Exception:
+        # Fixed text on purpose: the exception message can carry review content.
+        return "failure", "could not read the bot reviews"
 
 
 def main():
@@ -84,6 +105,7 @@ def main():
         os.environ.get("HEAD_SHA", ""),
         os.environ.get("RUN_STARTED_AT", ""),
         os.environ.get("BOT_LOGIN", DEFAULT_BOT_LOGIN),
+        sensitive=os.environ.get("SENSITIVE") == "true",
     )
     print(f"state={state}")
     print(f"reason={reason}")

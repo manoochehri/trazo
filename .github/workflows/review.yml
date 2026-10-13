@@ -99,13 +99,16 @@ jobs:
       needs.gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
-      # statuses: write sets trazo/verdict. pull-requests: read and actions: read let the
-      # decision script read the bot's review and this run's start time. Nothing else.
+      # contents: read lets checkout run under job-level permissions, which replace the top-level
+      # block. statuses: write sets trazo/verdict. pull-requests: read lists the reviews and files;
+      # actions: read gives this run's start time. Nothing else.
+      contents: read
       statuses: write
       pull-requests: read
       actions: read
     steps:
-      # The base branch supplies the decision script, so the PR cannot change how it decides.
+      # The base checkout supplies scripts/report_verdict.py. A PR that edits this workflow file
+      # still runs its own copy of it, which is the accepted risk in ADR 0020 and #212.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
@@ -120,17 +123,30 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           BOT_LOGIN: github-actions[bot]
         run: |
-          # The review must have finished. Anything else is failure, without reading reviews.
-          if [[ "$REVIEW_RESULT" != "success" ]]; then
-            printf 'state=failure\nreason=automatic review did not finish (%s)\n' "$REVIEW_RESULT" >> "$GITHUB_OUTPUT"
+          # pipefail: a partial read of the reviews fails the pipeline and so fails closed.
+          set -o pipefail
+          # Each path writes the output exactly once, with a fixed reason.
+          finish() {
+            printf 'state=%s\nreason=%s\n' "$1" "$2" >> "$GITHUB_OUTPUT"
             exit 0
+          }
+          if [[ "$REVIEW_RESULT" != "success" ]]; then
+            finish failure "automatic review did not finish"
           fi
-          # The run start time bounds which reviews count. A missing start time fails closed.
-          RUN_STARTED_AT=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" -q .run_started_at || true)
-          export RUN_STARTED_AT HEAD_SHA BOT_LOGIN
-          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" \
-            | python3 scripts/report_verdict.py >> "$GITHUB_OUTPUT" \
-            || printf 'state=failure\nreason=could not decide from reviews\n' >> "$GITHUB_OUTPUT"
+          RUN_STARTED_AT=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" -q .run_started_at) \
+            || finish failure "could not read the review run start time"
+          files=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" -q '.[].filename') \
+            || finish failure "could not list the changed files"
+          # Workflows, CODEOWNERS and dependencies need a security pass before a bot merge counts.
+          sensitive=false
+          if [[ -n "$(printf '%s\n' "$files" | grep -E '^(\.github/|CODEOWNERS$|pyproject\.toml$|uv\.lock$)' || true)" ]]; then
+            sensitive=true
+          fi
+          export RUN_STARTED_AT HEAD_SHA BOT_LOGIN SENSITIVE="$sensitive"
+          result=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
+            | python3 scripts/report_verdict.py) \
+            || result=$'state=failure\nreason=could not decide from reviews'
+          printf '%s\n' "$result" >> "$GITHUB_OUTPUT"
       - name: set trazo/verdict
         env:
           GH_TOKEN: ${{ github.token }}
