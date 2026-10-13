@@ -4,4 +4,4 @@ Use the **reviewer** subagent. If the PR touches secrets, permissions, `.github/
 
 A PR whose base differs from the repository's default branch is not mergeable; the reviewer must mark it **merge after fixes** until it is retargeted.
 
-The `trazo/verdict` commit status the reviewer sets is what makes a PR mergeable (`trazo/security` likewise for the security subagent). A new push resets it, so after fixes re-run this review on the new head. Never set those contexts yourself.
+The `trazo/verdict` commit status the reviewer sets (or the automatic review's report job, from a bot `merge` on this head, ADR 0020) is what makes a PR mergeable (`trazo/security` likewise for the security subagent). A new push resets it, so after fixes re-run this review on the new head. Never set those contexts yourself.

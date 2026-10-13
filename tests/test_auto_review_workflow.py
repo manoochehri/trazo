@@ -117,14 +117,46 @@ def test_agent_job_has_no_pytest_or_pr_code_execution_in_its_allowlist():
     assert 'CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"' in review
 
 
-def test_only_the_report_job_writes_a_status_and_only_failure():
+def test_only_the_report_job_writes_a_status_and_only_its_decided_state():
     report = job("report")
     assert "statuses: write" in report
     assert "context=trazo/verdict" in report
-    assert "state=failure" in report
-    assert "state=success" not in workflow_text()
     assert "state=pending" not in workflow_text()
     assert "trazo/security" not in workflow_text()
+    # Success only ever comes from the decision script. The workflow writes failure literals only
+    # on its fail-closed paths.
+    assert "state=success" not in workflow_text()
+    assert "scripts/report_verdict.py" in report
+
+
+def test_report_job_tokens_are_read_only_except_the_status_write():
+    report = job("report")
+    assert "pull-requests: read" in report
+    assert "actions: read" in report
+    assert "pull-requests: write" not in report
+    assert "contents: write" not in report
+
+
+def test_report_job_runs_the_base_branch_script_not_the_pr_head():
+    report = job("report")
+    assert "ref: ${{ github.event.pull_request.base.sha }}" in report
+    assert "persist-credentials: false" in report
+    assert "ref: ${{ github.event.pull_request.head" not in report
+
+
+def test_report_job_fails_closed_when_the_review_did_not_succeed():
+    report = job("report")
+    assert 'REVIEW_RESULT" != "success"' in report or 'REVIEW_RESULT}" != "success"' in report
+
+
+def test_adr_0020_supersedes_the_success_clause_and_keeps_0017():
+    adr = (REPO_ROOT / ".trazo/project/adr/0020-verdict-success-from-bot-review.md").read_text()
+    assert "Supersedes" in adr
+    assert "0017" in adr
+    assert "What the workflow may write" in adr
+    assert "#213" in adr
+    assert "github-actions[bot]" in adr
+    assert "accepted" in adr.lower()
 
 
 def test_report_job_runs_after_review_even_when_review_is_cancelled_or_times_out():
@@ -161,3 +193,66 @@ def test_adr_states_security_never_sets_the_verdict_context():
 
 def test_adr_states_every_push_to_a_non_draft_pr_is_reviewed():
     assert "every push to a non-draft pr" in ADR.read_text().lower()
+
+
+def test_decide_step_fails_closed_on_partial_reads():
+    report = job("report")
+    assert "set -o pipefail" in report
+    assert "per_page=100" in report
+
+
+def test_decide_step_checks_renames_and_the_file_count():
+    report = job("report")
+    assert "previous_filename" in report
+    assert "changed_files" in report
+    assert "--sensitive .github/CODEOWNERS" in report
+
+
+def test_decide_step_writes_the_output_once_through_finish():
+    report = job("report")
+    assert "finish()" in report
+    assert report.count('>> "$GITHUB_OUTPUT"') == 2  # finish() and the single decided write
+    assert 'printf \'%s\\n\' "$result" >> "$GITHUB_OUTPUT"' in report
+
+
+def test_report_job_checks_out_contents_under_its_own_permissions():
+    assert "contents: read" in job("report")
+
+
+def test_status_step_never_overwrites_an_existing_terminal_verdict():
+    step = job("report").split("- name: set trazo/verdict")[1]
+    assert "/commits/${SHA}/statuses" in step
+    assert "success|failure)" in step
+    assert "leaving it" in step
+
+
+def test_status_step_writes_failure_when_it_cannot_read_the_head():
+    step = job("report").split("- name: set trazo/verdict")[1]
+    assert "STATE=failure" in step
+    assert "could not check the head's existing verdict" in step
+
+
+def test_sensitive_flag_is_exported_as_true_or_false_only():
+    report = job("report")
+    assert 'SENSITIVE="$sensitive"' in report
+
+
+def test_file_listing_is_bound_to_the_reviewed_head():
+    report = job("report")
+    assert "pr_state()" in report
+    assert report.count("pr_state)") >= 2  # read before and after the listing
+    assert '"${before%% *}" != "$HEAD_SHA"' in report
+    assert "the pull request head moved while its files were read" in report
+
+
+def test_classifier_output_must_be_exactly_true_or_false():
+    report = job("report")
+    assert "sensitive=true) sensitive=true" in report
+    assert "sensitive=false) sensitive=false" in report
+    assert "could not be classified" in report
+
+
+def test_status_step_leaves_a_pending_verdict_from_another_writer():
+    step = job("report").split("- name: set trazo/verdict")[1]
+    assert "creator.login" in step
+    assert "pending from another writer" in step
