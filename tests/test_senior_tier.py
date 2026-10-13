@@ -29,7 +29,7 @@ def test_canonical_senior_role_exists_and_is_listed() -> None:
 def test_senior_role_keeps_eng_default_and_the_review_separation() -> None:
     role = _flat(ROLE)
     assert "`tier:senior`" in role
-    assert "eng" in role and "default" in role
+    assert "`eng` stays the default" in role
     assert "does not review" in role or "do not review" in role
     assert "reviewer" in role and "security" in role and "skeptic" in role
     assert "Do not merge" in role or "do not merge" in role
@@ -63,3 +63,11 @@ def test_reviewer_checks_the_tier_senior_label_and_path_rules() -> None:
     for path in ("CODEOWNERS", ".github/workflows/", "src/", ".trazo/"):
         assert path in reviewer, path
     assert "until labeling is automated" in reviewer
+
+
+def test_hosts_and_handbook_list_the_senior_tier() -> None:
+    """An agent learns the tier from these listings; a role with no listing is never routed to."""
+    assert "/senior-eng" in _flat(REPO_ROOT / "src/adapters/CLAUDE.md")
+    assert "trazo-senior-engineer" in _flat(REPO_ROOT / "src/adapters/AGENTS.md")
+    team = _flat(REPO_ROOT / "handbook/team.md")
+    assert "Senior engineer" in team and "`/senior-eng`" in team

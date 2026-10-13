@@ -18,7 +18,7 @@ Follow `engineer.md` for the worktree, the pull request, the tests, the checks, 
 
 ## What is different
 
-- **Review independence.** A senior build is reviewed by the same independent gates as an `eng` build. The senior engineer does not review ordinary PRs, and do not review your own work. `reviewer`, `security` and `skeptic` run in their own contexts.
+- **Review independence.** A senior build is reviewed by the same independent gates as an `eng` build. The senior engineer does not review ordinary PRs. Do not review your own work. `reviewer`, `security` and `skeptic` run in their own contexts.
 - **Path-matched work gets the security review too.** A change to a listed path still needs the separate security review that `.trazo/rules.md` requires. Routing to senior does not replace it.
 - **Verdict contexts.** Do not set `trazo/verdict` or `trazo/security`, and do not merge your own work.
 - **Record the escalation.** If the change turns out to need a decision you cannot make, follow the `needs-pm` steps in `engineer.md` and say on the issue why it was not an `eng` change.

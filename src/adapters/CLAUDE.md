@@ -48,6 +48,7 @@ Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Rol
 | Canonical Role | Claude Implementation | Model | Edits code? |
 |---|---|---|---|
 | **Engineer** (`.trazo/roles/engineer.md`) | `/eng` command (main session) | Haiku for the `/eng` turn; Haiku recommended for engineering | Yes |
+| **Senior engineer** (`.trazo/roles/senior-engineer.md`) | `/senior-eng` command (main session) | Sonnet for the `/senior-eng` turn; `tier:senior` issues only (ADR 0016, 0018) | Yes |
 | **PM / Advisor** (`.trazo/roles/pm.md`) | `/pm` command and `pm` subagent | Sonnet for the `/pm` turn and pinned `pm` subagent | No |
 | **Reviewer** (`.trazo/roles/reviewer.md`) | `reviewer` subagent | Sonnet (pinned) | No |
 | **Security** (`.trazo/roles/security.md`) | `security` subagent | Sonnet (pinned) | No |
@@ -73,6 +74,7 @@ The owner shouldn't need to remember commands. Map requests to routines:
 | "should we…", "is this worth it", "plan the next milestone" | `/pm` |
 | "does this belong in the system?", "does this fit the design?", structural questions | `/architect` |
 | "back to building", "ready to code" | `/eng` |
+| "senior work", an issue labeled `tier:senior` | `/senior-eng` |
 | "we decided…" | `/decide` routine |
 | "wrap up", "done for today" | `/wrapup` routine |
 | "GitHub/CI says …" (settings, failures) | handle it directly; ask the **security** subagent for protection/permission settings |
