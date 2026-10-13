@@ -49,6 +49,13 @@ Owner step, once: GitHub repo Settings -> Rules -> Rulesets -> the `protect main
 
 Caveat (#44): agents post as the owner's account, so an agent could set `success` itself. The rule says only the reviewer or security subagent sets it, and the audit trail is the PR review comment that accompanies each status. This is not enforced until #44 gives agent work its own identity.
 
+## Automatic review (ADR 0017, #204)
+`.github/workflows/review.yml` reviews each non-draft PR head. It does nothing until the owner turns it on, and it is not live until #204 is merged.
+- Owner, once: store the key with `scripts/put_secret.sh` as the Actions secret `ANTHROPIC_API_KEY`, and set a monthly spend cap in the Anthropic console.
+- Owner, to enable: set the repository variable `AUTO_REVIEW_ENABLED` to `true` (Settings -> Secrets and variables -> Actions -> Variables).
+- Rollback, kill switch: set `AUTO_REVIEW_ENABLED` to anything but `true`. No code change is needed.
+- The workflow writes `trazo/verdict` as `failure` only, when a review does not finish. It never writes `success`; a clean review leaves the status unset until ADR 0017's open decision is made.
+
 ## Separate GitHub App identity for agent work (#44)
 
 The owner chose a GitHub App for agent identity. Install it only on `manoochehri/trazo` and grant the minimum repository permissions needed for the operations in #115:

@@ -1,13 +1,32 @@
-"""Guards for automatic PR review (issue #204, ADR 0017)."""
+"""Guards for automatic PR review (issue #204, ADR 0017).
 
+The workflow is text, not parsed YAML: the project has no YAML dependency, so jobs are
+read by their two-space indentation.
+"""
+
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "review.yml"
+ADR = REPO_ROOT / ".trazo/project/adr/0017-automatic-review-on-push.md"
+
+REVIEWER_ACTION_PIN = "anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc"
+CHECKOUT_PIN = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
 
 
 def workflow_text():
     return WORKFLOW.read_text()
+
+
+def job(name):
+    lines = workflow_text().splitlines()
+    start = lines.index(f"  {name}:")
+    end = next(
+        (i for i in range(start + 1, len(lines)) if re.match(r"^  \S", lines[i])),
+        len(lines),
+    )
+    return "\n".join(lines[start:end])
 
 
 def test_review_runs_on_pr_open_and_push_without_a_human_trigger():
@@ -30,27 +49,71 @@ def test_owner_kill_switch_disables_review_without_a_code_change():
     assert "vars.AUTO_REVIEW_ENABLED == 'true'" in workflow_text()
 
 
-def test_a_review_that_errors_ends_red_never_pending():
-    t = workflow_text()
-    assert "if: failure()" in t
-    assert "state=failure" in t
+def test_agent_checks_out_the_base_branch_never_the_pr_head():
+    # The PR cannot supply the reviewer's settings, hooks or agent instructions.
+    review = job("review")
+    assert "ref: ${{ github.event.pull_request.base.sha }}" in review
+    assert "persist-credentials: false" in review
+    assert "pull_request.head" not in review.split("steps:")[1].split("- name: review")[0]
 
 
-def test_the_workflow_never_sets_a_success_verdict():
-    # Only the reviewer subagent may grant trazo/verdict success (#115).
-    # The workflow may only tighten the gate: failure on error, pending on start.
+def test_agent_loads_only_base_settings():
+    assert "--setting-sources user" in job("review")
+
+
+def test_agent_job_cannot_write_commit_statuses():
+    review = job("review")
+    assert "statuses: write" not in review
+    assert "gh api" not in review
+
+
+def test_agent_job_has_no_pytest_or_pr_code_execution_in_its_allowlist():
+    review = job("review")
+    assert "uv run pytest" not in review
+    assert 'CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"' in review
+
+
+def test_only_the_report_job_writes_a_status_and_only_failure():
+    report = job("report")
+    assert "statuses: write" in report
+    assert "context=trazo/verdict" in report
+    assert "state=failure" in report
     assert "state=success" not in workflow_text()
-    assert "state=failure" in workflow_text()
+    assert "state=pending" not in workflow_text()
+    assert "trazo/security" not in workflow_text()
 
 
-def test_review_is_skipped_when_the_head_already_has_a_terminal_verdict():
+def test_report_job_runs_after_review_even_when_review_is_cancelled_or_times_out():
+    report = job("report")
+    assert "needs: [gate, review]" in report
+    assert "always()" in report
+    assert "needs.review.result" in report
+
+
+def test_review_timeout_sits_on_the_job_that_can_be_cancelled_not_a_step_that_never_runs():
+    assert "timeout-minutes:" in job("review")
+
+
+def test_actions_are_pinned_to_commits():
     t = workflow_text()
-    assert "context=trazo/verdict" in t
-    assert "skip" in t
+    assert REVIEWER_ACTION_PIN in t
+    assert CHECKOUT_PIN in t
+    assert "@v7" not in t
+    assert "@v1" not in t
 
 
 def test_sensitive_paths_trigger_the_security_subagent():
-    t = workflow_text()
+    prompt = job("review")
     for path in (".github/workflows", "CODEOWNERS", "pyproject.toml", "uv.lock"):
-        assert path in t
-    assert "security" in t
+        assert path in prompt
+    assert "security subagent" in prompt
+
+
+def test_adr_states_security_never_sets_the_verdict_context():
+    text = ADR.read_text()
+    assert "trazo/security" in text
+    assert "security subagent sets `trazo/verdict`" not in text
+
+
+def test_adr_states_every_push_to_a_non_draft_pr_is_reviewed():
+    assert "every push to a non-draft pr" in ADR.read_text().lower()
