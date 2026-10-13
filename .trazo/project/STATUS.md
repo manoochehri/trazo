@@ -11,7 +11,6 @@
 - The installed-copy baseline compares `.trazo/` files against the release tag recorded in `.trazo/VERSION`.
 - Senior engineer tier: ADR 0016 is proposed; owner questions are on [#192](https://github.com/manoochehri/trazo/issues/192) and its adapter wiring is in [#203](https://github.com/manoochehri/trazo/issues/203).
 - Architecture contract: a host-owned template ships with the installer.
-- Automatic PR review: ADR 0017 is proposed on [PR #205](https://github.com/manoochehri/trazo/pull/205); the workflow stays off until the owner enables it.
 
 ## Blocked / needs a decision
 - Owner-only release settings and decisions are tracked on the v0.2.0 milestone's open issues.
