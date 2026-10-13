@@ -33,7 +33,7 @@ and writes `trazo/verdict`:
 3. **`failure`** in every other case. That includes no qualifying review, an API error, an unreadable
    response, and a review job that did not finish.
 4. Security subagent reviews start with `PASS (...)` or `FAIL (...)`. A `FAIL` on the head fails the gate
-   whatever the order of reviews. A `PASS` on the head is needed on its own, and it is ignored otherwise.
+   whatever the order of reviews. A `PASS` never sets or overrides the verdict; the script skips it.
 5. **A pull request that changes a sensitive path never gets `success` from the bot.** Sensitive paths are
    every path in the base branch's `.github/CODEOWNERS`, plus `scripts/`, `.claude/`, `Makefile`,
    `Dockerfile`, `.pre-commit-config.yaml`, `pyproject.toml`, `uv.lock`, `.env.example`, and any path

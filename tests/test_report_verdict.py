@@ -254,3 +254,31 @@ def test_unreadable_input_sets_failure():
 def test_missing_run_start_sets_failure():
     state, _ = report_verdict.run("[]", HEAD, "", BOT)
     assert state == "failure"
+
+
+def test_codeowners_directory_without_trailing_slash_is_sensitive():
+    assert report_verdict.is_sensitive_path("infra/main.tf", ["infra"])
+    assert not report_verdict.is_sensitive_path("infrastructure/main.tf", ["infra"])
+
+
+def test_codeowners_glob_is_matched_loosely():
+    assert report_verdict.is_sensitive_path("deploy/app.yml", ["*.yml"])
+    assert report_verdict.is_sensitive_path("deploy/app.yml", ["deploy/*.yml"])
+    assert not report_verdict.is_sensitive_path("deploy/app.json", ["*.yml"])
+
+
+def test_unset_sensitive_flag_fails_closed_in_the_script():
+    import subprocess
+    import sys
+
+    env = {"HEAD_SHA": HEAD, "RUN_STARTED_AT": STARTED, "PATH": "/usr/bin:/bin"}
+    reviews = json.dumps([review("merge")])
+    result = subprocess.run(  # noqa: S603 -- runs this repo's own script with fixed arguments
+        [sys.executable, str(SCRIPT)],
+        input=reviews,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
+    )
+    assert "state=failure" in result.stdout

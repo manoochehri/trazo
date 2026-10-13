@@ -23,6 +23,7 @@ import os
 import re
 import sys
 from datetime import datetime
+from fnmatch import fnmatch
 
 DEFAULT_BOT_LOGIN = "github-actions[bot]"
 SECURITY_CLEAR = "pass"
@@ -123,18 +124,22 @@ def codeowners_patterns(text):
     return patterns
 
 
+def pattern_matches(path, pattern):
+    # CODEOWNERS: a pattern names a file, or a directory with or without a trailing slash, and
+    # may hold globs. Globs are matched loosely, which only ever marks more paths sensitive.
+    if any(char in pattern for char in "*?["):
+        base = path.rsplit("/", 1)[-1]
+        return fnmatch(path, pattern) or fnmatch(path, "*/" + pattern) or fnmatch(base, pattern)
+    return path == pattern or path.startswith(pattern.rstrip("/") + "/")
+
+
 def is_sensitive_path(path, patterns):
     path = path.lower()
     if path.startswith(EXTRA_SENSITIVE_PREFIXES) or path in EXTRA_SENSITIVE_FILES:
         return True
     if "secret" in path:
         return True
-    for pattern in patterns:
-        if pattern.endswith("/") and path.startswith(pattern):
-            return True
-        if path == pattern:
-            return True
-    return False
+    return any(pattern_matches(path, pattern) for pattern in patterns)
 
 
 def classify(listing, changed_files, codeowners_text):
@@ -166,7 +171,8 @@ def main(argv):
         os.environ.get("HEAD_SHA", ""),
         os.environ.get("RUN_STARTED_AT", ""),
         os.environ.get("BOT_LOGIN", DEFAULT_BOT_LOGIN),
-        sensitive=os.environ.get("SENSITIVE") == "true",
+        # Anything but an explicit "false" is sensitive, so an unset or garbled value fails closed.
+        sensitive=os.environ.get("SENSITIVE") != "false",
     )
     print(f"state={state}")
     print(f"reason={reason}")

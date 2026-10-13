@@ -158,6 +158,21 @@ jobs:
           STATE: ${{ steps.decide.outputs.state }}
           REASON: ${{ steps.decide.outputs.reason }}
         run: |
+          # Another writer may have set a terminal state since this run started: a person's /check-pr,
+          # or the reviewer's own status. The gate saw none at start, so never overwrite one. If the
+          # lookup fails, write failure, never success.
+          existing=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
+            -q '[.[] | select(.context == "trazo/verdict")][0].state // ""') || {
+            existing=""
+            STATE=failure
+            REASON="could not check the head's existing verdict"
+          }
+          case "$existing" in
+            success|failure)
+              echo "trazo/verdict is already ${existing} on this head; leaving it."
+              exit 0
+              ;;
+          esac
           gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
             -f state="$STATE" -f context=trazo/verdict \
             -f description="$REASON" \

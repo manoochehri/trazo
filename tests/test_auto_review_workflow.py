@@ -217,3 +217,22 @@ def test_decide_step_writes_the_output_once_through_finish():
 
 def test_report_job_checks_out_contents_under_its_own_permissions():
     assert "contents: read" in job("report")
+
+
+def test_status_step_never_overwrites_an_existing_terminal_verdict():
+    step = job("report").split("- name: set trazo/verdict")[1]
+    assert "/commits/${SHA}/statuses" in step
+    assert "success|failure)" in step
+    assert "leaving it" in step
+
+
+def test_status_step_writes_failure_when_it_cannot_read_the_head():
+    step = job("report").split("- name: set trazo/verdict")[1]
+    assert "STATE=failure" in step
+    assert "could not check the head's existing verdict" in step
+
+
+def test_sensitive_flag_is_exported_as_true_or_false_only():
+    report = job("report")
+    assert 'SENSITIVE="$sensitive"' in report
+    assert "sensitive=${sensitive_out#sensitive=}" in report
