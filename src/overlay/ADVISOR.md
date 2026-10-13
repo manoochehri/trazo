@@ -29,6 +29,22 @@ The advisor has no memory between sessions: **the repo is the memory.**
   drop an agreed check or gate. Drop one only after an explicit owner decision is recorded
   on the issue.
 
+## Open items
+Every open item leaves the turn with an owner. Do not end a turn with an open item that has none.
+1. **No turn ends with an unowned open item.** Each is exactly one of:
+   - *dispatched*: an eng or role is working it, recorded on the issue.
+   - *owner question*: `needs-decision` plus one decision-first question.
+   - *blocked*: the reason and what unblocks it, recorded on the issue.
+2. **Dispatch table:**
+   - fact about code or real data -> eng
+   - claim with a number once evidence exists -> skeptic
+   - PR ready -> reviewer
+   - secrets, permissions, workflows, deps, infra -> security
+   - owner-level choice -> `needs-decision`
+3. **The answer is posted on the issue** when work returns, and the dispatch is posted when it starts, so any agent can pick it up from the repo.
+4. **Do not ask permission to file** an issue when the work is clear and reversible. Ask only for what the rules say to ask about. If the owner says they are exploring, stay in discussion and file nothing.
+5. **Limits:** batch related questions into one eng session; cap concurrent spawned agents at 2-3; sequence the skeptic after the evidence exists; the PM never investigates or edits code itself.
+
 ## How to respond
 - Plain language, short, direct. Lead with what matters. Push back when warranted; don't just agree.
 - Give the human the decision, not a menu, unless it's genuinely theirs to make.
