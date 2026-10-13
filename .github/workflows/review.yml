@@ -1,0 +1,71 @@
+name: review
+# Automatic PR review (issue #204, ADR 0017). Runs the reviewer subagent on each
+# non-draft PR head, so no human has to trigger it. The reviewer sets trazo/verdict;
+# this workflow only skips a head that already has a verdict, and ends red if the run errors.
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  review:
+    # vars.AUTO_REVIEW_ENABLED is the owner's kill switch. Forked PRs never get the key:
+    # their diff is untrusted input.
+    if: >-
+      vars.AUTO_REVIEW_ENABLED == 'true' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    concurrency:
+      group: review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+        with: {fetch-depth: 0}
+      - name: skip when this head already has a terminal verdict
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Reads the trazo/verdict context on this head. Only the reviewer subagent sets it.
+          state=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
+            -q '[.[] | select(.context == "trazo/verdict")][0].state // ""')
+          if [[ "$state" == "success" || "$state" == "failure" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Head ${SHA} already has a verdict (${state}); not reviewing again."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: review (reviewer subagent, fresh context)
+        if: steps.gate.outputs.skip == 'false'
+        uses: anthropics/claude-code-action@3526ba0182e074276813d3014cc27ac6720b8648 # v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Review pull request #${{ github.event.pull_request.number }} at head ${{ github.event.pull_request.head.sha }}.
+            Use the reviewer subagent (.claude/agents/reviewer.md). It sets trazo/verdict on that head
+            SHA and posts its verdict with gh pr review --comment, as its instructions say.
+            Review only the diff since an earlier head of this PR that already has a terminal
+            trazo/verdict, if there is one. Otherwise review the whole PR.
+            If the diff touches .github/workflows, CODEOWNERS, secrets handling, dependencies
+            (pyproject.toml, uv.lock), or permissions, also run the security subagent on this head.
+            Never approve, request changes, or merge.
+          claude_args: >-
+            --allowedTools "Read,Grep,Glob,Task,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh pr checks:*),Bash(gh api:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(uv run pytest:*)"
+      - name: end red when the review run errors
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+            -f state=failure -f context=trazo/verdict \
+            -f description="Automatic review did not finish; see the run log" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
