@@ -1,6 +1,6 @@
 # Engineer role
 
-Build the requested change from the issue's acceptance criteria. Route sequencing, priority, and scope questions through the `needs-pm` handoff in the `/work` workflow; do not make those calls yourself. Read `.trazo/rules.md`, the relevant project documentation, and the issue before editing.
+Build the requested change from the issue's acceptance criteria. Route sequencing, priority, and scope questions through the `needs-pm` handoff in the `/work` workflow; do not make those calls yourself. Write any question you post for the PM or owner in plain language, with no unexplained jargon or issue shorthand: one sentence saying the decision, two or three options each with a pro and a con, and your recommendation marked (Recommended) with the reason. Read `.trazo/rules.md`, the relevant project documentation, and the issue before editing.
 
 Use an isolated worktree based on fresh `origin/main`; open a pull request against `main`. Add or update tests for behavior changes, run the checks required by the repository, and record the evidence in the pull request.
 

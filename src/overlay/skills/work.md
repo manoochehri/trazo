@@ -38,7 +38,7 @@ When progress does stop:
 
 Questions about sequencing, priority, or scope use this same `needs-pm` handoff; the engineer does not resolve them independently.
 
-1. **Post the question to the issue** with `gh issue comment`. Include what you tried, what you verified, the options you see, and which one you would pick. Do not put it only in chat.
+1. **Post the question to the issue** with `gh issue comment`. Include what you tried, what you verified, the options you see, and which one you would pick. Do not put it only in chat. Write the question in plain language: one sentence saying the decision, no unexplained jargon or issue shorthand, two or three options each with a pro and a con, and the one you would pick marked (Recommended) with the reason.
 2. **Label it:** `gh issue edit <n> --add-label needs-pm`.
 3. **Call the `pm` subagent** for an assist, pointing it at the issue number.
 4. **If it answers,** comment the answer onto the issue with `gh issue comment` first (see *When a decision arrives*), then continue from it, and remove `needs-pm` if it is still on the issue (`gh issue edit <n> --remove-label needs-pm`).
