@@ -135,17 +135,30 @@ jobs:
           fi
           RUN_STARTED_AT=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" -q .run_started_at) \
             || finish failure "could not read the review run start time"
-          changed_files=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" -q .changed_files) \
-            || finish failure "could not count the changed files"
-          # Both names of a renamed file are listed. The file count checks for a truncated listing.
+          # The file list must describe the commit this status is written on. Read the head and the
+          # count before and after the listing; if the head moved, or the count changed, fail closed.
+          pr_state() {
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" -q '.head.sha + " " + (.changed_files | tostring)'
+          }
+          before=$(pr_state) || finish failure "could not read the pull request"
+          # Both names of a renamed file are listed. The count checks for a truncated listing.
           listing=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
             -q '.[] | [.filename, (.previous_filename // "")] | @tsv') \
             || finish failure "could not list the changed files"
+          after=$(pr_state) || finish failure "could not read the pull request"
+          if [[ "$before" != "$after" || "${before%% *}" != "$HEAD_SHA" ]]; then
+            finish failure "the pull request head moved while its files were read"
+          fi
+          changed_files=${before#* }
           # The base branch's CODEOWNERS and the extra paths in the script decide what is sensitive.
           sensitive_out=$(printf '%s\n' "$listing" \
             | CHANGED_FILES="$changed_files" python3 scripts/report_verdict.py --sensitive .github/CODEOWNERS) \
             || finish failure "could not classify the changed files"
-          sensitive=${sensitive_out#sensitive=}
+          case "$sensitive_out" in
+            sensitive=true) sensitive=true ;;
+            sensitive=false) sensitive=false ;;
+            *) finish failure "the changed files could not be classified" ;;
+          esac
           export RUN_STARTED_AT HEAD_SHA BOT_LOGIN SENSITIVE="$sensitive"
           result=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
             | python3 scripts/report_verdict.py) \
@@ -161,16 +174,26 @@ jobs:
           # Another writer may have set a terminal state since this run started: a person's /check-pr,
           # or the reviewer's own status. The gate saw none at start, so never overwrite one. If the
           # lookup fails, write failure, never success.
-          existing=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
-            -q '[.[] | select(.context == "trazo/verdict")][0].state // ""') || {
-            existing=""
+          # The newest entry comes first. A pending set by anyone but this workflow is a person's or the
+          # reviewer's run in progress, so it is left alone too.
+          existing_line=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
+            -q '[.[] | select(.context == "trazo/verdict")][0] | ((.state // "") + " " + (.creator.login // ""))') || {
+            existing_line=""
             STATE=failure
             REASON="could not check the head's existing verdict"
           }
+          existing=${existing_line%% *}
+          creator=${existing_line#* }
           case "$existing" in
             success|failure)
               echo "trazo/verdict is already ${existing} on this head; leaving it."
               exit 0
+              ;;
+            pending)
+              if [[ "$creator" != "github-actions[bot]" ]]; then
+                echo "trazo/verdict is pending from another writer; leaving it."
+                exit 0
+              fi
               ;;
           esac
           gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \

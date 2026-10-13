@@ -235,4 +235,24 @@ def test_status_step_writes_failure_when_it_cannot_read_the_head():
 def test_sensitive_flag_is_exported_as_true_or_false_only():
     report = job("report")
     assert 'SENSITIVE="$sensitive"' in report
-    assert "sensitive=${sensitive_out#sensitive=}" in report
+
+
+def test_file_listing_is_bound_to_the_reviewed_head():
+    report = job("report")
+    assert "pr_state()" in report
+    assert report.count("pr_state)") >= 2  # read before and after the listing
+    assert '"${before%% *}" != "$HEAD_SHA"' in report
+    assert "the pull request head moved while its files were read" in report
+
+
+def test_classifier_output_must_be_exactly_true_or_false():
+    report = job("report")
+    assert "sensitive=true) sensitive=true" in report
+    assert "sensitive=false) sensitive=false" in report
+    assert "could not be classified" in report
+
+
+def test_status_step_leaves_a_pending_verdict_from_another_writer():
+    step = job("report").split("- name: set trazo/verdict")[1]
+    assert "creator.login" in step
+    assert "pending from another writer" in step

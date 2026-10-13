@@ -35,11 +35,11 @@ and writes `trazo/verdict`:
 4. Security subagent reviews start with `PASS (...)` or `FAIL (...)`. A `FAIL` on the head fails the gate
    whatever the order of reviews. A `PASS` never sets or overrides the verdict; the script skips it.
 5. **A pull request that changes a sensitive path never gets `success` from the bot.** Sensitive paths are
-   every path in the base branch's `.github/CODEOWNERS`, plus `scripts/`, `.claude/`, `Makefile`,
-   `Dockerfile`, `.pre-commit-config.yaml`, `pyproject.toml`, `uv.lock`, `.env.example`, and any path
-   containing `secret`. Both names of a renamed file count. A listing that does not match the PR's
-   file count counts as sensitive. For these PRs the report job writes `failure`, and a person sets the
-   status through `/check-pr`, which routes a separate security review. A security `PASS` from the bot
+   every path in the base branch's `.github/CODEOWNERS`, plus the extra list in `scripts/report_verdict.py`
+   (the list there is the authority; this record does not copy it). Both names of a renamed file count. A
+   listing that does not match the PR's file count, or a head that moves while its files are read, fails
+   closed. For these PRs the report job writes `failure`, and a person sets the status through `/check-pr`,
+   which routes a separate security review. A security `PASS` from the bot
    does not change this, because it comes from the same run as the `merge` and cannot be a check on it.
 6. Reviews from `/check-pr` are posted from the owner's account. They do not count here, because
    `/check-pr` keeps setting its own status under #115.
@@ -59,6 +59,11 @@ has no `contents: write` and no `pull-requests: write`. The review job still has
   `trazo/verdict` directly ([#44](https://github.com/manoochehri/trazo/issues/44)). A pull request that
   adds a workflow with `statuses: write` can write it too ([#212](https://github.com/manoochehri/trazo/issues/212)).
   The gate is therefore not unforgeable. This record does not claim that it is.
+
+- **Read-then-write race.** The status step reads the head's verdict, then writes. A person's `failure`
+  posted in the second or so between the read and the write can be replaced by the bot's `success`.
+  Accepted: the window is short, a person can see and redo the check, and `/check-pr` sets the status
+  again. Re-listing after the write would narrow it; not built here.
 
 ## Unverified until the first live run
 

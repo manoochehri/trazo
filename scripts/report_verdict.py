@@ -29,16 +29,42 @@ DEFAULT_BOT_LOGIN = "github-actions[bot]"
 SECURITY_CLEAR = "pass"
 SECURITY_BLOCK = "fail"
 
-# Paths the project treats as sensitive beyond the CODEOWNERS list: the gate itself, the scripts,
-# the agent definitions, and the build and infrastructure files. Matched case-insensitively.
-EXTRA_SENSITIVE_PREFIXES = ("scripts/", ".claude/")
-EXTRA_SENSITIVE_FILES = (
+# Paths the project treats as sensitive beyond the base CODEOWNERS list. This list is the authority;
+# ADR 0020 and the RUNBOOK point here. Matching is case-insensitive.
+#   - the gate, scripts and agent definitions, and the governance the agents read (rules, roles,
+#     ADRs, charter, overlay, the CLAUDE.md and AGENTS.md adapters);
+#   - the build, dependency, index and secret-scanning config that CI and `make` read;
+#   - the docs build, which runs the hooks in mkdocs.yml, and the dependency bot.
+EXTRA_SENSITIVE_PREFIXES = (
+    "scripts/",
+    ".claude/",
+    ".github/",
+    ".trazo/rules.md",
+    ".trazo/roles/",
+    ".trazo/project/adr/",
+    ".trazo/project/charter/",
+    "src/overlay/",
+    "src/adapters/",
+)
+# Matched against the file's base name, so a stand-in at any depth counts.
+EXTRA_SENSITIVE_BASENAMES = (
     "makefile",
+    "gnumakefile",
     "dockerfile",
+    ".dockerignore",
+    ".gitignore",
+    ".gitleaks.toml",
+    ".gitleaksignore",
     ".pre-commit-config.yaml",
+    ".python-version",
     "pyproject.toml",
     "uv.lock",
+    "uv.toml",
     ".env.example",
+    "mkdocs.yml",
+    "claude.md",
+    "agents.md",
+    "codeowners",
 )
 
 
@@ -114,32 +140,54 @@ def run(text, head_sha, run_started_at, bot_login, sensitive=False):
 
 
 def codeowners_patterns(text):
+    """Return (pattern, anchored) pairs from a CODEOWNERS file.
+
+    A line with syntax this parser does not model (an escape) becomes a catch-all, so an
+    unrecognised line marks every path sensitive instead of none.
+    """
     patterns = []
     for line in text.splitlines():
         line = line.split("#", 1)[0].strip()
         if not line:
             continue
-        pattern = line.split()[0].lstrip("/").lower()
-        patterns.append(pattern)
+        if "\\" in line:
+            patterns.append(("*", False))
+            continue
+        token = line.split()[0]
+        patterns.append((token.lstrip("/").lower(), token.startswith("/")))
     return patterns
 
 
-def pattern_matches(path, pattern):
-    # CODEOWNERS: a pattern names a file, or a directory with or without a trailing slash, and
-    # may hold globs. Globs are matched loosely, which only ever marks more paths sensitive.
-    if any(char in pattern for char in "*?["):
-        base = path.rsplit("/", 1)[-1]
-        return fnmatch(path, pattern) or fnmatch(path, "*/" + pattern) or fnmatch(base, pattern)
-    return path == pattern or path.startswith(pattern.rstrip("/") + "/")
+def pattern_matches(path, pattern, anchored):
+    # A pattern owns a path when it matches the path itself or any directory above it, so a
+    # directory pattern covers its files and a glob that names a directory covers what is in it.
+    # An anchored pattern starts at the repository root; an unanchored one may start at any segment.
+    # Globs match loosely, which only ever marks more paths sensitive.
+    segments = path.split("/")
+    name = pattern.rstrip("/")
+    is_glob = any(char in pattern for char in "*?[")
+    starts = [0] if anchored else range(len(segments))
+    for start in starts:
+        for end in range(start + 1, len(segments) + 1):
+            candidate = "/".join(segments[start:end])
+            if is_glob:
+                if fnmatch(candidate, name):
+                    return True
+            elif candidate == name:
+                return True
+    return False
 
 
 def is_sensitive_path(path, patterns):
     path = path.lower()
-    if path.startswith(EXTRA_SENSITIVE_PREFIXES) or path in EXTRA_SENSITIVE_FILES:
+    base = path.rsplit("/", 1)[-1]
+    if path.startswith(EXTRA_SENSITIVE_PREFIXES) or base in EXTRA_SENSITIVE_BASENAMES:
+        return True
+    if base.startswith("requirements") and base.endswith(".txt"):
         return True
     if "secret" in path:
         return True
-    return any(pattern_matches(path, pattern) for pattern in patterns)
+    return any(pattern_matches(path, pattern, anchored) for pattern, anchored in patterns)
 
 
 def classify(listing, changed_files, codeowners_text):

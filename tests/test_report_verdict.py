@@ -192,7 +192,7 @@ def test_named_sensitive_paths_are_sensitive():
 
 def test_ordinary_paths_are_not_sensitive():
     patterns = report_verdict.codeowners_patterns(CODEOWNERS)
-    for path in ("src/overlay/roles/reviewer.md", "tests/test_x.py", "docs/guide.md"):
+    for path in ("src/other/notes.md", "tests/test_x.py", "docs/guide.md"):
         assert not report_verdict.is_sensitive_path(path, patterns), path
 
 
@@ -257,14 +257,54 @@ def test_missing_run_start_sets_failure():
 
 
 def test_codeowners_directory_without_trailing_slash_is_sensitive():
-    assert report_verdict.is_sensitive_path("infra/main.tf", ["infra"])
-    assert not report_verdict.is_sensitive_path("infrastructure/main.tf", ["infra"])
+    assert report_verdict.is_sensitive_path("infra/main.tf", [("infra", True)])
+    assert not report_verdict.is_sensitive_path("infrastructure/main.tf", [("infra", True)])
 
 
 def test_codeowners_glob_is_matched_loosely():
-    assert report_verdict.is_sensitive_path("deploy/app.yml", ["*.yml"])
-    assert report_verdict.is_sensitive_path("deploy/app.yml", ["deploy/*.yml"])
-    assert not report_verdict.is_sensitive_path("deploy/app.json", ["*.yml"])
+    assert report_verdict.is_sensitive_path("deploy/app.yml", [("*.yml", False)])
+    assert report_verdict.is_sensitive_path("deploy/app.yml", [("deploy/*.yml", True)])
+    assert not report_verdict.is_sensitive_path("deploy/app.json", [("*.yml", False)])
+
+
+def test_glob_naming_a_directory_covers_the_files_inside_it():
+    assert report_verdict.is_sensitive_path("build/logs/a.txt", [("**/logs", False)])
+    assert report_verdict.is_sensitive_path("src/a/config/x.yml", [("src/*/config", True)])
+
+
+def test_unanchored_directory_matches_at_any_depth():
+    assert report_verdict.is_sensitive_path("pkg/docs/readme.md", [("docs/", False)])
+    assert not report_verdict.is_sensitive_path("pkg/mydocs/readme.md", [("docs/", False)])
+
+
+def test_unsupported_codeowners_syntax_fails_closed():
+    patterns = report_verdict.codeowners_patterns("/weird\\ name.txt @owner\n")
+    assert report_verdict.is_sensitive_path("src/anything.py", patterns)
+
+
+def test_extra_stand_ins_are_sensitive_at_any_depth():
+    patterns = report_verdict.codeowners_patterns("")
+    for path in (
+        "GNUmakefile",
+        "sub/uv.toml",
+        "sub/.python-version",
+        "docs/requirements-dev.txt",
+        ".gitleaks.toml",
+        ".gitleaksignore",
+        ".gitignore",
+        "mkdocs.yml",
+        ".dockerignore",
+        ".github/dependabot.yml",
+        ".github/actions/setup/action.yml",
+        "CLAUDE.md",
+        "sub/AGENTS.md",
+        ".trazo/rules.md",
+        ".trazo/roles/reviewer.md",
+        ".trazo/project/adr/0020-verdict-success-from-bot-review.md",
+        "src/overlay/roles/reviewer.md",
+    ):
+        assert report_verdict.is_sensitive_path(path, patterns), path
+    assert not report_verdict.is_sensitive_path("src/other/notes.md", [])
 
 
 def test_unset_sensitive_flag_fails_closed_in_the_script():
