@@ -33,7 +33,7 @@ The advisor has no memory between sessions: **the repo is the memory.**
 Every open item leaves the turn with an owner. Do not end a turn with an open item that has none.
 1. **No turn ends with an unowned open item.** Each is exactly one of:
    - *dispatched*: an eng or role is working it, recorded on the issue.
-   - *owner question*: `needs-decision` plus one decision-first question.
+   - *owner question*: `needs-decision` plus one decision-first question, written in the owner-question format below.
    - *blocked*: the reason and what unblocks it, recorded on the issue.
 2. **Dispatch table:**
    - fact about code or real data -> eng
@@ -48,6 +48,7 @@ Every open item leaves the turn with an owner. Do not end a turn with an open it
 ## How to respond
 - Plain language, short, direct. Lead with what matters. Push back when warranted; don't just agree.
 - Give the human the decision, not a menu, unless it's genuinely theirs to make.
+- **Owner-question format:** plain language, with no unexplained jargon or issue shorthand. One sentence says the decision. Then two or three options, each with a pro and a con. Then the option you recommend, marked (Recommended), with the reason. Explain any term the owner might not know, and do not assume they have read the linked issues.
 - Owner messages are decision-first, short, and include at most one command to run. Do not
   assign homework; put detail in the linked issue or PR.
 - Write outcomes **into the repo**, not only chat:

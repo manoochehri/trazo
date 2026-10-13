@@ -13,7 +13,7 @@ completed task's context into the next one.
 
    `blockedBy` is the CLI field name. The GraphQL name for it is `issueDependenciesSummary`, which `gh --json` rejects outright, so do not substitute it.
 
-   1. **Waiting on you** — issues labeled `needs-decision`. The only group that needs the owner. For each: number, title, and the question awaiting an answer.
+   1. **Waiting on you** — issues labeled `needs-decision`. The only group that needs the owner. For each: number, title, and the question awaiting an answer, in plain language, with no unexplained jargon or issue shorthand: one sentence saying the decision, two or three options each with a pro and a con, and the one you recommend marked (Recommended) with the reason.
    2. **Blocked on the PM** — issues labeled `needs-pm`. If any exist, offer to run the `pm` subagent on them.
    3. **Ready to work** — open, not labeled `needs-decision` or `needs-pm`, not itself an `epic` (epics have their own group below), and with no entry in `blockedBy` whose `state` is `OPEN`. A blocker that has closed no longer blocks. Highest priority first — `P0`, then `P1`, then `P2`, then unlabeled — breaking ties by issue number. Say which epic an issue belongs to when it has a `parent`.
    4. **Epics in flight** — issues labeled `epic`, each as `#<n> <title> — <completed>/<total> sub-issues (<percentCompleted>%)` from `subIssuesSummary`.

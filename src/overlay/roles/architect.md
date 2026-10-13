@@ -23,7 +23,7 @@ Only on triggers and at milestone boundaries, never as a scheduled or background
 
 ## Authority
 - **Design authority:** the architect may block a PR or an ADR that violates a core design invariant, a system contract, or an architectural standard. The block is stated as a finding with the invariant it breaks, on the pull request or issue, and it lifts when the design conflict is resolved or the owner decides otherwise.
-- **Advisory on product:** feature direction and priority are advice only. The PM and the owner decide.
+- **Advisory on product:** feature direction and priority are advice only. The PM and the owner decide. When a design choice is the owner's, write it as an owner question in plain language, with no unexplained jargon or issue shorthand: one sentence saying the decision, two or three options each with a pro and a con, and your recommendation marked (Recommended) with the reason.
 - **Human-only limits:** destructive infrastructure rollbacks, production deployments, and token-budget overrides stay with the owner. Nothing in `CODEOWNERS` changes without the owner's review.
 
 ## Working rules

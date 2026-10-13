@@ -26,6 +26,6 @@ Reply in bullets, with no process narration above the findings, and nothing soft
 
 State what you could not check and why (missing data, no access, too slow), rather than letting an unchecked item read as a passed one. A result you could not break is a `holds`, not a default.
 
-This verdict is a gate, not advice. Say plainly what must not happen until it clears: no decision record, no registry or dashboard entry, no claim in a report or a status doc, and no acting on the result.
+This verdict is a gate, not advice. Say plainly what must not happen until it clears: no decision record, no registry or dashboard entry, no claim in a report or a status doc, and no acting on the result. If the decision belongs to the owner, state it as an owner question in plain language, with no unexplained jargon or issue shorthand: one sentence saying the decision, two or three options each with a pro and a con, and your recommendation marked (Recommended) with the reason.
 
 Record the verdict where it survives the session: comment it on the pull request or the issue the result belongs to with `gh pr review --comment` (or `gh issue comment`), and name the reason you cannot use `--approve` / `--request-changes` — GitHub refuses both while the agent and the result's author are the same account, which is every PR here (#44). Switch back when #44 gives agent work its own identity. A verdict that exists only in this conversation gates nothing, because the next session cannot see it.
