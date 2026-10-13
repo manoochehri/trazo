@@ -2,7 +2,7 @@
 
 **Status:** current
 
-**Updated:** 2026-10-13 by engineer (architecture contract; ADR 0016 proposed for issue #192)
+**Updated:** 2026-10-13 by engineer (automatic PR review, ADR 0017 for issue #204; architecture contract; ADR 0016 proposed for issue #192)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.2.0 milestone](https://github.com/manoochehri/trazo/milestone/4); the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1) is closed.
 
 ## Running now
@@ -11,7 +11,7 @@
 - The installed-copy baseline compares `.trazo/` files against the release tag recorded in `.trazo/VERSION`.
 - Senior engineer tier: ADR 0016 is proposed; owner questions are on [#192](https://github.com/manoochehri/trazo/issues/192) and its adapter wiring is in [#203](https://github.com/manoochehri/trazo/issues/203).
 - Architecture contract: a host-owned template ships with the installer.
-- Role attribution footers for GitHub posts are in [PR #189](https://github.com/manoochehri/trazo/pull/189); the PR touches CODEOWNERS paths and waits for owner review.
+- Automatic PR review: ADR 0017 is proposed on [PR #205](https://github.com/manoochehri/trazo/pull/205); the workflow stays off until the owner enables it.
 
 ## Blocked / needs a decision
 - Owner-only release settings and decisions are tracked on the v0.2.0 milestone's open issues.
