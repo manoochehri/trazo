@@ -147,6 +147,31 @@ def _pinned_tag() -> str | None:
     return tag if result.returncode == 0 else None
 
 
+def _in_pinned_release(rel: str, tag: str | None) -> bool:
+    """True when `rel` exists in the pinned release, or before the first release at all."""
+    if tag is None:
+        return True
+    assert GIT is not None
+    # `ls-tree` exits 0 with empty output for a missing path; a non-zero exit is a git failure,
+    # which must not read as "not in the release" and silently skip the file.
+    result = subprocess.run(  # noqa: S603 - fixed git argv and repository-relative path
+        [GIT, "ls-tree", "--name-only", tag, "--", rel],
+        capture_output=True,
+        cwd=REPO_ROOT,
+        check=False,
+        text=True,
+    )
+    assert result.returncode == 0, f"git ls-tree failed for {tag}:{rel}: {result.stderr}"
+    return bool(result.stdout.strip())
+
+
+def _drifted(installed: str, source: str, tag: str | None) -> bool:
+    """A released file must match its installed copy. An unreleased one must have none."""
+    if _in_pinned_release(source, tag):
+        return _installed_bytes(installed) != _source_bytes(source, tag)
+    return (REPO_ROOT / installed).exists()
+
+
 def _source_bytes(rel: str, tag: str | None) -> bytes:
     """Read the canonical file from the pinned tag, or from the worktree pre-release."""
     if tag is None:
@@ -229,10 +254,12 @@ def test_the_installed_copy_is_the_product_not_a_fork_of_it() -> None:
     the product can move ahead while this repository remains pinned (ADR 0010).
     """
     tag = _pinned_tag()
+    # A product file added to src/ after the pinned tag has no installed copy until the next
+    # release (ADR 0010), so it is not drift. Only files the pinned release carries are compared.
     drifted = [
         f"{installed} != {source}"
         for installed, source in INSTALLED_FROM_SRC.items()
-        if _installed_bytes(installed) != _source_bytes(source, tag)
+        if _drifted(installed, source, tag)
     ]
     assert not drifted, (
         "the installed copy differs from its canonical source. Edit `src/`, then "

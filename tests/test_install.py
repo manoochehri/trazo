@@ -541,3 +541,25 @@ def test_purge_keeps_gitignored_file_without_force(host, source):
     assert note.read_text() == "mine\n"
     run(host, "uninstall", "--purge", "--force")
     assert not note.exists()
+
+
+def test_fresh_install_creates_architecture_contract(host, source):
+    run(host, "install", "v0.1.0", source=source)
+    assert (host / ".trazo/project/ARCHITECTURE_CONTRACT.md").is_file()
+
+
+def test_upgrade_leaves_edited_architecture_contract_byte_identical(tmp_path, host):
+    def mutate(src, tag):
+        if tag == "v0.2.0":
+            (src / "overlay/rules.md").write_text("# new rules\n")
+
+    src = make_source(tmp_path, ("v0.1.0", "v0.2.0"), mutate)
+    run(host, "install", "v0.1.0", source=src)
+    contract = host / ".trazo/project/ARCHITECTURE_CONTRACT.md"
+    assert contract.is_file()
+    contract.write_text("acceptance: make test\n")
+    before = contract.read_bytes()
+
+    run(host, "upgrade", "v0.2.0", source=src)
+    assert version(host) == "v0.2.0"
+    assert contract.read_bytes() == before
