@@ -52,7 +52,7 @@ Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Rol
 | **Reviewer** (`.trazo/roles/reviewer.md`) | `reviewer` subagent | Sonnet (pinned) | No |
 | **Security** (`.trazo/roles/security.md`) | `security` subagent | Sonnet (pinned) | No |
 | **Skeptic** (`.trazo/roles/skeptic.md`) | `skeptic` subagent | Sonnet (pinned) | No |
-| **Architect** (`.trazo/roles/architect.md`) | `/architect` command (main session, advisory) | Opus for the `/architect` turn; no pinned subagent yet (ADR 0020) | No |
+| **Architect** (`.trazo/roles/architect.md`) | `/architect` command (main session, advisory) | Opus for the `/architect` turn; no pinned subagent yet (ADR 0021) | No |
 
 Claude Code restores the session's previous model after a role command's turn. Use the pinned subagents for PM, reviewer, security, and skeptic work that must run on Sonnet. `/eng` sets Haiku for its turn; a fresh host install uses Haiku as the default when the host has no existing `.claude/settings.json`.
 

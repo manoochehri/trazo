@@ -11,7 +11,7 @@ Trazo gives Claude Code and Codex the same roles, with a generic `AGENTS.md` ada
 | Reviewer | subagent only | Sonnet | Sol | User chooses provider and model | Reviewing pull requests and diffs before merge | No | Verdict, as a comment on the pull request |
 | Security | subagent only | Sonnet | Sol | User chooses provider and model | Secrets, permissions, workflows, dependencies, infra, repo security settings | No | Findings as a PR comment, or a new issue |
 | Skeptic | subagent only | Sonnet | Sol | User chooses provider and model | Breaking a research/analysis result before it is acted on | No | Verdict, as a comment on the pull request or issue |
-| Architect | `/architect` (on demand) | Opus for the command turn; advisory in the session | Astra | User chooses provider and model | System structure and design fit, on trigger only (ADR 0020) | No | Finding on the issue or pull request |
+| Architect | `/architect` (on demand) | Opus for the command turn; advisory in the session | Astra | User chooses provider and model | System structure and design fit, on trigger only (ADR 0021) | No | Finding on the issue or pull request |
 
 **Which model runs?** A fresh Claude Code host install defaults to Haiku. `/work` runs in the forked Haiku context; `/eng` runs its command turn on Haiku. Claude PM, reviewer, security, and skeptic subagents are pinned to Sonnet, and `/pm` runs its command turn on Sonnet. A Claude role command's model applies for that turn only, then the session returns to its previous model. Codex role agents are pinned to Luna for engineering and Sol for the other roles. Cline has no Trazo model setting: choose the provider and model in Cline. Existing Claude or Codex settings can override defaults.
 

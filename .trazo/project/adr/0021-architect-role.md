@@ -1,12 +1,13 @@
-# 0020: Architect is an on-demand advisory role above engineering
+# 0021: Architect is an on-demand advisory role above engineering
 
 **Date:** 2026-10-13  **Status:** accepted
 
 Owner decision on [#193](https://github.com/manoochehri/trazo/issues/193). The proposal in the
 2026-10-13 comment was accepted by the owner. The role boundary, cadence and authority below are
-the accepted proposal. The model mapping is the engineer's reading and is **not yet confirmed by the
-owner** on #193: the proposal named "sol / top-tier" and "Claude 3.5 Sonnet", and the owner's name
-for the Codex top tier ("Astra") has no verified model identifier. This record amends
+the accepted proposal. The owner confirmed Claude Opus in session on 2026-10-13:
+["Confirm Opus"](https://github.com/manoochehri/trazo/issues/193#issuecomment-6152459146).
+The Codex Astra decision is recorded on #193; its verified identifier is `gpt-6-astra`.
+This record amends
 [0015](0015-role-model-defaults.md) by adding a fifth role mapping. It does not edit 0015.
 
 ## Context
@@ -42,7 +43,7 @@ the charter's AI budget for little return, so the role runs only when a trigger 
   - OpenAI Codex: `gpt-6-astra`. The owner decided on #193 that Codex is Astra (owner's words:
     "codex shuld be astra"). The identifier is verified on OpenAI's model page:
     https://developers.openai.com/api/docs/models/gpt-6-astra (Model ID `gpt-6-astra`).
-  - Claude Code's Opus mapping above is still pending the owner's confirmation on #193.
+  - The owner confirmed Claude Opus on #193 on 2026-10-13.
   - Cline: unchanged. Each user selects both provider and model.
 - **Non-builder:** the Architect does not write application code, implement features, or manage task
   worktrees.
@@ -55,8 +56,8 @@ the charter's AI budget for little return, so the role runs only when a trigger 
   status.
 - **Architect as a blocking gate on every PR:** rejected by the owner. Blocking applies only to
   design-invariant violations, and it is triggered, not routine.
-- **Sonnet for the Architect (the "Claude 3.5 Sonnet" in the proposal):** rejected. The owner's own
-  comment named Opus, and the Claude 5 family is current.
+- **Sonnet for the Architect (the "Claude 3.5 Sonnet" in the proposal):** rejected by the owner
+  confirmation of Opus linked above.
 - **Architect as a lead mode of engineering (#192):** not chosen for this record. The engineer
   lead/integrator mode is a separate decision on #192 and #196–#199. This record does not settle it.
 
@@ -75,5 +76,5 @@ the charter's AI budget for little return, so the role runs only when a trigger 
   not settled here.
 
 **Revisit** when the first Architect invocation shows whether the triggers fire at the expected rate,
-when the owner confirms the Claude model mapping, when Codex availability of `gpt-6-astra` is
+when Codex availability of `gpt-6-astra` is
 verified, or when #192's lead/integrator decision lands.
