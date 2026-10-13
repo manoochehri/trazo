@@ -52,6 +52,7 @@ Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Rol
 | **Reviewer** (`.trazo/roles/reviewer.md`) | `reviewer` subagent | Sonnet (pinned) | No |
 | **Security** (`.trazo/roles/security.md`) | `security` subagent | Sonnet (pinned) | No |
 | **Skeptic** (`.trazo/roles/skeptic.md`) | `skeptic` subagent | Sonnet (pinned) | No |
+| **Architect** (`.trazo/roles/architect.md`) | `/architect` command (main session, advisory) | Opus for the `/architect` turn; no pinned subagent yet (ADR 0020) | No |
 
 Claude Code restores the session's previous model after a role command's turn. Use the pinned subagents for PM, reviewer, security, and skeptic work that must run on Sonnet. `/eng` sets Haiku for its turn; a fresh host install uses Haiku as the default when the host has no existing `.claude/settings.json`.
 
@@ -70,6 +71,7 @@ The owner shouldn't need to remember commands. Map requests to routines:
 | "is this secure", "check permissions" | ask the **security** subagent |
 | "is this number real?", "poke holes in this analysis", "what would make this wrong?" | ask the **skeptic** subagent |
 | "should we…", "is this worth it", "plan the next milestone" | `/pm` |
+| "does this belong in the system?", "does this fit the design?", structural questions | `/architect` |
 | "back to building", "ready to code" | `/eng` |
 | "we decided…" | `/decide` routine |
 | "wrap up", "done for today" | `/wrapup` routine |

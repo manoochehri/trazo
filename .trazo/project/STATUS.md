@@ -11,7 +11,7 @@
 - The installed-copy baseline compares `.trazo/` files against the release tag recorded in `.trazo/VERSION`.
 - Senior engineer tier: routing is decided in ADR 0018 (accepted); the role file, command and adapter wiring are in [#203](https://github.com/manoochehri/trazo/issues/203).
 - Architecture contract: a host-owned template ships with the installer.
-- Architect role: the owner accepted the boundary, cadence, authority and model mapping in ADR 0020; the canonical role, `/architect` command and Codex agent are in [PR #215](https://github.com/manoochehri/trazo/pull/215). The Codex model ID `gpt-6-astra` is unverified.
+- Architect role: the owner accepted the boundary, cadence, authority and model mapping in ADR 0020; the canonical role and `/architect` command are in [PR #215](https://github.com/manoochehri/trazo/pull/215). The Codex agent is held: no model identifier is verified yet.
 
 ## Blocked / needs a decision
 - Owner-only release settings and decisions are tracked on the v0.2.0 milestone's open issues.

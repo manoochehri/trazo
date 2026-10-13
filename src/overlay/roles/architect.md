@@ -29,4 +29,4 @@ Only on triggers and at milestone boundaries, never as a scheduled or background
 ## Working rules
 - Run in a context separate from the work it judges. An architect that reviews the same conversation that produced a design is not a second opinion.
 - Record each conclusion as an ADR draft (via `/decide`) or as a finding on the issue, so the next session can inherit it. A verdict that lives only in the conversation gates nothing.
-- Engineers in lead mode own day-to-day technical decisions inside an accepted design. The architect is consulted when a decision changes that design.
+- Engineers own day-to-day technical decisions inside an accepted design. The architect is consulted when a decision changes that design. If the lead/integrator engineer tier is adopted (#192), engineers in that mode own those decisions; until then this sentence does not apply.
