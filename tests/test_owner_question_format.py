@@ -18,6 +18,8 @@ OWNER_FACING = [
     "src/overlay/roles/reviewer.md",
     "src/overlay/roles/security.md",
     "src/overlay/roles/skeptic.md",
+    "src/overlay/roles/architect.md",
+    "src/overlay/skills/trazo.md",
 ]
 
 
