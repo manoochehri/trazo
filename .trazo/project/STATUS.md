@@ -2,7 +2,7 @@
 
 **Status:** current
 
-**Updated:** 2026-10-13 by engineer (automatic PR review, ADR 0017 for issue #204; architecture contract; senior tier routing decided in ADR 0018; PM may spawn subagents, ADR 0019)
+**Updated:** 2026-10-13 by engineer (automatic PR review, ADR 0017 for issue #204; architecture contract; senior tier routing decided in ADR 0018; PM may spawn subagents, ADR 0019; engineers watch CI and fix mechanical failures before review, issue #216)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.2.0 milestone](https://github.com/manoochehri/trazo/milestone/4); the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1) is closed.
 
 ## Running now
