@@ -39,4 +39,4 @@ It points at documents this repository already has and does not copy them.
 | Check | Label | Command | Result | Date or commit |
 |---|---|---|---|---|
 | Fresh install into an empty host creates `.trazo/project/ARCHITECTURE_CONTRACT.md` | proposed | `uv run pytest tests/test_install.py -k architecture_contract` | not run against this file | n/a |
-| `make docs-check` passes on this branch | executed | `make docs-check` | project docs are current | 1244a56 + this branch (run on the rebased head) |
+| `make docs-check` passes on this branch | executed | `make docs-check` | project docs are current | this PR's head, before merge |
