@@ -65,6 +65,13 @@ def test_work_requests_review_only_after_checks_pass() -> None:
     assert re.search(r"Only after all checks pass.{0,80}step 6", work)
 
 
+def test_work_does_not_review_an_incomplete_change() -> None:
+    """A green first stub commit must return to step 5, not reach review (reviewer must-fix)."""
+    work = _flat(WORK)
+    assert "return to step 5" in work
+    assert "on a complete change" in work
+
+
 def test_work_keeps_merge_gate_contexts_off_the_engineer() -> None:
     assert "Never set `trazo/verdict` or `trazo/security`" in _flat(WORK)
 
