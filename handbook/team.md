@@ -7,6 +7,7 @@ Trazo gives Claude Code and Codex the same roles, with a generic `AGENTS.md` ada
 | Role / Agent | Command | Claude Code | OpenAI Codex | Cline | Use for | Edits files? | Updates GitHub? |
 |---|---|---|---|---|---|---|---|
 | Engineer | `/eng`, `/work` | Haiku default; `/work` runs in forked Haiku context | Luna | User chooses provider and model | Building: code, tests, git, pull requests | Yes | Yes |
+| Senior engineer | `/senior-eng` | Sonnet for the command turn | Sol | User chooses provider and model | Escalated issues labeled `tier:senior` (ADR 0016, 0018); same building role, not a reviewer of ordinary PRs | Yes | Yes |
 | PM / advisor | `/pm` | Sonnet for command turn; Sonnet `pm` subagent | Sol | User chooses provider and model | Status, planning, priorities, "is this result real?", charter/budget/stop rule, writing issues | No | Issues only — labels, parent/sub-issue, blocked-by, milestone, assignee, type, plus comments. Never rewrites an issue `--body`, never closes one |
 | Reviewer | subagent only | Sonnet | Sol | User chooses provider and model | Reviewing pull requests and diffs before merge | No | Verdict, as a comment on the pull request |
 | Security | subagent only | Sonnet | Sol | User chooses provider and model | Secrets, permissions, workflows, dependencies, infra, repo security settings | No | Findings as a PR comment, or a new issue |
@@ -41,6 +42,7 @@ You don't need to memorize these — `CLAUDE.md` maps plain-English requests to 
 | `/check-pr 15` | Review pull request #15 (reviewer, plus security if needed) |
 | `/pm` | Run the PM command turn on Sonnet; use the pinned `pm` subagent for subsequent PM work |
 | `/eng` | Run the engineer command turn on Haiku; later turns use the session's selected model |
+| `/senior-eng` | Run the senior engineer command turn on Sonnet, for issues labeled `tier:senior` only |
 | ask the **security** subagent | Secrets, permissions, infra (no role switch) |
 | ask the **reviewer** subagent | PRs, diffs, safety (no role switch) |
 | ask the **skeptic** subagent | Break a research/analysis result before it counts (no role switch) |

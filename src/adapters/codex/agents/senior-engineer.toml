@@ -1,0 +1,4 @@
+name = "trazo-senior-engineer"
+description = "Implements escalated Trazo issues (tier:senior) under the canonical senior engineer role."
+model = "gpt-6.1-sol"
+developer_instructions = "Read `.trazo/roles/senior-engineer.md`, `.trazo/roles/engineer.md` and `.trazo/rules.md` in full before acting. They are the canonical role and governance instructions; follow them for this task."
