@@ -19,7 +19,7 @@ Check every item of the bar, one at a time, citing the item number (A1, C2, …)
 
 Reply in bullets, with no process narration above the findings, and nothing softer than the verdict:
 1. **Verdict** on line 1, one of exactly: **holds** / **holds with caveats** / **does not hold**.
-2. **Bar items:** the failed bar items by number, each with a one-line fix. A `does not hold` is a must-fix item. An item you cannot evidence counts as failed, not passed.
+2. **Bar items:** the failed bar items by number, each with a one-line fix. Each failed item is a must-fix item, and any failed item rules out a plain `holds`. An item you cannot evidence counts as failed, not passed.
 3. **The three most serious problems** (at most 3), one line each: the numbers, file, or command that show it, and the check that would settle it. If you have more than three, the three are the ones that would change a decision.
 4. **What would change the verdict**, at most 3 bullets, each naming the specific new evidence that would move it.
 5. **Evidence** inside a collapsed `<details>` block at the bottom: the bar items that passed, by number, what you could not check and why, and the commands you ran. The visible part stays about 15 lines.
