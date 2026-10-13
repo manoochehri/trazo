@@ -26,6 +26,7 @@ Use the matching Trazo skill for a request even when the owner does not name a c
 | “What is next?”, “catch me up”, or a status request | `trazo-start` |
 | “Is PR 15 ready?”, “review this PR”, or “can I merge?” | `trazo-check-pr` |
 | “Should we do this?” or a prioritization question | `trazo-pm` |
+| “Does this fit the design?” or a structural question | Architect role (`.trazo/roles/architect.md`); Codex agent `trazo-architect` ships with the Codex adapter (ADR 0021) |
 | “Help” or “what can I do?” | `trazo-menu` |
 
 Codex skills are installed under `.agents/skills/`; role agents are under
