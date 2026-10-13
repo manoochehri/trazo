@@ -22,7 +22,7 @@ def test_work_watches_checks_after_each_push() -> None:
     work = _flat(WORK)
     assert "## Watch CI, fix obvious failures, then request review" in work
     assert "gh pr checks" in work
-    assert "--watch" in work
+    assert "gh run watch" in work
     assert "gh run view" in work and "--log-failed" in work
 
 
@@ -63,6 +63,15 @@ def test_work_requests_review_only_after_checks_pass() -> None:
     """Review is requested once checks pass, after the wait-and-fix loop."""
     work = _flat(WORK)
     assert re.search(r"Only after all checks pass.{0,80}step 6", work)
+
+
+def test_work_does_not_wait_for_review_gates_before_requesting_review() -> None:
+    """Manual review must remain reachable when its own statuses are pending or failing."""
+    work = _flat(WORK)
+    assert "Do not wait for `trazo/verdict`, `trazo/security`, or the review workflow" in work
+    assert "--commit <head-sha>" in work
+    assert "gh pr checks <number> --watch" not in work
+    assert "CI checks, excluding review gates" in _flat(ENGINEER)
 
 
 def test_work_does_not_review_an_incomplete_change() -> None:

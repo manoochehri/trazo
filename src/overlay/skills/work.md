@@ -16,14 +16,14 @@ Implement issue $ARGUMENTS.
 
 Run this loop after every push to the pull request. The first push in step 4 may be an incomplete first commit, so a green check on it proves nothing. While step 5 is unfinished, the push is incomplete: a failing check on it is expected, so do not fix it, do not escalate it, and do not count it toward the bounds. Return to step 5 and finish the change. Only a complete change goes on to review.
 
-1. **Wait:** run `gh pr checks <number> --watch` and let the checks finish.
+1. **Wait for CI only:** inspect `gh pr checks <number> --json name,state,workflow` and identify the build, test, lint, docs and secret-scan workflows. List their runs at the current head with `gh run list --branch <branch> --commit <head-sha> --json databaseId,workflowName,status,conclusion`, then run `gh run watch <run-id> --exit-status` for each unfinished CI run. Do not wait for `trazo/verdict`, `trazo/security`, or the review workflow: requesting review in step 6 is what completes those gates. Do not use `--required` as a filter: it also includes the review gates. Missing expected CI runs do not count as passing; wait for them to appear and inspect their conclusion. In this repository the CI workflows are `ci` and `docs`; in a host use its declared CI workflows. Confirm every run matches the current PR head before proceeding.
 2. **All checks pass on a complete change:** go on to the review request in step 6. If the change is still incomplete, return to step 5.
 3. **A check fails with a mechanical cause:** read the failing log with `gh run view <run-id> --log-failed`, then fix it on the same branch and pull request: push a commit, or edit the PR body for a missing evidence field. Return to the wait in this loop. Mechanical causes are a missing required field (such as the PR evidence field), a stale or colliding document number (such as an ADR number that another PR took on `main` while this work was in progress), formatting or lint, and any failure whose cause the log states plainly. Fix a failure only when its fix changes neither scope, behavior nor acceptance criteria.
 4. **The cause is not obvious, or the fix would change scope, behavior or acceptance criteria to make the check pass:** stop. Run `gh issue edit <n> --add-label needs-pm`, post the failing log excerpt and what you tried with `gh issue comment`, and call the `pm` subagent, as in *When you hit something that blocks progress*. Do not guess at the fix.
 
 Bounds: make at most 2 fix attempts per failing check. If the same check still fails after the second fix, escalate under step 4. Never set `trazo/verdict` or `trazo/security`, and never merge.
 
-Only after all checks pass on a complete change, ask the **reviewer** subagent to review (step 6). A review requested before checks pass reviews code that may still change.
+Only after all checks pass on a complete change, ask the **reviewer** subagent to review (step 6). Here "checks" means CI checks, excluding review gates; review and security gates must pass before merging. A review requested before CI checks pass reviews code that may still change.
 
 ## When a decision arrives
 
