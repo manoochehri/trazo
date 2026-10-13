@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import shutil
@@ -116,26 +117,56 @@ def _gh_issue_state(number: int) -> str:
     return result.stdout
 
 
-def check_project(project_root: Path, base_ref: str, issue_state: Callable[[int], str]) -> None:
+def check_status_scope(project_root: Path, base_ref: str) -> None:
+    """Keep status refreshes in PRs that touch only project state."""
+    repo_root = project_root.parent.parent
+    try:
+        base_commit = _git(repo_root, "rev-parse", "--verify", "--end-of-options", base_ref)
+        changed = set(
+            _git(
+                repo_root, "diff", "--name-only", "--no-renames", "-z", f"{base_commit}...HEAD"
+            ).split("\0")
+        )
+    except subprocess.CalledProcessError as exc:
+        raise DocsCheckError("cannot verify STATUS refresh scope against the base") from exc
+    if ".trazo/project/STATUS.md" in changed and any(
+        path and not path.startswith(".trazo/project/") for path in changed
+    ):
+        raise DocsCheckError(
+            "STATUS.md refreshes must be in a project-only PR; remove feature edits"
+        )
+
+
+def check_project(
+    project_root: Path,
+    base_ref: str,
+    issue_state: Callable[[int], str],
+    *,
+    wrapup: bool = False,
+) -> None:
     check_status_headers(project_root)
     status_path = project_root / "STATUS.md"
     if not status_path.is_file():
         raise DocsCheckError(f"{status_path} is missing")
-    check_issue_refs(status_path, issue_state)
-    check_status_freshness(project_root, base_ref)
+    check_status_scope(project_root, base_ref)
+    if wrapup:
+        check_issue_refs(status_path, issue_state)
+        check_status_freshness(project_root, base_ref)
 
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     project_root = repo_root / PROJECT
-    base_ref = os.environ.get("DOCS_BASE_REF", "origin/main")
-    if len(sys.argv) == 2:
-        base_ref = sys.argv[1]
-    elif len(sys.argv) > 2:
-        print("usage: python scripts/docs_check.py [base-ref]", file=sys.stderr)
-        return 2
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "base_ref", nargs="?", default=os.environ.get("DOCS_BASE_REF", "origin/main")
+    )
+    parser.add_argument(
+        "--wrapup", action="store_true", help="also check freshness and issue state"
+    )
+    args = parser.parse_args()
     try:
-        check_project(project_root, base_ref, _gh_issue_state)
+        check_project(project_root, args.base_ref, _gh_issue_state, wrapup=args.wrapup)
     except DocsCheckError as exc:
         print(f"docs-check: {exc}", file=sys.stderr)
         return 1
