@@ -2,14 +2,14 @@
 
 **Status:** current
 
-**Updated:** 2026-10-08 by engineer (after stage 1 of issue #185 merged; v0.1.0 adoption is in progress)
+**Updated:** 2026-10-13 by engineer (ADR 0016 proposed in PR #200 for issue #192)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.2.0 milestone](https://github.com/manoochehri/trazo/milestone/4); the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1) is closed.
 
 ## Running now
 - The public docs accuracy pass and static lessons retrospective are recorded in [the pull request](https://github.com/manoochehri/trazo/pull/190).
 - CI enforces PR evidence; the next release's scope and remaining work are tracked in the v0.2.0 milestone.
 - The installed-copy baseline compares `.trazo/` files against the release tag recorded in `.trazo/VERSION`.
-- Issue [#185](https://github.com/manoochehri/trazo/issues/185) continues with the v0.1.0 adoption stage after its inventory PR merged.
+- Senior engineer tier: ADR 0016 is proposed in [PR #200](https://github.com/manoochehri/trazo/pull/200); owner questions are on [#192](https://github.com/manoochehri/trazo/issues/192) and its adapter wiring is in [#203](https://github.com/manoochehri/trazo/issues/203).
 
 ## Blocked / needs a decision
 - Owner-only release settings and decisions are tracked on the v0.2.0 milestone's open issues.
