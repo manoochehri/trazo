@@ -2,7 +2,7 @@
 
 **Status:** current
 
-**Updated:** 2026-10-13 by engineer (ADR 0016 proposed in PR #200 for issue #192; #195 review-output change in progress)
+**Updated:** 2026-10-13 by engineer (ADR 0016 proposed for issue #192; #195 review-output change in progress)
 **Phase / milestone:** The active release goal, scope, dates, and completion state live in the [v0.2.0 milestone](https://github.com/manoochehri/trazo/milestone/4); the [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1) is closed.
 
 ## Running now
