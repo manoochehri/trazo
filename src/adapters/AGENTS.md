@@ -9,6 +9,13 @@ referenced rule and decision directories. Skim their indexes or contents and rea
 current records; a pointer is not a read. If the map does not name them, check project-local
 `decisions/`, `rules/`, `adr/`, or equivalent paths. Project layouts vary.
 
+For GitHub attribution, use the adapter and active model identified by the current role
+context. Codex agent-file model settings are defaults and may be overridden. Include a
+session or agent ID only when the runtime explicitly provides it to the role; do not depend
+on undocumented environment variables or inspect local runtime data. For another tool that
+loads only `AGENTS.md`, name that tool when known; otherwise use `AGENTS.md` as the adapter
+label. Omit unknown model or ID fields.
+
 ## Route plain-English requests
 
 Use the matching Trazo skill for a request even when the owner does not name a command:

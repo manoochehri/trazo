@@ -133,6 +133,27 @@ the top, include at most one command for the owner to run, and do not assign hom
 (such as asking the owner to check something or giving multi-step instructions). Put
 detailed steps and evidence in the linked issue or pull request.
 
+## Attribute role-authored GitHub posts
+Until roles have separate GitHub identities, append this footer to each role-authored issue
+description or comment, including bodies created with `gh issue create`, replaced with
+`gh issue edit --body`, comments posted with `gh issue comment`, and reviews posted with
+`gh pr review --comment`:
+
+`<emoji> Posted by <role> via <adapter>[ (model: <model>)][ · agent <id> or session <id>]`
+
+Use the short role labels `eng`, `pm`, `reviewer`, `security`, and `skeptic`; use the configured
+name for a custom role. Choose a role-appropriate emoji (`🛠️` for eng, `🧭` for pm, `🔎` for
+reviewer, `🛡️` for security, and `🧪` for skeptic). Include the model and any ID only when the
+current role context actually reports them: prefer a role's agent ID when exposed, otherwise the
+session ID; label the included identifier as `agent` or `session`. Model settings in adapter configuration files are
+defaults that may be overridden, so they are not evidence. Omit unknown fields instead of
+guessing or printing placeholders, and do not inspect local databases or logs to find IDs. Do not
+append a second footer when a body already has one.
+
+For a review verdict, keep the verdict word as the first line. Put the footer after the
+verdict and its findings. The footer is self-reported attribution: GitHub still records the
+shared account as the author, and the footer does not verify which agent wrote the post.
+
 ## Verify, don't assume
 Check library source, live APIs, and real data before relying on behaviour, and mark
 anything unverified. Judge results against external ground truth, never against the

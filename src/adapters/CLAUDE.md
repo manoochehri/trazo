@@ -55,6 +55,8 @@ Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Rol
 
 Claude Code restores the session's previous model after a role command's turn. Use the pinned subagents for PM, reviewer, security, and skeptic work that must run on Sonnet. `/eng` sets Haiku for its turn; a fresh host install uses Haiku as the default when the host has no existing `.claude/settings.json`.
 
+For GitHub attribution, name the active model only when the role context identifies it; a role's configured model is not proof of a user override or one-turn fallback. Claude Code hook input includes `session_id` and includes `agent_id` inside subagent tool calls. Headless JSON output and Agent SDK messages also include `session_id` values. Add an ID only when that metadata is actually provided to the role context; do not read transcript files or invent an ID.
+
 For complete role definitions including purpose, permissions, and constraints, see the canonical files in `.trazo/roles/`.
 
 ## Plain English → routine
