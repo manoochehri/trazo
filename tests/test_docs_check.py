@@ -136,3 +136,57 @@ def test_shared_start_skill_skips_superseded_docs() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     start = (repo_root / "src/overlay/skills/start.md").read_text(encoding="utf-8")
     assert "skip any doc marked `**Status:** superseded by" in start
+
+
+def _project_repo(tmp_path: Path) -> tuple[Path, Path]:
+    repo = tmp_path / "repo"
+    project = repo / ".trazo/project"
+    project.mkdir(parents=True)
+    _git(repo, "init", "-b", "main")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Docs Check Test")
+    (project / "STATUS.md").write_text("# Status\n**Status:** current\nSee #123.\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "initial status")
+    (repo / "feature.py").write_text("old = True\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "main moved after status")
+    _git(repo, "checkout", "-b", "feature")
+    return repo, project
+
+
+@pytest.mark.parametrize("state", ["closed", "open"])
+def test_static_ci_ignores_closed_issue_and_stale_status(tmp_path: Path, state: str) -> None:
+    _repo, project = _project_repo(tmp_path)
+    DOCS_CHECK.check_project(project, "main", lambda _number: state)
+
+
+@pytest.mark.parametrize("closed", [False, True])
+def test_wrapup_still_rejects_time_dependent_drift(tmp_path: Path, closed: bool) -> None:
+    _repo, project = _project_repo(tmp_path)
+    with pytest.raises(DocsCheckError, match="closed" if closed else "predates main"):
+        DOCS_CHECK.check_project(
+            project, "main", lambda _number: "closed" if closed else "open", wrapup=True
+        )
+
+
+@pytest.mark.parametrize(
+    ("paths", "allowed"),
+    [
+        ([".trazo/project/STATUS.md", "feature.py"], False),
+        ([".trazo/project/STATUS.md"], True),
+        ([".trazo/project/STATUS.md", ".trazo/project/PLAN.md"], True),
+        (["feature.py"], True),
+    ],
+)
+def test_status_refresh_scope(tmp_path: Path, paths: list[str], allowed: bool) -> None:
+    repo, project = _project_repo(tmp_path)
+    for name in paths:
+        (repo / name).write_text("# Changed\n**Status:** current\n")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "proposed change")
+    if allowed:
+        DOCS_CHECK.check_project(project, "main", lambda _number: "open")
+    else:
+        with pytest.raises(DocsCheckError, match="STATUS.md.*project-only"):
+            DOCS_CHECK.check_project(project, "main", lambda _number: "open")
