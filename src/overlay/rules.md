@@ -78,10 +78,12 @@ directories; layouts vary. Respect superseded and current status markers.
 ## Token budget
 Use one fresh working session per task. Do not poll another session or read its transcript
 for status; status travels through tests, PR reports, and issue comments. A waiting role is
-re-invoked when there is an update rather than watching another session. Use subagents only
-when a rule requires a separate context, such as review, security, or skeptic work, not to
-fan out work the main session can do. Keep durable state in the issue tracker, and start a
-fresh chat for the next task instead of extending the current one.
+re-invoked when there is an update rather than watching another session. For roles other
+than PM, use subagents only when a rule requires a separate context, such as review,
+security, or skeptic work. The PM may also spawn arbitrary subagents to dispatch work
+(ADR 0019); reviewer, security, and skeptic must remain in their own contexts. Keep durable
+state in the issue tracker, and start a fresh chat for the next task instead of extending
+the current one.
 
 ## Work on branches
 Never push to the default branch. Each change gets an isolated worktree based on fresh
@@ -105,6 +107,11 @@ asking a second question in one session inherits the same blind spots.
 Changes to secrets, permissions, workflow files, dependencies, or infrastructure require a
 separate security review before merge. A command or skill may route that review but cannot
 be its only trigger.
+
+Engineering work defaults to `eng`. Route work to `senior-eng` with the `tier:senior` label
+when ADR 0018 path, interface, integration, size, or ambiguity criteria apply, or after 2
+consecutive failed review rounds. The PM may dispatch arbitrary subagents under ADR 0019,
+but reviewer, security and skeptic work must stay in their own contexts.
 
 Neither role (engineer or PM) accesses production — including deploying, querying, or
 running production checks — unless the issue or the owner explicitly asks for it.
