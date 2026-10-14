@@ -248,6 +248,21 @@ def test_classify_passes_an_ordinary_complete_listing():
     assert report_verdict.classify(listing, "1", CODEOWNERS) is False
 
 
+def test_git_diff_classifier_flags_a_rename_out_of_a_sensitive_path():
+    diff = b"R100\0.github/workflows/review.yml\0src/renamed.py\0"
+    assert report_verdict.classify_git_diff(diff, CODEOWNERS) is True
+
+
+def test_git_diff_classifier_passes_an_ordinary_change():
+    diff = b"M\0src/a.py\0"
+    assert report_verdict.classify_git_diff(diff, CODEOWNERS) is False
+
+
+def test_git_diff_classifier_fails_closed_on_truncated_rename():
+    diff = b"R100\0.github/workflows/review.yml\0"
+    assert report_verdict.classify_git_diff(diff, CODEOWNERS) is True
+
+
 def test_classify_cli_prints_the_flag():
     import subprocess
     import sys

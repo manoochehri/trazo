@@ -221,11 +221,18 @@ def test_decide_step_fails_closed_on_partial_reads():
     assert "per_page=100" in report
 
 
-def test_decide_step_checks_renames_and_the_file_count():
+def test_decide_step_classifies_paths_from_the_immutable_head_diff():
     report = job("report")
-    assert "previous_filename" in report
-    assert "changed_files" in report
-    assert "--sensitive .github/CODEOWNERS" in report
+    assert "ref: ${{ github.event.pull_request.head.sha }}" in report
+    assert "path: reviewed-head" in report
+    diff_command = (
+        "git -C reviewed-head diff --name-status --find-renames --no-ext-diff -z "
+        '"$BASE_SHA...$HEAD_SHA"'
+    )
+    assert diff_command in report
+    assert "--sensitive-git-diff .github/CODEOWNERS" in report
+    assert "pulls/${PR_NUMBER}/files" not in report
+    assert "changed_files" not in report
 
 
 def test_decide_step_writes_the_output_once_through_finish():
