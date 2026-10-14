@@ -36,18 +36,19 @@ def _bullet(text: str, marker: str) -> str:
 def test_pm_may_not_route_work_through_the_owner() -> None:
     """The #57 loop: PM asks the owner to ping the engineer. The owner is a decision
     gate, not a message bus."""
-    bullet = _bullet(_text(PM_AGENT), "Route work to another agent through the human")
+    bullet = _bullet(_text(PM_AGENT), "Do not route work through the owner")
     for phrase in ("ask eng", "tell eng", "ping eng"):
         assert phrase in bullet, f"{phrase!r} is the reported phrasing and must be named"
+    assert "dispatch it directly to an appropriate subagent" in bullet
     assert "decision gate" in _text(RULES), "the owner is a decision gate, not a message bus"
 
 
 def test_pm_routes_work_by_naming_the_next_item() -> None:
     """A prohibition alone still leaves the PM with nothing to do but ask. It must
     have a positive instruction: name the next item, addressed to the session."""
-    bullet = _bullet(_text(PM_AGENT), "Route work to another agent through the human")
+    bullet = _bullet(_text(PM_AGENT), "Do not route work through the owner")
     assert "name the next item" in bullet
-    assert "session's own routine" in bullet
+    assert "dispatch it directly to an appropriate subagent" in bullet
 
 
 def test_advisor_requires_a_reason_for_issue_ranking() -> None:
