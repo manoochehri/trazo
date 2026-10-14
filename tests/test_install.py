@@ -548,6 +548,29 @@ def test_fresh_install_creates_architecture_contract(host, source):
     assert (host / ".trazo/project/ARCHITECTURE_CONTRACT.md").is_file()
 
 
+def test_upgrade_adds_missing_architecture_contract_without_overwriting_project(tmp_path):
+    def mutate(src, tag):
+        if tag == "v0.1.0":
+            (src / "overlay/templates/docs/ARCHITECTURE_CONTRACT.md").unlink()
+
+    source = make_source(tmp_path, ("v0.1.0", "v0.2.0"), mutate)
+    host = make_host(tmp_path)
+    run(host, "install", "v0.1.0", source=source)
+
+    project_file = host / ".trazo" / "project" / "host-notes.md"
+    project_file.write_bytes(b"host-owned notes\x00\n")
+    contract = host / ".trazo/project/ARCHITECTURE_CONTRACT.md"
+    assert not contract.exists()
+
+    run(host, "upgrade", "v0.2.0", source=source)
+
+    assert (
+        contract.read_bytes()
+        == (REPO_ROOT / "src/overlay/templates/docs/ARCHITECTURE_CONTRACT.md").read_bytes()
+    )
+    assert project_file.read_bytes() == b"host-owned notes\x00\n"
+
+
 def test_upgrade_leaves_edited_architecture_contract_byte_identical(tmp_path, host):
     def mutate(src, tag):
         if tag == "v0.2.0":
