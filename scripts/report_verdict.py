@@ -4,8 +4,9 @@ The report job runs this script from the base branch.
 
 Decide mode (default): reads the pull request's reviews as JSON on stdin (one or more arrays, as
 `gh api --paginate` prints them) and writes `state=` and `reason=` lines for GITHUB_OUTPUT.
-Success needs a review from the bot login that is on the head commit, was submitted after this run
-started, and whose first line is exactly `merge`. The latest such reviewer verdict decides. A
+Success needs a review from the bot login that is on the head commit, was submitted after the review
+job started, names that exact head with one `Reviewed-Head` line, and whose first line is exactly
+`merge`. The latest such reviewer verdict decides. A
 security review on the head that starts with FAIL always fails the gate. A pull request that
 changes a sensitive path never gets success from the bot: a person sets the status through
 /check-pr. Anything else is failure, including unreadable input. The reason text is fixed, never
@@ -85,6 +86,19 @@ def first_word(body):
     return match.group(1).lower() if match else ""
 
 
+def reviewed_head(body):
+    """Return a single well-formed Reviewed-Head marker, or empty for missing/ambiguous data."""
+    if not isinstance(body, str):
+        return ""
+    markers = [
+        line.strip() for line in body.splitlines() if line.strip().startswith("Reviewed-Head:")
+    ]
+    if len(markers) != 1:
+        return ""
+    match = re.fullmatch(r"Reviewed-Head:\s*([0-9a-f]{40})", markers[0])
+    return match.group(1) if match else ""
+
+
 def read_reviews(text):
     decoder = json.JSONDecoder()
     reviews = []
@@ -100,10 +114,10 @@ def read_reviews(text):
     return reviews
 
 
-def decide(reviews, head_sha, run_started_at, bot_login, sensitive=False):
+def decide(reviews, head_sha, review_started_at, bot_login, sensitive=False):
     if sensitive:
         return "failure", "changed paths need a person to set the status, through /check-pr"
-    started = parse_time(run_started_at)
+    started = parse_time(review_started_at)
     verdicts = []
     for review in reviews:
         if (review.get("user") or {}).get("login") != bot_login:
@@ -111,7 +125,7 @@ def decide(reviews, head_sha, run_started_at, bot_login, sensitive=False):
         if review.get("commit_id") != head_sha:
             continue
         submitted = review.get("submitted_at")
-        if not submitted or parse_time(submitted) < started:
+        if not submitted or parse_time(submitted) <= started:
             continue
         body = review.get("body")
         word = first_word(body)
@@ -119,21 +133,26 @@ def decide(reviews, head_sha, run_started_at, bot_login, sensitive=False):
             return "failure", "a security review on this head failed"
         if word == SECURITY_CLEAR:
             continue
+        if reviewed_head(body) != head_sha:
+            continue
         verdicts.append((parse_time(submitted), review.get("id") or 0, first_line(body)))
     if not verdicts:
-        return "failure", "no bot review on this head was submitted after the review run started"
+        return (
+            "failure",
+            "no bot review for this head was submitted after the review job started",
+        )
     _, _, verdict = max(verdicts)
     if verdict == "merge":
         return "success", "bot review on this head says merge"
     return "failure", "bot review on this head does not say exactly merge"
 
 
-def run(text, head_sha, run_started_at, bot_login, sensitive=False):
-    if not run_started_at:
-        return "failure", "no review run start time"
+def run(text, head_sha, review_started_at, bot_login, sensitive=False):
+    if not review_started_at:
+        return "failure", "no reviewer job start time"
     try:
         reviews = read_reviews(text)
-        return decide(reviews, head_sha, run_started_at, bot_login, sensitive)
+        return decide(reviews, head_sha, review_started_at, bot_login, sensitive)
     except Exception:
         # Fixed text on purpose: the exception message can carry review content.
         return "failure", "could not read the bot reviews"
@@ -217,7 +236,7 @@ def main(argv):
     state, reason = run(
         sys.stdin.read(),
         os.environ.get("HEAD_SHA", ""),
-        os.environ.get("RUN_STARTED_AT", ""),
+        os.environ.get("REVIEW_STARTED_AT", ""),
         os.environ.get("BOT_LOGIN", DEFAULT_BOT_LOGIN),
         # Anything but an explicit "false" is sensitive, so an unset or garbled value fails closed.
         sensitive=os.environ.get("SENSITIVE") != "false",

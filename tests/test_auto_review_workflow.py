@@ -131,7 +131,7 @@ def test_only_the_report_job_writes_a_status_and_only_its_decided_state():
 
 def test_verdict_uses_review_job_start_and_requires_head_binding():
     report = job("report")
-    assert "actions/runs/${RUN_ID}/jobs?filter=latest" in report
+    assert "actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs" in report
     assert 'select(.name == "review" and .head_sha == env.HEAD_SHA)' in report
     assert "REVIEW_STARTED_AT" in report
     assert "Reviewed-Head:" in job("review")
