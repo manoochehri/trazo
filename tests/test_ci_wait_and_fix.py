@@ -20,7 +20,7 @@ def _flat(path: Path) -> str:
 def test_work_watches_checks_after_each_push() -> None:
     """The engineer waits for the PR's checks to finish instead of stopping at the push."""
     work = _flat(WORK)
-    assert "## Watch CI, fix obvious failures, then request review" in work
+    assert "## Watch CI, then request review" in work
     assert "gh pr checks" in work
     assert "gh run watch" in work
     assert "gh run view" in work and "--log-failed" in work
@@ -60,25 +60,28 @@ def test_work_bounds_fix_attempts_per_check() -> None:
 
 
 def test_work_requests_review_only_after_checks_pass() -> None:
-    """Review is requested once checks pass, after the wait-and-fix loop."""
+    """A complete, green change is marked ready before it receives a review."""
     work = _flat(WORK)
-    assert re.search(r"Only after all checks pass.{0,80}step 6", work)
+    assert re.search(r"All CI checks pass on a complete change.{0,80}review", work)
+    assert "mark the PR ready with `gh pr ready <number>`" in work
 
 
-def test_work_does_not_wait_for_review_gates_before_requesting_review() -> None:
-    """Manual review must remain reachable when its own statuses are pending or failing."""
+def test_work_uses_a_fresh_reviewer_for_ready_and_fix_heads() -> None:
+    """A ready PR and each fix push get a verdict without requiring hosted credentials."""
     work = _flat(WORK)
-    assert "Do not wait for `trazo/verdict`, `trazo/security`, or the review workflow" in work
-    assert "--commit <head-sha>" in work
-    assert "gh pr checks <number> --watch" not in work
-    assert "CI checks, excluding review gates" in _flat(ENGINEER)
+    assert "after each push that addresses review findings" in work
+    assert "provider-backed `review` workflow is an optional optimization" in work
+    assert "ask the reviewer subagent available in this working session" in work
+    assert "Never report completion without a verdict for the exact current head" in work
 
 
 def test_work_does_not_review_an_incomplete_change() -> None:
-    """A green first stub commit must return to step 5, not reach review (reviewer must-fix)."""
+    """Draft and intermediate work stay out of review until the change is complete."""
     work = _flat(WORK)
     assert "return to step 5" in work
     assert "on a complete change" in work
+    assert "open a **draft** pull request" in work
+    assert "Draft and intermediate work do not need review" in work
 
 
 def test_work_keeps_merge_gate_contexts_off_the_engineer() -> None:

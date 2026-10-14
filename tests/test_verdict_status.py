@@ -45,6 +45,29 @@ def test_work_and_check_pr_explain_gate():
         assert "resets" in t
 
 
+def test_work_uses_reviewer_without_requiring_hosted_automation():
+    work_skill = (REPO_ROOT / "src/overlay/skills/work.md").read_text()
+
+    assert "open a **draft** pull request" in work_skill
+    assert "gh pr ready <number>" in work_skill
+    assert "after each push that addresses review findings" in work_skill
+    assert "optional" in work_skill
+    assert "must not block `/work`" in work_skill
+    assert "reviewer subagent available in this working session" in work_skill
+    assert "exact current head" in work_skill
+    assert "trazo/verdict" in work_skill
+    assert "failure" in work_skill
+    assert "2 consecutive failed review rounds" in work_skill
+    assert "tier:senior" in work_skill
+    assert "Do not require an API key for native reviewer subagents" in work_skill
+
+
+def test_work_preserves_owner_question_guidance():
+    work_skill = (REPO_ROOT / "src/overlay/skills/work.md").read_text()
+    assert "Write the question in plain language" in work_skill
+    assert "two or three options each with a pro and a con" in work_skill
+
+
 def test_runbook_has_owner_step_and_caveat():
     t = (REPO_ROOT / ".trazo/project/RUNBOOK.md").read_text()
     assert "Require status checks" in t
