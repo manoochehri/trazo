@@ -65,6 +65,8 @@ version and its description are reviewed together and can never disagree.
 Sessions are disposable and contexts reset. Anything that must survive goes in the repo:
 decisions in `.trazo/project/adr/`, work in GitHub Issues, status and plan in `.trazo/project/`. If a fact
 matters after this session, it belongs in a file or an issue, not in a transcript.
+Feature pull requests do not edit `.trazo/project/STATUS.md`. `/wrapup` is its only writer, and it writes
+STATUS in its own pull request after merges.
 
 ## Read referenced decisions before writing
 Before the first file write in a project, inspect its top-level instructions and follow their
@@ -76,10 +78,12 @@ directories; layouts vary. Respect superseded and current status markers.
 ## Token budget
 Use one fresh working session per task. Do not poll another session or read its transcript
 for status; status travels through tests, PR reports, and issue comments. A waiting role is
-re-invoked when there is an update rather than watching another session. Use subagents only
-when a rule requires a separate context, such as review, security, or skeptic work, not to
-fan out work the main session can do. Keep durable state in the issue tracker, and start a
-fresh chat for the next task instead of extending the current one.
+re-invoked when there is an update rather than watching another session. For roles other
+than PM, use subagents only when a rule requires a separate context, such as review,
+security, or skeptic work. The PM may also spawn arbitrary subagents to dispatch work
+(ADR 0019); reviewer, security, and skeptic must remain in their own contexts. Keep durable
+state in the issue tracker, and start a fresh chat for the next task instead of extending
+the current one.
 
 ## Work on branches
 Never push to the default branch. Each change gets an isolated worktree based on fresh
@@ -103,6 +107,11 @@ asking a second question in one session inherits the same blind spots.
 Changes to secrets, permissions, workflow files, dependencies, or infrastructure require a
 separate security review before merge. A command or skill may route that review but cannot
 be its only trigger.
+
+Engineering work defaults to `eng`. Route work to `senior-eng` with the `tier:senior` label
+when ADR 0018 path, interface, integration, size, or ambiguity criteria apply, or after 2
+consecutive failed review rounds. The PM may dispatch arbitrary subagents under ADR 0019,
+but reviewer, security and skeptic work must stay in their own contexts.
 
 Neither role (engineer or PM) accesses production — including deploying, querying, or
 running production checks — unless the issue or the owner explicitly asks for it.
@@ -132,6 +141,27 @@ Messages to the owner are short and decision-first: put the decision or one ques
 the top, include at most one command for the owner to run, and do not assign homework
 (such as asking the owner to check something or giving multi-step instructions). Put
 detailed steps and evidence in the linked issue or pull request.
+
+## Attribute role-authored GitHub posts
+Until roles have separate GitHub identities, append this footer to each role-authored issue
+description or comment, including bodies created with `gh issue create`, replaced with
+`gh issue edit --body`, comments posted with `gh issue comment`, and reviews posted with
+`gh pr review --comment`:
+
+`<emoji> Posted by <role> via <adapter>[ (model: <model>)][ · agent <id> or session <id>]`
+
+Use the short role labels `eng`, `pm`, `reviewer`, `security`, and `skeptic`; use the configured
+name for a custom role. Choose a role-appropriate emoji (`🛠️` for eng, `🧭` for pm, `🔎` for
+reviewer, `🛡️` for security, and `🧪` for skeptic). Include the model and any ID only when the
+current role context actually reports them: prefer a role's agent ID when exposed, otherwise the
+session ID; label the included identifier as `agent` or `session`. Model settings in adapter configuration files are
+defaults that may be overridden, so they are not evidence. Omit unknown fields instead of
+guessing or printing placeholders, and do not inspect local databases or logs to find IDs. Do not
+append a second footer when a body already has one.
+
+For a review verdict, keep the verdict word as the first line. Put the footer after the
+verdict and its findings. The footer is self-reported attribution: GitHub still records the
+shared account as the author, and the footer does not verify which agent wrote the post.
 
 ## Verify, don't assume
 Check library source, live APIs, and real data before relying on behaviour, and mark

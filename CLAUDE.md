@@ -49,12 +49,16 @@ Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Rol
 | Canonical Role | Claude Implementation | Model | Edits code? |
 |---|---|---|---|
 | **Engineer** (`.trazo/roles/engineer.md`) | `/eng` command (main session) | Haiku for the `/eng` turn; Haiku recommended for engineering | Yes |
+| **Senior engineer** (`.trazo/roles/senior-engineer.md`) | `/senior-eng` command (main session) | Sonnet for the `/senior-eng` turn; `tier:senior` issues only (ADR 0016, 0018) | Yes |
 | **PM / Advisor** (`.trazo/roles/pm.md`) | `/pm` command and `pm` subagent | Sonnet for the `/pm` turn and pinned `pm` subagent | No |
 | **Reviewer** (`.trazo/roles/reviewer.md`) | `reviewer` subagent | Sonnet (pinned) | No |
 | **Security** (`.trazo/roles/security.md`) | `security` subagent | Sonnet (pinned) | No |
 | **Skeptic** (`.trazo/roles/skeptic.md`) | `skeptic` subagent | Sonnet (pinned) | No |
+| **Architect** (`.trazo/roles/architect.md`) | `/architect` command (main session, advisory) | Opus for the `/architect` turn; no pinned subagent yet (ADR 0021) | No |
 
 Claude Code restores the session's previous model after a role command's turn. Use the pinned subagents for PM, reviewer, security, and skeptic work that must run on Sonnet. `/eng` sets Haiku for its turn; a fresh host install uses Haiku as the default when the host has no existing `.claude/settings.json`.
+
+For GitHub attribution, name the active model only when the role context identifies it; a role's configured model is not proof of a user override or one-turn fallback. Claude Code hook input includes `session_id` and includes `agent_id` inside subagent tool calls. Headless JSON output and Agent SDK messages also include `session_id` values. Add an ID only when that metadata is actually provided to the role context; do not read transcript files or invent an ID.
 
 For complete role definitions including purpose, permissions, and constraints, see the canonical files in `.trazo/roles/`.
 
@@ -69,7 +73,9 @@ The owner shouldn't need to remember commands. Map requests to routines:
 | "is this secure", "check permissions" | ask the **security** subagent |
 | "is this number real?", "poke holes in this analysis", "what would make this wrong?" | ask the **skeptic** subagent |
 | "should we…", "is this worth it", "plan the next milestone" | `/pm` |
+| "does this belong in the system?", "does this fit the design?", structural questions | `/architect` |
 | "back to building", "ready to code" | `/eng` |
+| "senior work", an issue labeled `tier:senior` | `/senior-eng` |
 | "we decided…" | `/decide` routine |
 | "wrap up", "done for today" | `/wrapup` routine |
 | "GitHub/CI says …" (settings, failures) | handle it directly; ask the **security** subagent for protection/permission settings |

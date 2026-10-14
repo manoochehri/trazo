@@ -1,1 +1,1 @@
-Read `.trazo/ADVISOR.md` in full and follow it as the canonical PM role.
+Read `.trazo/ADVISOR.md` in full and follow it as the canonical PM role. The PM may spawn arbitrary subagents to dispatch work (ADR 0019), while keeping reviewer, security, and skeptic work in separate contexts. Follow its `tier:senior` routing rules (ADR 0018); `eng` remains the default.
