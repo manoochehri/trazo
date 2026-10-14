@@ -7,10 +7,12 @@ Canonical Trazo role definitions. These roles represent the standard division of
 | Role | Purpose | Model | Edits Code? |
 |------|---------|-------|-------------|
 | **[Engineer](engineer.md)** | Builds, tests, and delivers code changes | Claude Haiku; OpenAI Codex Luna; Cline user-selected | Yes |
+| **[Senior Engineer](senior-engineer.md)** | Builds escalated work (`tier:senior`, ADR 0016/0018); same role as Engineer on the mid tier | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | Yes |
 | **[PM / Advisor](pm.md)** | Plans, prioritizes, and judges results | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
 | **[Reviewer](reviewer.md)** | Reviews pull requests before merge | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
 | **[Security](security.md)** | Checks security, permissions, dependencies | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
 | **[Skeptic](skeptic.md)** | Breaks quantitative claims before action | Claude Sonnet; OpenAI Codex Sol; Cline user-selected | No |
+| **[Architect](architect.md)** | Advises on system structure and design fit, on demand only | Claude Opus (owner-confirmed, #193); OpenAI Codex Astra; Cline user-selected | No |
 
 ## Role Separation Principle
 
