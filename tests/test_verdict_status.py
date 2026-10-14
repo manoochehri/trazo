@@ -45,6 +45,33 @@ def test_work_and_check_pr_explain_gate():
         assert "resets" in t
 
 
+def test_work_waits_for_automatic_verdict_after_each_push():
+    work_skill = (REPO_ROOT / "src/overlay/skills/work.md").read_text()
+
+    assert "open a **draft** pull request" in work_skill
+    assert "gh pr ready <number>" in work_skill
+    assert "after each fix push" in work_skill
+    assert "AUTO_REVIEW_ENABLED" in work_skill
+    assert "review.yml" in work_skill
+    assert "gh run watch" in work_skill
+    assert "exact pushed SHA" in work_skill
+    assert "exact head SHA has no terminal verdict" in work_skill
+    assert "trazo/verdict" in work_skill
+    assert "failure" in work_skill
+    assert "2 consecutive failed review rounds" in work_skill
+    assert "tier:senior" in work_skill
+    assert "if it is false, missing, or unreadable, stop and explain" in work_skill.lower()
+    assert "if the workflow run is skipped or no run appears" in work_skill.lower()
+    assert "Never invoke a reviewer subagent as a fallback around the switch" in work_skill
+    assert "Do not launch a manual reviewer fallback" in work_skill
+
+
+def test_work_preserves_owner_question_guidance():
+    work_skill = (REPO_ROOT / "src/overlay/skills/work.md").read_text()
+    assert "Write the question in plain language" in work_skill
+    assert "two or three options each with a pro and a con" in work_skill
+
+
 def test_runbook_has_owner_step_and_caveat():
     t = (REPO_ROOT / ".trazo/project/RUNBOOK.md").read_text()
     assert "Require status checks" in t
