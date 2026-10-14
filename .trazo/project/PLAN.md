@@ -2,6 +2,4 @@
 
 **Status:** current
 
-The active release goal, open work, dependencies, and completion state live in the [v0.2.0 GitHub milestone](https://github.com/manoochehri/trazo/milestone/4). The [v0.1.0 milestone](https://github.com/manoochehri/trazo/milestone/1) is closed and records the first published release. Keep dates and issue-level plans in GitHub rather than copying them into this file.
-
-The project charter defines the success criteria and stop rule. The owner will decide the next milestone after v0.2.0 closes.
+The [v0.2.0 milestone](https://github.com/manoochehri/trazo/milestone/4) is closed, tag `v0.2.0` is published, and the dogfood installation is merged. There is no active release milestone. The owner will set the next release goal and scope in a new GitHub milestone. Issue #115 remains open and deferred from v0.2.0.
