@@ -57,6 +57,16 @@ def test_agent_checks_out_the_base_branch_never_the_pr_head():
     assert "pull_request.head" not in review.split("steps:")[1].split("- name: review")[0]
 
 
+def test_reviewer_diff_uses_the_requested_immutable_head_sha():
+    review = job("review")
+    prompt = review.split("prompt: |")[1].split("claude_args")[0]
+    assert "ref: ${{ github.event.pull_request.head.sha }}" in review
+    assert "path: reviewed-head" in review
+    assert "fetch-depth: 0" in review
+    assert "git -C reviewed-head diff --no-ext-diff ${BASE_SHA}...${HEAD_SHA}" in prompt
+    assert "gh pr diff" not in prompt
+
+
 def test_agent_loads_only_base_settings():
     # The checkout is the trusted base SHA, so project settings are the base's own.
     review = job("review")
