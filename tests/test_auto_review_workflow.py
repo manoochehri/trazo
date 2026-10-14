@@ -49,12 +49,22 @@ def test_owner_kill_switch_disables_review_without_a_code_change():
     assert "vars.AUTO_REVIEW_ENABLED == 'true'" in workflow_text()
 
 
-def test_agent_checks_out_the_base_branch_never_the_pr_head():
+def test_agent_settings_come_from_base_and_pr_head_is_data_only():
     # The PR cannot supply the reviewer's settings, hooks or agent instructions.
     review = job("review")
     assert "ref: ${{ github.event.pull_request.base.sha }}" in review
     assert "persist-credentials: false" in review
-    assert "pull_request.head" not in review.split("steps:")[1].split("- name: review")[0]
+    assert "--setting-sources project" in review
+
+
+def test_reviewer_diff_uses_the_requested_immutable_head_sha():
+    review = job("review")
+    prompt = review.split("prompt: |")[1].split("claude_args")[0]
+    assert "ref: ${{ github.event.pull_request.head.sha }}" in review
+    assert "path: reviewed-head" in review
+    assert "fetch-depth: 0" in review
+    assert 'git -C reviewed-head diff --no-ext-diff "$BASE_SHA...$HEAD_SHA"' in prompt
+    assert "gh pr diff" not in prompt
 
 
 def test_agent_loads_only_base_settings():
@@ -76,8 +86,9 @@ def test_agent_allowlist_has_no_bare_file_tools_or_git_history():
         assert bare not in tools, f"bare {bare} lets the agent read outside the workspace"
     for scoped in ("Read(./**)", "Grep(./**)", "Glob(./**)"):
         assert scoped in tools
+    assert "Bash(git -C reviewed-head diff:*)" in tools
+    assert not any("gh pr diff" in tool for tool in tools)
     review = job("review")
-    assert "git diff" not in review
     assert "git log" not in review
     assert "git show" not in review
 
@@ -129,6 +140,15 @@ def test_only_the_report_job_writes_a_status_and_only_its_decided_state():
     assert "scripts/report_verdict.py" in report
 
 
+def test_verdict_uses_review_job_start_and_requires_head_binding():
+    report = job("report")
+    assert "actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs" in report
+    assert 'select(.name == "review" and .head_sha == env.HEAD_SHA)' in report
+    assert "REVIEW_STARTED_AT" in report
+    assert "Reviewed-Head:" in job("review")
+    assert "RUN_STARTED_AT" not in report
+
+
 def test_report_job_tokens_are_read_only_except_the_status_write():
     report = job("report")
     assert "pull-requests: read" in report
@@ -141,7 +161,9 @@ def test_report_job_runs_the_base_branch_script_not_the_pr_head():
     report = job("report")
     assert "ref: ${{ github.event.pull_request.base.sha }}" in report
     assert "persist-credentials: false" in report
-    assert "ref: ${{ github.event.pull_request.head" not in report
+    assert "ref: ${{ github.event.pull_request.head.sha }}" in report
+    assert "path: reviewed-head" in report
+    assert "python3 scripts/report_verdict.py" in report
 
 
 def test_report_job_fails_closed_when_the_review_did_not_succeed():
@@ -201,11 +223,16 @@ def test_decide_step_fails_closed_on_partial_reads():
     assert "per_page=100" in report
 
 
-def test_decide_step_checks_renames_and_the_file_count():
+def test_decide_step_classifies_paths_from_the_immutable_head_diff():
     report = job("report")
-    assert "previous_filename" in report
-    assert "changed_files" in report
-    assert "--sensitive .github/CODEOWNERS" in report
+    assert "BASE_SHA: ${{ github.event.pull_request.base.sha }}" in report
+    assert "ref: ${{ github.event.pull_request.head.sha }}" in report
+    assert "path: reviewed-head" in report
+    assert "git -C reviewed-head diff --name-status --find-renames --no-ext-diff -z" in report
+    assert '"$BASE_SHA...$HEAD_SHA"' in report
+    assert "--sensitive-git-diff .github/CODEOWNERS" in report
+    assert "pulls/${PR_NUMBER}/files" not in report
+    assert "changed_files" not in report
 
 
 def test_decide_step_writes_the_output_once_through_finish():
@@ -237,12 +264,11 @@ def test_sensitive_flag_is_exported_as_true_or_false_only():
     assert 'SENSITIVE="$sensitive"' in report
 
 
-def test_file_listing_is_bound_to_the_reviewed_head():
+def test_report_classification_does_not_read_mutable_file_listing():
     report = job("report")
-    assert "pr_state()" in report
-    assert report.count("pr_state)") >= 2  # read before and after the listing
-    assert '"${before%% *}" != "$HEAD_SHA"' in report
-    assert "the pull request head moved while its files were read" in report
+    assert "pulls/${PR_NUMBER}/files" not in report
+    assert "changed_files" not in report
+    assert "--sensitive-git-diff .github/CODEOWNERS" in report
 
 
 def test_classifier_output_must_be_exactly_true_or_false():

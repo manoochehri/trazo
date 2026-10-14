@@ -22,13 +22,23 @@ spec.loader.exec_module(report_verdict)
 
 HEAD = "a" * 40
 OTHER = "b" * 40
-STARTED = "2026-10-13T10:00:00Z"
+RUN_STARTED = "2026-10-13T10:00:00Z"
+STARTED = "2026-10-13T10:04:00Z"
 BOT = "github-actions[bot]"
 SECURITY_PASS = "PASS (security re-review at " + HEAD + ")\n\nNo findings."
 SECURITY_FAIL = "FAIL (security re-review at " + HEAD + ")\n\n- must-fix"
 
 
-def review(body, login=BOT, commit=HEAD, submitted="2026-10-13T10:05:00Z", rid=1):
+def review(
+    body,
+    login=BOT,
+    commit=HEAD,
+    submitted="2026-10-13T10:05:00Z",
+    rid=1,
+    reviewed_head=HEAD,
+):
+    if reviewed_head is not None:
+        body = f"{body}\n\nReviewed-Head: {reviewed_head}"
     return {
         "id": rid,
         "body": body,
@@ -64,8 +74,35 @@ def test_stale_review_on_an_earlier_head_does_not_count():
     assert decide([review("merge", commit=OTHER)])[0] == "failure"
 
 
-def test_review_submitted_before_this_run_started_does_not_count():
+def test_merge_review_that_names_an_older_head_does_not_credit_current_head():
+    stale_review = review("merge", reviewed_head=OTHER)
+    assert decide([stale_review])[0] == "failure"
+
+
+def test_merge_review_without_reviewed_head_marker_does_not_count():
+    unbound_review = review("merge", reviewed_head=None)
+    assert decide([unbound_review])[0] == "failure"
+
+
+def test_merge_review_with_duplicate_head_markers_does_not_count():
+    duplicate_marker = review("merge\n\nReviewed-Head: " + HEAD)
+    assert decide([duplicate_marker])[0] == "failure"
+
+
+def test_review_submitted_after_run_start_but_before_reviewer_job_start_does_not_count():
+    early_review = review("merge", submitted="2026-10-13T10:02:00Z")
+    assert report_verdict.parse_time(early_review["submitted_at"]) > report_verdict.parse_time(
+        RUN_STARTED
+    )
+    assert report_verdict.decide([early_review], HEAD, STARTED, BOT)[0] == "failure"
+
+
+def test_review_submitted_before_reviewer_job_started_does_not_count():
     assert decide([review("merge", submitted="2026-10-13T09:59:59Z")])[0] == "failure"
+
+
+def test_review_submitted_at_reviewer_job_start_does_not_count():
+    assert decide([review("merge", submitted=STARTED)])[0] == "failure"
 
 
 def test_non_bot_merge_review_does_not_count():
@@ -209,6 +246,21 @@ def test_classify_flags_a_listing_that_does_not_match_the_file_count():
 def test_classify_passes_an_ordinary_complete_listing():
     listing = "src/a.py\ttests/old_a.py\n"
     assert report_verdict.classify(listing, "1", CODEOWNERS) is False
+
+
+def test_git_diff_classifier_flags_a_rename_out_of_a_sensitive_path():
+    diff = b"R100\0.github/workflows/review.yml\0src/renamed.py\0"
+    assert report_verdict.classify_git_diff(diff, CODEOWNERS) is True
+
+
+def test_git_diff_classifier_passes_an_ordinary_change():
+    diff = b"M\0src/a.py\0"
+    assert report_verdict.classify_git_diff(diff, CODEOWNERS) is False
+
+
+def test_git_diff_classifier_fails_closed_on_truncated_rename():
+    diff = b"R100\0.github/workflows/review.yml\0"
+    assert report_verdict.classify_git_diff(diff, CODEOWNERS) is True
 
 
 def test_classify_cli_prints_the_flag():
