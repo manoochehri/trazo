@@ -113,8 +113,8 @@ Trazo is installed into a repository by one script, from a release tag. It works
 ### Option B: install into a repo, then kick off
 From the root of your git repository:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.1.0/scripts/install.sh -o install.sh
-bash install.sh install v0.1.0
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.2.0/scripts/install.sh -o install.sh
+bash install.sh install v0.2.0
 claude
 ```
 

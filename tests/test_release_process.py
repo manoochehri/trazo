@@ -125,7 +125,7 @@ def _tagged_versions() -> set[str]:
 
 
 def _versions_on_origin_main() -> set[str]:
-    """Changelog versions whose release commit is already on the default branch."""
+    """Release versions committed to main since the first published release."""
     main_branch = subprocess.run(  # noqa: S603 - our own argv, read-only
         [GIT, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
         capture_output=True,
@@ -133,8 +133,10 @@ def _versions_on_origin_main() -> set[str]:
         cwd=REPO_ROOT,
     ).stdout.strip()
     main_branch = main_branch or "origin/main"
+    # Earlier prototype versions were never published and may lack tags.
+    # v0.1.0 is the first published release, so it is the history boundary.
     merged = subprocess.run(  # noqa: S603 - our own argv, read-only
-        [GIT, "log", "--format=%H", main_branch],
+        [GIT, "log", "--format=%H", f"v{PROCESS_VERSION}..{main_branch}"],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,

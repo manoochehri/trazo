@@ -1,5 +1,20 @@
 # Trazo changelog
 
+## 0.2.0 (2026-10-13)
+- #187 Attribute role-authored GitHub comments and issues
+- #192 Split the engineer role into eng (junior) and senior eng
+- #193 Add a Architect / head-of-eng role: keeper of the big picture
+- #194 PM role: dispatch open items instead of reporting them, and post answers on the issue
+- #195 Reviewer and skeptic output: bullets, severity discipline, evidence folded
+- #203 Ship senior engineer role file, /senior-eng command and Codex agent (ADR 0016)
+- #204 trazo/verdict frequently is red in issues
+- #209 the PM role has lost all power
+- #216 Engineers wait for CI, fix obvious failures, then request review
+- #218 more clarity for questions to owner: plain language, less jargon, Include pros and cons
+- #222 Ship the 'only /wrapup writes STATUS.md' rule to hosts (src/overlay)
+- #224 Automatic review can credit a stale head's merge to a newer head
+- #225 CI workflows pin third-party actions by tag, not by commit
+
 ## 0.1.0 (2026-10-08)
 - #96 Repoint the adapters and fix tests naming the old layout
 - #97 Move this repo charter + ADRs into .trazo/project/

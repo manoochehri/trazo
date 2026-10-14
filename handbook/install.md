@@ -8,8 +8,8 @@ copied from a template repository and nothing is fetched from a moving branch.
 From the root of your git repository:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.1.0/scripts/install.sh -o install.sh
-bash install.sh install v0.1.0
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.2.0/scripts/install.sh -o install.sh
+bash install.sh install v0.2.0
 ```
 
 Pin the script to the same tag you install, as above. The tag is required: with none, the

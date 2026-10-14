@@ -76,8 +76,8 @@ The PM writes issues, the engineer turns them into pull requests, and you approv
 Trazo is an overlay, so you do not have to start from an empty repo. From the root of any git repository, new or existing, run the installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.1.0/scripts/install.sh -o install.sh
-bash install.sh install v0.1.0
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.2.0/scripts/install.sh -o install.sh
+bash install.sh install v0.2.0
 ```
 
 It copies the framework into `.trazo/`, adds the adapter for the agent you use (`CLAUDE.md` and `.claude/` for Claude Code, `AGENTS.md` for others; [the same `.trazo/rules.md` drives any of them](overlay.md)), and creates `.trazo/project/` for your own state. An existing `AGENTS.md`, `CLAUDE.md` or `.claude/` stays yours: the installer only writes between its own markers. See [Install, upgrade and uninstall](install.md) for options, and [`AGENTS.md` and Trazo](agents.md) for how the two files relate. Your runtime, your build system and your pipeline stay exactly as they are; Trazo mandates no tool for a mounted repo, on purpose.
@@ -94,7 +94,7 @@ Ten to fifteen minutes of your attention: a morning briefing, a decision or two,
 
 ## Layout and releases
 
-`v0.1.0` is the first published release. Its source lives under `src/`; `.trazo/` is this repository's pinned install. A host receives the framework and blank project templates, then keeps its own charter, decisions, and status under `.trazo/project/`. A release is tracked by a GitHub milestone and published as an immutable tag. See [What is `.trazo/`](overlay.md) and the [changelog](changelog.md).
+`v0.1.0` was the first published release; `v0.2.0` is current. Its source lives under `src/`; `.trazo/` is this repository's pinned install. A host receives the framework and blank project templates, then keeps its own charter, decisions, and status under `.trazo/project/`. A release is tracked by a GitHub milestone and published as an immutable tag. See [What is `.trazo/`](overlay.md) and the [changelog](changelog.md).
 
 ## Lessons learned
 
