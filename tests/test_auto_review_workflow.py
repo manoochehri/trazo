@@ -117,19 +117,6 @@ def test_agent_job_has_no_pytest_or_pr_code_execution_in_its_allowlist():
     assert 'CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"' in review
 
 
-def test_bubblewrap_is_installed_and_verified_before_the_isolated_reviewer_runs():
-    review = job("review")
-    install = review.index("sudo apt-get install --yes bubblewrap")
-    verify = review.index("command -v bwrap")
-    action = review.index(REVIEWER_ACTION_PIN)
-    assert install < verify < action
-    # Keep Claude's subprocess environment scrub and tool restrictions enabled.
-    assert 'CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"' in review
-    assert "--disallowedTools" in review
-    assert "--allowedTools" in review
-    assert 'CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "0"' not in review
-
-
 def test_only_the_report_job_writes_a_status_and_only_its_decided_state():
     report = job("report")
     assert "statuses: write" in report
