@@ -161,7 +161,9 @@ def test_report_job_runs_the_base_branch_script_not_the_pr_head():
     report = job("report")
     assert "ref: ${{ github.event.pull_request.base.sha }}" in report
     assert "persist-credentials: false" in report
-    assert "ref: ${{ github.event.pull_request.head" not in report
+    assert "ref: ${{ github.event.pull_request.head.sha }}" in report
+    assert "path: reviewed-head" in report
+    assert "python3 scripts/report_verdict.py" in report
 
 
 def test_report_job_fails_closed_when_the_review_did_not_succeed():
@@ -226,11 +228,8 @@ def test_decide_step_classifies_paths_from_the_immutable_head_diff():
     assert "BASE_SHA: ${{ github.event.pull_request.base.sha }}" in report
     assert "ref: ${{ github.event.pull_request.head.sha }}" in report
     assert "path: reviewed-head" in report
-    diff_command = (
-        "git -C reviewed-head diff --name-status --find-renames --no-ext-diff -z "
-        '"$BASE_SHA...$HEAD_SHA"'
-    )
-    assert diff_command in report
+    assert "git -C reviewed-head diff --name-status --find-renames --no-ext-diff -z" in report
+    assert '"$BASE_SHA...$HEAD_SHA"' in report
     assert "--sensitive-git-diff .github/CODEOWNERS" in report
     assert "pulls/${PR_NUMBER}/files" not in report
     assert "changed_files" not in report
@@ -265,12 +264,11 @@ def test_sensitive_flag_is_exported_as_true_or_false_only():
     assert 'SENSITIVE="$sensitive"' in report
 
 
-def test_file_listing_is_bound_to_the_reviewed_head():
+def test_report_classification_does_not_read_mutable_file_listing():
     report = job("report")
-    assert "pr_state()" in report
-    assert report.count("pr_state)") >= 2  # read before and after the listing
-    assert '"${before%% *}" != "$HEAD_SHA"' in report
-    assert "the pull request head moved while its files were read" in report
+    assert "pulls/${PR_NUMBER}/files" not in report
+    assert "changed_files" not in report
+    assert "--sensitive-git-diff .github/CODEOWNERS" in report
 
 
 def test_classifier_output_must_be_exactly_true_or_false():
