@@ -223,6 +223,7 @@ def test_decide_step_fails_closed_on_partial_reads():
 
 def test_decide_step_classifies_paths_from_the_immutable_head_diff():
     report = job("report")
+    assert "BASE_SHA: ${{ github.event.pull_request.base.sha }}" in report
     assert "ref: ${{ github.event.pull_request.head.sha }}" in report
     assert "path: reviewed-head" in report
     diff_command = (

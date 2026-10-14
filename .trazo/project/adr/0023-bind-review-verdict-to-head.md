@@ -23,8 +23,10 @@ can move from H1 to H2 while the diff is fetched, then back to H1 before a final
 - The reviewer reads the diff from a separate checkout pinned to the event head SHA, comparing it
   to the event base SHA. It must not read the mutable PR diff endpoint. This binds the reviewed
   content to the marker even if the branch moves away and back during review.
+- The report job classifies sensitive paths from the same immutable base-to-head diff, including
+  both paths in a rename. It does not use the mutable pull request files endpoint.
 - The verdict is eligible only when `submitted_at` is strictly after that review job's `started_at`.
-  The current head must still match the event SHA before the report job writes its status.
+  The report writes its status only to the event head SHA.
 - The reviewer checks the requested SHA before reading the diff and again before posting. If the PR
   moved, it does not post a verdict.
 - Missing, malformed, duplicate, stale-head, pre-review, or unreadable data results in `failure`.

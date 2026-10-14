@@ -128,11 +128,19 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
+      # Classify the same immutable head that triggered this run. The PR files endpoint is mutable.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: reviewed-head
+          fetch-depth: 0
+          persist-credentials: false
       - name: decide trazo/verdict from the bot review on this head
         id: decide
         env:
           GH_TOKEN: ${{ github.token }}
           REVIEW_RESULT: ${{ needs.review.result }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           RUN_ID: ${{ github.run_id }}
@@ -156,24 +164,10 @@ jobs:
           if [[ -z "$REVIEW_STARTED_AT" ]]; then
             finish failure "could not find the reviewer job start time for this head"
           fi
-          # The file list must describe the commit this status is written on. Read the head and the
-          # count before and after the listing; if the head moved, or the count changed, fail closed.
-          pr_state() {
-            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" -q '.head.sha + " " + (.changed_files | tostring)'
-          }
-          before=$(pr_state) || finish failure "could not read the pull request"
-          # Both names of a renamed file are listed. The count checks for a truncated listing.
-          listing=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
-            -q '.[] | [.filename, (.previous_filename // "")] | @tsv') \
-            || finish failure "could not list the changed files"
-          after=$(pr_state) || finish failure "could not read the pull request"
-          if [[ "$before" != "$after" || "${before%% *}" != "$HEAD_SHA" ]]; then
-            finish failure "the pull request head moved while its files were read"
-          fi
-          changed_files=${before#* }
-          # The base branch's CODEOWNERS and the extra paths in the script decide what is sensitive.
-          sensitive_out=$(printf '%s\n' "$listing" \
-            | CHANGED_FILES="$changed_files" python3 scripts/report_verdict.py --sensitive .github/CODEOWNERS) \
+          # The event base/head SHAs define this diff; NUL delimiters preserve arbitrary path names.
+          sensitive_out=$(git -C reviewed-head diff --name-status --find-renames --no-ext-diff -z \
+            "$BASE_SHA...$HEAD_SHA" \
+            | python3 scripts/report_verdict.py --sensitive-git-diff .github/CODEOWNERS) \
             || finish failure "could not classify the changed files"
           case "$sensitive_out" in
             sensitive=true) sensitive=true ;;

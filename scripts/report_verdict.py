@@ -226,7 +226,55 @@ def classify(listing, changed_files, codeowners_text):
     return False
 
 
+def git_diff_paths(diff: bytes) -> list[tuple[str, ...]]:
+    """Parse NUL-delimited `git diff --name-status`; reject malformed or partial output."""
+    if not diff:
+        return []
+    if not diff.endswith(b"\0"):
+        raise ValueError("truncated git diff output")
+    fields = diff[:-1].split(b"\0")
+    paths: list[tuple[str, ...]] = []
+    index = 0
+    while index < len(fields):
+        status = fields[index].decode("ascii")
+        index += 1
+        if status.startswith(("R", "C")) and status[1:].isdigit():
+            count = 2
+        elif status in {"A", "D", "M", "T", "U", "X", "B"}:
+            count = 1
+        else:
+            raise ValueError("unknown git diff status")
+        if index + count > len(fields):
+            raise ValueError("truncated git diff path")
+        if any(not path for path in fields[index : index + count]):
+            raise ValueError("empty git diff path")
+        paths.append(
+            tuple(
+                path.decode("utf-8", errors="surrogateescape")
+                for path in fields[index : index + count]
+            )
+        )
+        index += count
+    return paths
+
+
+def classify_git_diff(diff: bytes, codeowners_text: str) -> bool:
+    """Classify both sides of renames from an immutable git diff, failing closed on bad data."""
+    try:
+        paths = git_diff_paths(diff)
+    except (UnicodeDecodeError, ValueError):
+        return True
+    patterns = codeowners_patterns(codeowners_text)
+    return any(is_sensitive_path(path, patterns) for record in paths for path in record)
+
+
 def main(argv):
+    if len(argv) == 3 and argv[1] == "--sensitive-git-diff":
+        with open(argv[2], encoding="utf-8") as handle:
+            codeowners_text = handle.read()
+        sensitive = classify_git_diff(sys.stdin.buffer.read(), codeowners_text)
+        print(f"sensitive={'true' if sensitive else 'false'}")
+        return 0
     if len(argv) == 3 and argv[1] == "--sensitive":
         with open(argv[2], encoding="utf-8") as handle:
             codeowners_text = handle.read()
