@@ -129,6 +129,15 @@ def test_only_the_report_job_writes_a_status_and_only_its_decided_state():
     assert "scripts/report_verdict.py" in report
 
 
+def test_verdict_uses_review_job_start_and_requires_head_binding():
+    report = job("report")
+    assert "actions/runs/${RUN_ID}/jobs?filter=latest" in report
+    assert 'select(.name == "review" and .head_sha == env.HEAD_SHA)' in report
+    assert "REVIEW_STARTED_AT" in report
+    assert "Reviewed-Head:" in job("review")
+    assert "RUN_STARTED_AT" not in report
+
+
 def test_report_job_tokens_are_read_only_except_the_status_write():
     report = job("report")
     assert "pull-requests: read" in report

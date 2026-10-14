@@ -28,7 +28,16 @@ SECURITY_PASS = "PASS (security re-review at " + HEAD + ")\n\nNo findings."
 SECURITY_FAIL = "FAIL (security re-review at " + HEAD + ")\n\n- must-fix"
 
 
-def review(body, login=BOT, commit=HEAD, submitted="2026-10-13T10:05:00Z", rid=1):
+def review(
+    body,
+    login=BOT,
+    commit=HEAD,
+    submitted="2026-10-13T10:05:00Z",
+    rid=1,
+    reviewed_head=HEAD,
+):
+    if reviewed_head is not None:
+        body = f"{body}\n\nReviewed-Head: {reviewed_head}"
     return {
         "id": rid,
         "body": body,
@@ -62,6 +71,16 @@ def test_no_review_sets_failure():
 
 def test_stale_review_on_an_earlier_head_does_not_count():
     assert decide([review("merge", commit=OTHER)])[0] == "failure"
+
+
+def test_merge_review_that_names_an_older_head_does_not_credit_current_head():
+    stale_review = review("merge", reviewed_head=OTHER)
+    assert decide([stale_review])[0] == "failure"
+
+
+def test_merge_review_without_reviewed_head_marker_does_not_count():
+    unbound_review = review("merge", reviewed_head=None)
+    assert decide([unbound_review])[0] == "failure"
 
 
 def test_review_submitted_before_this_run_started_does_not_count():
