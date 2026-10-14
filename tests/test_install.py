@@ -557,7 +557,7 @@ def test_upgrade_adds_missing_architecture_contract_without_overwriting_project(
     host = make_host(tmp_path)
     run(host, "install", "v0.1.0", source=source)
 
-    project_file = host / ".trazo/project/host-notes.md"
+    project_file = host / ".trazo" / "project" / "host-notes.md"
     project_file.write_bytes(b"host-owned notes\x00\n")
     contract = host / ".trazo/project/ARCHITECTURE_CONTRACT.md"
     assert not contract.exists()

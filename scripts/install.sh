@@ -348,7 +348,13 @@ do_install() {
 
   # The host's own state: templates only if absent.
   if [ -d "$P" ]; then
-    echo "$P/ exists; left untouched"
+    echo "$P/ exists; left untouched except for missing templates"
+    contract="$P/ARCHITECTURE_CONTRACT.md"
+    contract_template="$work/repo/src/overlay/templates/docs/ARCHITECTURE_CONTRACT.md"
+    if [ -f "$contract_template" ] && [ ! -e "$contract" ] && [ ! -L "$contract" ]; then
+      cp "$contract_template" "$contract"
+      echo "created $contract from current template"
+    fi
   else
     mkdir -p "$P/charter" "$P/adr" "$P/workstreams"
     cp "$work/repo/src/overlay/templates/charter.md" "$P/charter/charter.md"
