@@ -49,12 +49,12 @@ def test_owner_kill_switch_disables_review_without_a_code_change():
     assert "vars.AUTO_REVIEW_ENABLED == 'true'" in workflow_text()
 
 
-def test_agent_checks_out_the_base_branch_never_the_pr_head():
+def test_agent_settings_come_from_base_and_pr_head_is_data_only():
     # The PR cannot supply the reviewer's settings, hooks or agent instructions.
     review = job("review")
     assert "ref: ${{ github.event.pull_request.base.sha }}" in review
     assert "persist-credentials: false" in review
-    assert "pull_request.head" not in review.split("steps:")[1].split("- name: review")[0]
+    assert "--setting-sources project" in review
 
 
 def test_reviewer_diff_uses_the_requested_immutable_head_sha():
@@ -63,7 +63,7 @@ def test_reviewer_diff_uses_the_requested_immutable_head_sha():
     assert "ref: ${{ github.event.pull_request.head.sha }}" in review
     assert "path: reviewed-head" in review
     assert "fetch-depth: 0" in review
-    assert "git -C reviewed-head diff --no-ext-diff ${BASE_SHA}...${HEAD_SHA}" in prompt
+    assert 'git -C reviewed-head diff --no-ext-diff "$BASE_SHA...$HEAD_SHA"' in prompt
     assert "gh pr diff" not in prompt
 
 
@@ -86,8 +86,9 @@ def test_agent_allowlist_has_no_bare_file_tools_or_git_history():
         assert bare not in tools, f"bare {bare} lets the agent read outside the workspace"
     for scoped in ("Read(./**)", "Grep(./**)", "Glob(./**)"):
         assert scoped in tools
+    assert "Bash(git -C reviewed-head diff:*)" in tools
+    assert not any("gh pr diff" in tool for tool in tools)
     review = job("review")
-    assert "git diff" not in review
     assert "git log" not in review
     assert "git show" not in review
 
