@@ -4,7 +4,7 @@
 # #51, and Trazo is a governance overlay rather than a service. What remains is the
 # toolchain and the test suite, so the default command runs the tests. A derived
 # project replaces the COPY and CMD below with its own code.
-FROM python:3.12-slim
+FROM python:3.14-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 WORKDIR /trazo
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONUNBUFFERED=1
