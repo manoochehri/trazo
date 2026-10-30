@@ -17,6 +17,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   work:
+    # vars.DRIVE_ENABLED is the owner's kill switch; unset or anything but 'true' stops the driver.
+    if: vars.DRIVE_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -64,7 +66,7 @@ jobs:
             --allowedTools "Read,Grep,Glob,Edit,Write,Bash(git:*),Bash(gh issue:*),Bash(gh pr:*),Bash(make:*)"
   merge:
     needs: work
-    if: always() && needs.work.result != 'cancelled'
+    if: always() && vars.DRIVE_ENABLED == 'true' && needs.work.result != 'cancelled'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -74,10 +76,19 @@ jobs:
       statuses: read
       checks: read
     steps:
+      # The default branch supplies .github/CODEOWNERS, so a pull request cannot edit its own protection.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - name: merge pull requests whose gates have passed
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # The protected set is .github/CODEOWNERS itself, read as gitignore-style patterns so there is
+          # no second list to drift. Negation and ** follow gitignore rules, which can differ slightly from
+          # CODEOWNERS; a pull request touching 100 or more files is treated as protected rather than guessed at.
+          codeowners=$(mktemp)
+          sed -E 's/[[:space:]]+@.*$//; /^[[:space:]]*(#|$)/d' .github/CODEOWNERS > "$codeowners"
           gh pr list --state open --base main --json number,headRefName,headRefOid,labels,isDraft \
             -q '.[] | select(.isDraft == false and (.headRefName | startswith("issue-"))) | [.number, .headRefOid, (.headRefName | capture("^issue-(?<n>[0-9]+)").n)] | @tsv' |
           while IFS=$'\t' read -r pr sha issue; do
@@ -87,11 +98,11 @@ jobs:
               echo "PR #${pr}: issue #${issue} is waiting on a decision; not merging."
               continue
             fi
-            # Owner-protected paths are a decision class (#115), never auto-merged. Keep this list in step
-            # with .github/CODEOWNERS; the list below is a floor, not a copy of it.
-            protected=$(gh pr view "$pr" --json files -q '[.files[].path
-              | select(test("^(\\.github/|\\.claude/|\\.trazo/rules\\.md$|\\.trazo/roles/|src/overlay/roles/|src/adapters/|CLAUDE\\.md$|AGENTS\\.md$|CODEOWNERS$)"))] | length')
-            if [[ "$protected" != "0" ]]; then
+            # Owner-protected paths are a decision class (#115), never auto-merged.
+            files=$(gh pr view "$pr" --json files -q '.files[].path')
+            nfiles=$(printf '%s\n' "$files" | grep -c . || true)
+            protected=$(printf '%s\n' "$files" | { git -c core.excludesFile="$codeowners" check-ignore --no-index --stdin || true; } | grep -c . || true)
+            if [[ "$nfiles" -ge 100 || "$protected" != "0" ]]; then
               echo "PR #${pr}: touches owner-protected paths; decision class, not merging."
               continue
             fi
