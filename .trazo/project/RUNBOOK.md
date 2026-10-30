@@ -77,6 +77,14 @@ Installation tokens require a JWT signed with the private key, are limited by th
 
 **Current limit:** local sessions still use the owner's `gh` authentication. Do not copy the App private key into a local `.env` file or onto agent-readable disk. GitHub advises native/client apps running on a user's device not to use the App private key. A local-session identity therefore needs a separately reviewed token-broker design. Cloud execution is also not ready: #117 is research-only and forbids production workflow changes until its evidence-backed plan is accepted. Keep #44 open until a supported consumer is implemented and an agent-authored action is verified as the distinct App identity.
 
+## Drive workflow (ADR 0024)
+`.github/workflows/drive.yml` works the open milestone unattended. It does nothing unless the repo variable `DRIVE_ENABLED` is `true`.
+- **Do not enable until** #247 (a supervised live run), #252 (the agent's GitHub identity, so its pull requests start CI and review), #249 (spend cap), #258 (backstops) and #231 (CODEOWNERS gaps) are closed. The merge job's checks do not substitute for them.
+- **Needs:** the `ANTHROPIC_API_KEY` secret (the owner enters it; agents never handle it) and the label `unverified-in-engine`.
+- **Turn on:** set `DRIVE_ENABLED` to `true`. **Turn off / roll back:** unset it or set it to anything else; the next run does nothing. Revert a bad merge with a revert commit; every merge is a squash.
+- **What each job does:** `work` runs the agent with a read-only token and no `gh`, and keeps its change as a patch; `publish` (no LLM) pushes the branch and opens the pull request; `stuck` labels an issue `needs-pm` when a run produced no change; `merge` squash-merges a pull request only on a `trazo/verdict` success for the exact head, passing checks, no `needs-decision`, `needs-pm` or `unverified-in-engine` label, and `scripts/report_verdict.py --sensitive` saying the change touches no owner-protected path.
+- **Never auto-merged:** anything `report_verdict.py` calls sensitive, which includes every path in `.github/CODEOWNERS` and its extra list.
+
 ## Secrets
 - Local: copy `.env.example` to `.env` and fill in. `.env` is git-ignored and blocked from Claude Code.
 - AWS: `scripts/put_secret.sh <secret-name>` (you run it; it prompts without echoing).
