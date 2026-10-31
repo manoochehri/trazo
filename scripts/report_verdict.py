@@ -46,6 +46,17 @@ EXTRA_SENSITIVE_PREFIXES = (
     ".trazo/project/charter/",
     "src/overlay/",
     "src/adapters/",
+    # The rest of the installed framework and the other tools' agent files (#273): rules.md's stop
+    # list names them. Ordinary .trazo/project/ files (RUNBOOK, STATUS, PLAN, workstreams, reports)
+    # stay out so routine pull requests can update them.
+    ".trazo/skills/",
+    ".trazo/templates/",
+    ".trazo/advisor.md",
+    ".trazo/architecture.md",
+    ".trazo/project/skeptic_bar.md",
+    ".trazo/project/architecture_contract.md",
+    ".codex/",
+    ".agents/",
 )
 # Matched against the file's base name, so a stand-in at any depth counts.
 EXTRA_SENSITIVE_BASENAMES = (
@@ -64,8 +75,13 @@ EXTRA_SENSITIVE_BASENAMES = (
     ".env.example",
     "mkdocs.yml",
     "claude.md",
+    "claude.local.md",
     "agents.md",
+    "agents.override.md",
     "codeowners",
+    ".mcp.json",
+    "architecture_contract.md",
+    "skeptic_bar.md",
 )
 
 
