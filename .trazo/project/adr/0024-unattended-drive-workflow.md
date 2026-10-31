@@ -24,10 +24,12 @@ untrusted issue text never holds a token that can write.
   that already have an open pull request on an `issue-<n>` branch, issues with an open blocker,
   and issues not written by the owner, a member or a collaborator (the repository is public, so
   issue text is data). The agent gets the issue's title and body as a file, runs with a read-only
-  token and no `gh` access, and may run only read-only git commands: it cannot run tests, because an
-  agent that can run `make test` can run its own code, and the pull request's CI runs the tests instead.
-  Its API key is scrubbed from subprocess environments, and it may not edit `.git`, `.github` or the
-  Makefile. It leaves its change in the working tree; the job keeps that as a patch. This is the
+  token and no `gh` access, and may run no commands at all, only read and edit files inside the
+  workspace: an agent that can run `make test`, or even `git log --output`, can write and run its own
+  code on a runner that holds the API key, so the pull request's CI runs the tests instead. Its API
+  key is scrubbed from subprocess environments, and it may not edit `.git`, `.github`, `.claude`, the
+  Makefile or paths outside the workspace. The collect step verifies the `.git` metadata is unchanged
+  and runs git with hooks, the file monitor and external diff disabled. It leaves its change in the working tree; the job keeps that as a patch. This is the
   schedule-started case that `work.md` already names as unattended.
 - **`publish`** has no LLM. It rejects a patch with binary hunks, symlinks, submodule entries, more
   than 100 files or over 1 MB, and rejects agent text that contains a closing keyword. It applies the
