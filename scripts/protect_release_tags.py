@@ -23,6 +23,10 @@ UNVERIFIED: the Admin role's `actor_id` below (5) is the commonly cited GitHub r
 something GitHub's REST documentation states. After creating `v-create` the script reads it back
 and requires `current_user_can_bypass` to be "always" for you; if it is not, it deletes the ruleset
 it just created and exits non-zero, so a wrong id cannot lock you out of tagging a release.
+
+Running it again is safe: an existing `v-create` is never edited (a hand edit, or a bypass added
+later for automatic tagging, would be lost). If it already does its job the script leaves it alone;
+if it does not, the script says what is wrong and changes nothing.
 """
 
 import json
@@ -84,6 +88,19 @@ def _tag_rulesets(rulesets: list[dict], name: str) -> list[dict]:
     return [r for r in rulesets if r["target"] == "tag" and r["name"] == name]
 
 
+def _existing_problems(detail: dict) -> list[str]:
+    """What is wrong with an existing `v-create` ruleset; empty means it already does its job."""
+    problems = []
+    if not any(rule["type"] == "creation" for rule in detail["rules"]):
+        problems.append("it has no creation rule")
+    if detail.get("enforcement") != "active":
+        problems.append(f"its enforcement is {detail.get('enforcement')!r}, not 'active'")
+    can_bypass = detail.get("current_user_can_bypass")
+    if can_bypass is not None and can_bypass != "always":
+        problems.append(f"current_user_can_bypass is {can_bypass!r}, not 'always'")
+    return problems
+
+
 def main(argv: list[str]) -> int:
     unknown = [arg for arg in argv if arg != "--dry-run"]
     if unknown:
@@ -101,41 +118,61 @@ def main(argv: list[str]) -> int:
         sys.exit(f"Found {len(existing)} tag rulesets named {CREATE_RULESET_NAME!r} in {repo}.")
     base_path = f"repos/{repo}/rulesets/{base[0]['id']}"
     current = json.loads(_gh("api", base_path))
+    if current.get("enforcement") != "active":
+        sys.exit(
+            f"Ruleset {RULESET_NAME!r} is {current.get('enforcement')!r}, not 'active'. "
+            "Nothing was changed; fix that first."
+        )
     tighten, create = tighten_payload(current), create_payload(current)
+    if existing:
+        detail = json.loads(_gh("api", f"repos/{repo}/rulesets/{existing[0]['id']}"))
+        problems = _existing_problems(detail)
+        if problems:
+            sys.exit(
+                f"{CREATE_RULESET_NAME!r} already exists and does not do its job: "
+                f"{'; '.join(problems)}. This script never edits an existing one (a hand edit or "
+                "a later bypass would be lost); fix it in Settings > Rules. Nothing was changed."
+            )
     print(
         f"{repo}: tag ruleset {RULESET_NAME!r} (id {base[0]['id']}), "
+        f"enforcement {current['enforcement']!r}, "
         f"refs {current['conditions']['ref_name']['include']}"
     )
     print("  v rules now:  ", [rule["type"] for rule in current["rules"]])
     print("  v rules after:", [rule["type"] for rule in tighten["rules"]], "(bypass unchanged)")
-    print(
-        f"  {CREATE_RULESET_NAME}: {'update existing' if existing else 'create new'}, "
-        "rules ['creation'], bypass Admin"
+    status = (
+        "already in place, left alone" if existing else "create new (creation rule, Admin bypass)"
     )
+    print(f"  {CREATE_RULESET_NAME}: {status}")
     if dry_run:
         print("Dry run: nothing was changed.")
         return 0
     _gh("api", "-X", "PUT", base_path, "--input", "-", stdin=json.dumps(tighten))
     if existing:
-        method, path = "PUT", f"repos/{repo}/rulesets/{existing[0]['id']}"
-    else:
-        method, path = "POST", f"repos/{repo}/rulesets"
-    saved = json.loads(_gh("api", "-X", method, path, "--input", "-", stdin=json.dumps(create)))
+        print(
+            f"Applied. v now has {[rule['type'] for rule in tighten['rules']]}; "
+            f"{CREATE_RULESET_NAME} was already in place."
+        )
+        return 0
+    saved = json.loads(
+        _gh("api", "-X", "POST", f"repos/{repo}/rulesets", "--input", "-", stdin=json.dumps(create))
+    )
     created_path = f"repos/{repo}/rulesets/{saved['id']}"
     check = json.loads(_gh("api", created_path))
     can_bypass = check.get("current_user_can_bypass")
     if can_bypass is not None and can_bypass != "always":
-        if not existing:
+        try:
             _gh("api", "-X", "DELETE", created_path)
-            undone = f"I removed the new {CREATE_RULESET_NAME!r} ruleset again."
-        else:
-            undone = (
-                f"The existing {CREATE_RULESET_NAME!r} ruleset was updated; check Settings > Rules."
+        except SystemExit as failure:
+            sys.exit(
+                f"current_user_can_bypass is {can_bypass!r}, not 'always', and removing the new "
+                f"ruleset (id {saved['id']}) failed: {failure}. Remove {CREATE_RULESET_NAME!r} in "
+                "Settings > Rules now, or you cannot tag a release."
             )
         sys.exit(
             f"After the change current_user_can_bypass is {can_bypass!r}, not 'always': the Admin "
-            f"id is probably wrong, which would stop you tagging releases. {undone} "
-            "Ruleset v still has the added 'update' rule."
+            "role id is probably wrong, which would stop you tagging releases. I removed the new "
+            f"{CREATE_RULESET_NAME!r} ruleset again. Ruleset v still has the added 'update' rule."
         )
     note = (
         "" if can_bypass else " (current_user_can_bypass was not reported; check Settings > Rules)"

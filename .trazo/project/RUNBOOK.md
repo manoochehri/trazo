@@ -91,7 +91,8 @@ Anyone who can push a `v*` tag can publish a release that hosts installing `late
 - It stops collaborators below Admin, GitHub Apps and the built-in `GITHUB_TOKEN` from creating `v*` tags. It does not stop the owner's own account or an agent session running as the owner (#44).
 - After creating `v-create` it requires `current_user_can_bypass` to be `always` for you; otherwise it deletes the new ruleset and exits non-zero. UNVERIFIED: the Admin role id (5).
 - `make release` creates the tag locally and pushes it, so it works for the owner as Admin. Automatic release tagging (#248) must run as an identity on the bypass list.
-- Open: a branch named like a release tag can stand in for it in the installer (tracked separately).
+- Running it again is safe: an existing `v-create` is never edited, so a bypass you add later (for example for #248) is kept.
+- Open: a branch named like a release tag can stand in for it in the installer (#272).
 
 ## Secrets
 - Local: copy `.env.example` to `.env` and fill in. `.env` is git-ignored and blocked from Claude Code.
