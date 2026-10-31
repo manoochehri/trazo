@@ -28,8 +28,10 @@ untrusted issue text never holds a token that can write.
   workspace: an agent that can run `make test`, or even `git log --output`, can write and run its own
   code on a runner that holds the API key, so the pull request's CI runs the tests instead. Its API
   key is scrubbed from subprocess environments, and it may not edit `.git`, `.github`, `.claude`, the
-  Makefile or paths outside the workspace. The collect step verifies the `.git` metadata is unchanged
-  and runs git with hooks, the file monitor and external diff disabled. It leaves its change in the working tree; the job keeps that as a patch. This is the
+  Makefile or paths outside the workspace. The collect step never trusts the agent's `.git` (the action itself writes the job token
+  and git config into it): it copies the agent's files into a fresh clone and makes the patch there,
+  with hooks, the file monitor and external diff disabled. A nested repository becomes a gitlink or
+  fails the step, and either way the run ends in `stuck`, not in a publish. It leaves its change in the working tree; the job keeps that as a patch. This is the
   schedule-started case that `work.md` already names as unattended.
 - **`publish`** has no LLM. It rejects a patch with binary hunks, symlinks, submodule entries, more
   than 100 files or over 1 MB, and rejects agent text that contains a closing keyword. It applies the

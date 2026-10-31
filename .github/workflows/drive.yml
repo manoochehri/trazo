@@ -80,12 +80,6 @@ jobs:
             mkdir -p drive-in drive-out
             gh issue view "$issue" --json title,body -q '"# " + .title + "\n\n" + (.body // "")' > drive-in/issue.md
           fi
-      - name: snapshot git metadata before the agent runs
-        if: steps.pick.outputs.issue != ''
-        shell: bash
-        run: |
-          # The agent has no commands, but the collect step still refuses to trust a .git it could have touched.
-          find .git/config .git/hooks .git/info -type f -exec sha256sum {} + | sort | sha256sum > "$RUNNER_TEMP/git-meta.sum"
       - name: work the issue (work routine, unattended)
         if: steps.pick.outputs.issue != ''
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc
@@ -110,22 +104,33 @@ jobs:
               Mark anything you could not verify as UNVERIFIED. Never read or print secrets.
           claude_args: >-
             --max-turns 60
-            --disallowedTools "Read(//proc/**),Read(//sys/**),Read(//home/runner/work/_temp/**),Read(~/**),Read(//tmp/**),Edit(./.git/**),Write(./.git/**),Edit(./.github/**),Write(./.github/**),Edit(./.claude/**),Write(./.claude/**),Edit(./Makefile),Write(./Makefile),Edit(~/**),Write(~/**),Edit(//tmp/**),Write(//tmp/**),Edit(//home/runner/work/_actions/**),Write(//home/runner/work/_actions/**),Bash"
+            --disallowedTools "Read(//proc/**),Read(//sys/**),Read(//home/runner/work/_temp/**),Read(//tmp/**),Read(~/.ssh/**),Read(~/.config/**),Read(~/.claude/**),Read(~/.gitconfig),Read(./.git/**),Edit(./.git/**),Write(./.git/**),Edit(./**/.git/**),Write(./**/.git/**),Edit(./.github/**),Write(./.github/**),Edit(./.claude/**),Write(./.claude/**),Edit(./**/.claude/**),Write(./**/.claude/**),Edit(./.mcp.json),Write(./.mcp.json),Edit(./**/.mcp.json),Write(./**/.mcp.json),Edit(./Makefile),Write(./Makefile),Edit(~/.ssh/**),Write(~/.ssh/**),Edit(~/.config/**),Write(~/.config/**),Edit(~/.claude/**),Write(~/.claude/**),Edit(~/.gitconfig),Write(~/.gitconfig),Edit(~/.bashrc),Write(~/.bashrc),Edit(~/.profile),Write(~/.profile),Edit(//tmp/**),Write(//tmp/**),Edit(//home/runner/work/_actions/**),Write(//home/runner/work/_actions/**),Edit(//home/runner/work/_temp/**),Write(//home/runner/work/_temp/**),Bash"
             --allowedTools "Read(./**),Grep(./**),Glob(./**),Edit(./**),Write(./**)"
+      - name: clear the place for a fresh clone
+        if: steps.pick.outputs.issue != ''
+        shell: bash
+        run: |
+          # The agent ran before this step; remove anything it left where the clean clone goes, so checkout
+          # cannot reuse a repository the agent prepared.
+          rm -rf clean
+      - name: fresh clone to collect the change in
+        if: steps.pick.outputs.issue != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: clean
+          persist-credentials: false
       - name: collect the change as a patch
         id: collect
         if: steps.pick.outputs.issue != ''
         shell: bash
         run: |
-          after=$(find .git/config .git/hooks .git/info -type f -exec sha256sum {} + | sort | sha256sum)
-          if [[ "$after" != "$(cat "$RUNNER_TEMP/git-meta.sum")" ]]; then
-            echo "The agent step changed .git metadata; refusing to run git here."
-            echo "has_change=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          # The action writes git config (including the job token) into the workspace .git while the agent runs,
+          # so that .git is never trusted. Copy the agent's files, not its .git, into the fresh clone and make the
+          # patch there. A nested .git the agent made becomes a gitlink, which publish refuses.
+          rsync -a --delete --exclude='/.git' --exclude='/clean' --exclude='/drive-in' --exclude='/drive-out' ./ clean/
           # No hooks, no file monitor, no external diff, no attributes file, whatever else is configured.
-          safe_git() { git -c core.fsmonitor=false -c core.hooksPath=/dev/null -c core.attributesFile=/dev/null -c diff.external= "$@"; }
-          safe_git add -A -- . ':!drive-in' ':!drive-out'
+          safe_git() { git -c core.fsmonitor=false -c core.hooksPath=/dev/null -c core.attributesFile=/dev/null -c diff.external= -C clean "$@"; }
+          safe_git add -A
           safe_git diff --cached --no-ext-diff --binary > drive-out/change.patch
           if [[ -s drive-out/change.patch && -s drive-out/subject.txt && -s drive-out/pr_body.md && -s drive-out/plan.md ]]; then
             echo "has_change=true" >> "$GITHUB_OUTPUT"
@@ -169,7 +174,7 @@ jobs:
           keyword='(close[sd]?|fix(e[sd])?|resolve[sd]?)[:[:space:]]+(([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[0-9]+|https?://github\.com/[^[:space:]]+/(issues|pull)/[0-9]+)'
           if grep -qiE "$keyword" drive-out/subject.txt drive-out/pr_body.md; then echo "Closing keyword in agent text; not publishing."; exit 1; fi
           # The subject becomes the PR title and the commit message. Strip references, mentions and images from it.
-          subject=$(head -n 1 drive-out/subject.txt | tr -d '\r' | sed 's/@/ /g; s/#/ /g; s/!\[/[/g' | cut -c1-100)
+          subject=$(head -n 1 drive-out/subject.txt | tr -d '\r' | sed 's/@/ /g; s/#/ /g; s/!\[/[/g' | python3 -c 'import sys; print(sys.stdin.readline().strip()[:100])')
           branch="issue-${ISSUE}-drive-${GITHUB_RUN_ID}"
           git switch -c "$branch"
           git apply --index --whitespace=nowarn drive-out/change.patch
