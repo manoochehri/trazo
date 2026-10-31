@@ -1,4 +1,4 @@
-# 0024: Decide, then tell
+# 0025: Decide, then tell
 
 **Date:** 2026-10-30  **Status:** proposed (becomes accepted when the owner merges this change; it loosens a gate in `rules.md`)
 
