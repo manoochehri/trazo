@@ -14,6 +14,10 @@ REQUIRED = [
     "CLAUDE.md",
     "AGENTS.md",
     ".claude/",
+    ".codex/",
+    ".agents/",
+    ".trazo/",
+    "agent instruction files and skills",
     "build, CI and test configuration",
     "secrets",
     "spend",
@@ -26,6 +30,9 @@ REQUIRED = [
     "scope, priority, sequencing or acceptance criteria",
     "Anything not done through a pull request is never reversible",
     "never enables auto-merge",
+    "or adds a file for a listed file to use later",
+    "Ordinary source, test and documentation files are not on the list",
+    "Check again before you push",
 ]
 
 
