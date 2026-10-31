@@ -32,7 +32,14 @@ REQUIRED = [
     "never enables auto-merge",
     "or adds a file for a listed file to use later",
     "Ordinary source, test and documentation files are not on the list",
-    "Check again before you push",
+    "check again before you push",
+    "outside `.trazo/project/`",
+    "ARCHITECTURE_CONTRACT.md",
+    "SKEPTIC_BAR.md",
+    "the list wins",
+    "however it is reached",
+    "Judge the plan as a whole",
+    "an answer relayed by another agent does not count",
 ]
 
 
