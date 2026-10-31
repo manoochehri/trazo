@@ -5,3 +5,16 @@
 /.trazo/project/charter/        @manoochehri
 /src/adapters/           @manoochehri
 /scripts/install.sh      @manoochehri
+# Rules, roles, skills and decision records define what the review gates do and what agents may decide (#231).
+/src/overlay/            @manoochehri
+/.trazo/rules.md         @manoochehri
+/.trazo/roles/           @manoochehri
+/.trazo/skills/          @manoochehri
+/.trazo/project/adr/     @manoochehri
+/.claude/                @manoochehri
+/CLAUDE.md               @manoochehri
+/AGENTS.md               @manoochehri
+# The verdict classifier, the installer and the build and dependency definitions.
+/scripts/                @manoochehri
+/Makefile                @manoochehri
+/pyproject.toml          @manoochehri
