@@ -192,21 +192,8 @@ limit, never loosen one. Never read, print, log, commit, or paste secrets; the h
 enters them with a script, and new config goes in the env example as a placeholder.
 
 ## Ask before guessing
-Decide, then tell. A choice you can undo is yours to make: pick the option you would
-recommend, record it on the issue in a comment that starts `Decided:` with the reason, and
-keep going. A choice is reversible when reverting a pull request undoes it and it touches no
-safety limit, no money, no data and no external system.
-
-Stop and ask only when the choice is expensive, hard to reverse, or inside a human-only
-limit (`CODEOWNERS` paths, the charter, secrets, spend, production). Record the question on
-the issue, label it so the queue shows it, and keep working on anything that does not depend
-on the answer. "Safety limits are human-only" is unchanged and wins over this section, and
-the reviewer, security and skeptic gates still run.
-
-Done means the pull request is ready with its checks and review verdicts on the current
-head and merged by whoever the repository's merge policy names, or the issue names the
-blocker. Finishing a step and then waiting to be told to start the next routine one is not
-done.
+For anything expensive, irreversible, or ambiguous, stop and ask, and record the question
+on the issue. Label it so the queue shows it.
 
 ## Session budget
 Use one working session per task. Do not poll another session or its transcript; status
