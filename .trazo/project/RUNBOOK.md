@@ -85,6 +85,14 @@ Installation tokens require a JWT signed with the private key, are limited by th
 - **What each job does:** `work` runs the agent with a read-only token, no `gh` and no test runner, and keeps its change as a patch; `publish` (no LLM) pushes the branch and opens the pull request, which CI then tests; `stuck` labels an issue `needs-pm` when a run produced no change or publishing failed; `merge` squash-merges a pull request only on a `trazo/verdict` success for the exact head, passing checks, exactly one closing reference matching its branch, no `needs-decision`, `needs-pm` or `unverified-in-engine` label, and `scripts/report_verdict.py --sensitive` saying the change touches no owner-protected path. All jobs run only from the default branch. A transient failure (for example an API outage) labels the issue `needs-pm`; remove the label after the outage and the driver picks the issue up again.
 - **Never auto-merged:** anything `report_verdict.py` calls sensitive, which includes every path in `.github/CODEOWNERS` and its extra list.
 
+## Release tags (#263)
+Anyone who can push a `v*` tag can publish a release that hosts installing `latest` would take, so tag creation is restricted. Owner step, once: `python3 scripts/protect_release_tags.py --dry-run` shows the change, `python3 scripts/protect_release_tags.py` applies it.
+- It adds the `update` rule to the tag ruleset `v` (no bypass, so deleting and force-moving tags stays blocked for everyone) and creates a second tag ruleset, `v-create`, holding only the `creation` rule with the repository Admin role as its bypass actor. A bypass actor covers every rule in its own ruleset, which is why the two are separate.
+- It stops collaborators below Admin, GitHub Apps and the built-in `GITHUB_TOKEN` from creating `v*` tags. It does not stop the owner's own account or an agent session running as the owner (#44).
+- After creating `v-create` it requires `current_user_can_bypass` to be `always` for you; otherwise it deletes the new ruleset and exits non-zero. UNVERIFIED: the Admin role id (5).
+- `make release` creates the tag locally and pushes it, so it works for the owner as Admin. Automatic release tagging (#248) must run as an identity on the bypass list.
+- Open: a branch named like a release tag can stand in for it in the installer (tracked separately).
+
 ## Secrets
 - Local: copy `.env.example` to `.env` and fill in. `.env` is git-ignored and blocked from Claude Code.
 - AWS: `scripts/put_secret.sh <secret-name>` (you run it; it prompts without echoing).
