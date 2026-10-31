@@ -10,7 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # No dependency cache here: a scheduled run shares the default branch's cache scope, and this build
+      # feeds the public docs site (security review of #251).
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          enable-cache: false
       - run: uv sync --group docs
       - name: build (fail on broken links)
         run: uv run --group docs mkdocs build --strict
