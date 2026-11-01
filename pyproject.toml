@@ -11,8 +11,8 @@ dependencies = []
 package = false
 
 [dependency-groups]
-dev = ["pytest>=9.1.1", "ruff>=0.16.10", "pre-commit>=4.6.2"]
-docs = ["mkdocs>=1.6.1", "mkdocs-material>=9.7.7"]
+dev = ["pytest>=9.2.0", "ruff>=0.17.3", "pre-commit>=4.7.0"]
+docs = ["mkdocs>=1.6.1", "mkdocs-material>=9.8.0"]
 
 [build-system]
 # Kept so `uv sync` and pre-commit have a backend, but nothing is built from it:
