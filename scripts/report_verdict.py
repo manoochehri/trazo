@@ -51,13 +51,16 @@ EXTRA_SENSITIVE_PREFIXES = (
     # stay out so routine pull requests can update them.
     ".trazo/skills/",
     ".trazo/templates/",
-    ".trazo/advisor.md",
-    ".trazo/architecture.md",
-    ".trazo/project/skeptic_bar.md",
-    ".trazo/project/architecture_contract.md",
+    ".trazo/ADVISOR.md",
+    ".trazo/ARCHITECTURE.md",
+    ".trazo/project/SKEPTIC_BAR.md",
+    ".trazo/project/ARCHITECTURE_CONTRACT.md",
     ".codex/",
     ".agents/",
 )
+# Prefixes are written with their real case so the layout test can check they exist; matching
+# lowercases both sides.
+_SENSITIVE_PREFIXES_LC = tuple(p.lower() for p in EXTRA_SENSITIVE_PREFIXES)
 # Matched against the file's base name, so a stand-in at any depth counts.
 EXTRA_SENSITIVE_BASENAMES = (
     "makefile",
@@ -216,7 +219,7 @@ def pattern_matches(path, pattern, anchored):
 def is_sensitive_path(path, patterns):
     path = path.lower()
     base = path.rsplit("/", 1)[-1]
-    if path.startswith(EXTRA_SENSITIVE_PREFIXES) or base in EXTRA_SENSITIVE_BASENAMES:
+    if path.startswith(_SENSITIVE_PREFIXES_LC) or base in EXTRA_SENSITIVE_BASENAMES:
         return True
     if base.startswith("requirements") and base.endswith(".txt"):
         return True
