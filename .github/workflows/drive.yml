@@ -14,10 +14,18 @@ name: drive
 #            success, passing checks, no blocking label, exactly one closing reference that matches its
 #            branch, and scripts/report_verdict.py --sensitive says the change touches no owner-protected
 #            path. That script is the one classifier review.yml also uses.
+# Backstops (ADR 0025, #249, #258), all repository variables, all optional, every bad value falls back to the default:
+#   DRIVE_ENABLED              kill switch; anything but 'true' stops everything
+#   DRIVE_MAX_MERGES_PER_DAY   default 5   merges per UTC day, counted by the work guard and the merge job
+#   DRIVE_MAX_RUNS_PER_DAY     default 4   agent runs per UTC day
+#   DRIVE_MAX_USD_PER_RUN      default 2   --max-budget-usd for one agent run (whole dollars)
+#   an open issue labeled drive-halt stops work and merge; the breaker job opens one after two failures in a row
+#   at most one open drive PR (branch issue-<n>-drive-<run>) at a time; the digest job comments once a day
 # Nothing here loosens a limit: CODEOWNERS, secrets and workflow changes still need owner review.
 on:
   schedule:
     - cron: "*/30 * * * *"
+    - cron: "5 13 * * *"
   workflow_dispatch:
 permissions:
   contents: read
@@ -30,11 +38,12 @@ jobs:
     # runs only from the default branch, so a manual run on another branch cannot swap in its own scripts.
     if: vars.DRIVE_ENABLED == 'true' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     permissions:
       contents: read
       issues: read
       pull-requests: read
+      actions: read
     outputs:
       issue: ${{ steps.pick.outputs.issue }}
       has_change: ${{ steps.collect.outputs.has_change }}
@@ -44,8 +53,42 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - name: backstops (halt label, one PR in flight, daily caps)
+        id: guard
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RAW_MERGES: ${{ vars.DRIVE_MAX_MERGES_PER_DAY }}
+          RAW_RUNS: ${{ vars.DRIVE_MAX_RUNS_PER_DAY }}
+          RAW_USD: ${{ vars.DRIVE_MAX_USD_PER_RUN }}
+        run: |
+          set -euo pipefail
+          # Fail closed: ok stays false unless every check below passes (the last line written wins).
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+          today=$(date -u +%F)
+          max_merges=$(python3 scripts/drive_guard.py limit "$RAW_MERGES" 5)
+          max_runs=$(python3 scripts/drive_guard.py limit "$RAW_RUNS" 4)
+          usd=$(python3 scripts/drive_guard.py limit "$RAW_USD" 2)
+          [[ "$usd" -ge 1 ]] || usd=2
+          halted=$(gh issue list --state open --label drive-halt --json number -q length)
+          if [[ "$halted" != "0" ]]; then echo "An open issue carries drive-halt; stopping."; exit 0; fi
+          inflight=$(gh pr list --state open --limit 200 --json headRefName -q '[.[] | select(.headRefName | test("^issue-[0-9]+-drive-"))] | length')
+          if [[ "$inflight" != "0" ]]; then echo "A drive pull request is still open; stopping."; exit 0; fi
+          merged=$(gh pr list --state merged --search "merged:>=${today}" --limit 200 --json headRefName -q '[.[] | select(.headRefName | test("^issue-[0-9]+"))] | length')
+          if (( merged >= max_merges )); then echo "Merge cap ${max_merges} reached today (${merged}); stopping."; exit 0; fi
+          # Agent runs today: earlier runs of this workflow whose agent step ran. The current run is skipped.
+          agent_runs=0
+          for id in $(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/workflows/drive.yml/runs" -f created=">=${today}" -f per_page=100 -q '.workflow_runs[].id'); do
+            [[ "$id" == "$GITHUB_RUN_ID" ]] && continue
+            n=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" -q '[.jobs[] | select(.name == "work") | .steps[] | select((.name | startswith("work the issue")) and (.conclusion == "success" or .conclusion == "failure"))] | length')
+            agent_runs=$((agent_runs + n))
+          done
+          if (( agent_runs >= max_runs )); then echo "Run cap ${max_runs} reached today (${agent_runs}); stopping."; exit 0; fi
+          echo "usd=${usd}" >> "$GITHUB_OUTPUT"
+          echo "ok=true" >> "$GITHUB_OUTPUT"
       - name: pick the next ready issue
         id: pick
+        if: steps.guard.outputs.ok == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -104,6 +147,7 @@ jobs:
               Mark anything you could not verify as UNVERIFIED. Never read or print secrets.
           claude_args: >-
             --max-turns 60
+            --max-budget-usd ${{ steps.guard.outputs.usd }}
             --disallowedTools "Read(//proc/**),Read(//sys/**),Read(//home/runner/work/_temp/**),Read(//tmp/**),Read(~/.ssh/**),Read(~/.config/**),Read(~/.claude/**),Read(~/.gitconfig),Read(./.git/**),Edit(./.git/**),Write(./.git/**),Edit(./**/.git/**),Write(./**/.git/**),Edit(./.github/**),Write(./.github/**),Edit(./.claude/**),Write(./.claude/**),Edit(./**/.claude/**),Write(./**/.claude/**),Edit(./.mcp.json),Write(./.mcp.json),Edit(./**/.mcp.json),Write(./**/.mcp.json),Edit(./Makefile),Write(./Makefile),Edit(~/.ssh/**),Write(~/.ssh/**),Edit(~/.config/**),Write(~/.config/**),Edit(~/.claude/**),Write(~/.claude/**),Edit(~/.gitconfig),Write(~/.gitconfig),Edit(~/.bashrc),Write(~/.bashrc),Edit(~/.profile),Write(~/.profile),Edit(//tmp/**),Write(//tmp/**),Edit(//home/runner/work/_actions/**),Write(//home/runner/work/_actions/**),Edit(//home/runner/work/_temp/**),Write(//home/runner/work/_temp/**),Bash"
             --allowedTools "Read(./**),Grep(./**),Glob(./**),Edit(./**),Write(./**)"
       - name: clear the place for a fresh clone
@@ -250,6 +294,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RAW_MERGES: ${{ vars.DRIVE_MAX_MERGES_PER_DAY }}
         run: |
           try_merge() {
             local pr="$1" sha="$2" issue="$3" refs labels prlabels all blocking changed sensitive status verdict security runs ci
@@ -287,16 +332,122 @@ jobs:
             # The change is not owner-protected, so a security status of "none" means no security review was needed.
             if [[ "$verdict" == "success" && "$ci" == "success" && ( "$security" == "success" || "$security" == "none" ) ]]; then
               gh pr merge "$pr" --squash --match-head-commit "$sha" || return 1
+              merged_today=$((merged_today + 1))
               echo "Merged PR #${pr} (issue #${issue})."
             else
               echo "PR #${pr}: verdict=${verdict:-none} security=${security} ci=${ci}; not merging."
             fi
           }
+          # Backstops (ADR 0025): an open drive-halt issue stops merging, and merges per UTC day are capped.
+          if [[ $(gh issue list --state open --label drive-halt --json number -q length) != "0" ]]; then
+            echo "An open issue carries drive-halt; not merging."; exit 0
+          fi
+          max_merges=$(python3 scripts/drive_guard.py limit "$RAW_MERGES" 5)
+          merged_today=$(gh pr list --state merged --search "merged:>=$(date -u +%F)" --limit 200 --json headRefName -q '[.[] | select(.headRefName | test("^issue-[0-9]+"))] | length')
           prs=$(gh pr list --state open --base "$DEFAULT_BRANCH" --limit 200 --json number,headRefName,headRefOid,isDraft,isCrossRepository \
             -q '.[] | select(.isDraft == false and .isCrossRepository == false and (.headRefName | test("^issue-[0-9]+"))) | [.number, .headRefOid, (.headRefName | capture("^issue-(?<n>[0-9]+)").n)] | @tsv')
           # The list is read on fd 3 so no command inside the loop can consume it.
           while IFS=$'\t' read -r pr sha issue <&3; do
             [[ -n "$pr" ]] || continue
+            if (( merged_today >= max_merges )); then echo "Merge cap ${max_merges} reached today; not merging more."; break; fi
             # One bad pull request must not stop the rest.
             try_merge "$pr" "$sha" "$issue" || echo "PR #${pr}: skipped after an error."
           done 3<<<"$prs"
+  breaker:
+    # Circuit breaker (#258). Two failures in a row stop the driver by opening an issue labeled drive-halt;
+    # the work and merge jobs do nothing while one is open, and only a person closes it. A failure is a failed
+    # run, a drive pull request whose trazo/verdict failed, or a revert of a drive merge. A merged drive pull
+    # request resets the count. No LLM.
+    needs: [work, publish, merge]
+    if: >-
+      always() && vars.DRIVE_ENABLED == 'true' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      needs.work.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+      actions: read
+      statuses: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: count consecutive failures and halt
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          THIS_RUN_FAILED: ${{ (needs.work.result == 'failure' || needs.publish.result == 'failure' || needs.merge.result == 'failure') && 'true' || 'false' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ $(gh issue list --state open --label drive-halt --json number -q length) != "0" ]]; then echo "Already halted."; exit 0; fi
+          now=$(date -u +%FT%TZ)
+          # Earlier completed runs that failed. Idle runs are not events, so they cannot reset the count.
+          gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/workflows/drive.yml/runs" -f status=completed -f per_page=20 \
+            -q '[.workflow_runs[] | select(.conclusion == "failure") | {time: .updated_at, kind: "fail"}]' > runs.json
+          gh pr list --state all --limit 30 --json number,headRefName,headRefOid,createdAt,mergedAt,mergeCommit \
+            -q '[.[] | select(.headRefName | test("^issue-[0-9]+-drive-"))]' > prs.json
+          gh api "repos/${GITHUB_REPOSITORY}/commits?per_page=100" -q '[.[] | {date: .commit.committer.date, message: .commit.message}]' > commits.json
+          jq '[.[] | select(.mergedAt != null) | {time: .mergedAt, kind: "ok"}]' prs.json > merged.json
+          jq --slurpfile c commits.json '[.[] | select(.mergedAt != null) | . as $p | $c[0][] | select(.message | contains("This reverts commit " + $p.mergeCommit.oid)) | {time: .date, kind: "fail"}]' prs.json > reverts.json
+          echo "[]" > verdicts.json
+          for row in $(jq -r '.[] | select(.mergedAt == null) | [.headRefOid, .createdAt] | join(",")' prs.json); do
+            sha=${row%%,*}; created=${row#*,}
+            state=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/status?per_page=100" -q '[.statuses[] | select(.context == "trazo/verdict")][0].state // ""')
+            if [[ "$state" == "failure" || "$state" == "error" ]]; then
+              jq --arg t "$created" '. + [{time: $t, kind: "fail"}]' verdicts.json > v.tmp && mv v.tmp verdicts.json
+            fi
+          done
+          if [[ "$THIS_RUN_FAILED" == "true" ]]; then jq -n --arg t "$now" '[{time: $t, kind: "fail"}]' > now.json; else echo "[]" > now.json; fi
+          jq -s 'add' runs.json merged.json reverts.json verdicts.json now.json > events.json
+          trip=$(python3 scripts/drive_guard.py breaker < events.json)
+          echo "$trip"
+          if [[ "$trip" == "trip=true" ]]; then
+            gh label create drive-halt --color b60205 --description "Stops the unattended driver" 2>/dev/null || true
+            printf '%s\n' "The driver saw two failures in a row (a failed run, a failed review, or a revert of a drive merge) and stopped. Latest run: ${RUN_URL}" \
+              "" "While this issue is open the work and merge jobs do nothing. Close it to resume. Roll back any bad merge with a revert commit." \
+              "" "🛠️ Posted by eng via Claude Code (drive workflow)" > halt.md
+            gh issue create --title "Drive halted: two failures in a row" --label drive-halt --body-file halt.md
+          fi
+  digest:
+    # Daily comment on the open drive-digest issue listing what merged, so a halt is never the first sign
+    # of trouble (#258). No LLM.
+    if: >-
+      vars.DRIVE_ENABLED == 'true' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      github.event_name == 'schedule' && github.event.schedule == '5 13 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: comment the digest
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          since=$(date -u -d '24 hours ago' +%FT%TZ)
+          gh pr list --state merged --search "merged:>=${since}" --limit 100 --json number,title,url,headRefName \
+            -q '[.[] | select(.headRefName | test("^issue-[0-9]+")) | {number, title, url}]' > merged.json
+          halt_flag=""
+          if [[ $(gh issue list --state open --label drive-halt --json number -q length) != "0" ]]; then halt_flag="--halted"; fi
+          python3 scripts/drive_guard.py digest $halt_flag < merged.json > digest.md
+          gh label create drive-digest --color ededed --description "Daily drive digest" 2>/dev/null || true
+          issue=$(gh issue list --state open --label drive-digest --json number -q '.[0].number // ""')
+          if [[ -z "$issue" ]]; then
+            printf '%s\n' "Daily digest of what the unattended driver merged. Comments only; no work is picked from this issue." > digest_issue.md
+            url=$(gh issue create --title "Drive digest" --label drive-digest --body-file digest_issue.md)
+            issue=${url##*/}
+          fi
+          gh issue comment "$issue" --body-file digest.md
