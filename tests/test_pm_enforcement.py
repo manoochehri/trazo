@@ -184,6 +184,22 @@ DENIED = [
     "gh api repos/o/r/../../user",
     "gh issue list --web",
     "gh issue view 1 --repo evil/x",
+    # security round 2: jq can print the environment or read files
+    "gh api repos/o/r --jq env",
+    "gh api repos/o/r --jq '$ENV'",
+    "gh api repos/o/r --jq '$ENV.PATH'",
+    "gh api repos/o/r --jq=env",
+    "gh api repos/o/r -q 'env | keys'",
+    "gh issue list --json number --jq 'env'",
+    "gh issue list --json number | jq env",
+    "gh issue list --json number | jq 'env'",
+    "gh issue list --json number | jq '$ENV'",
+    "gh issue list --json number | jq 'input_filename'",
+    "gh issue list --json number | jq '$__loc__'",
+    "gh issue list --json number | jq '$__prog_args'",
+    "gh issue list --json number | jq 'import \"a\" as a; .'",
+    "gh issue list --json number | jq 'include \"a\"; .'",
+    "gh issue list --json number | jq 'get_search_list'",
     # the PM may not lift the stop labels
     "gh issue edit 5 --remove-label needs-decision",
     "gh issue edit 5 --remove-label drive-halt",
@@ -216,6 +232,8 @@ ALLOWED = [
     "gh issue edit 279 --milestone v0.4.0",
     "gh issue list --json number | head -5",
     "gh issue list --json number,title --jq '.[].title'",
+    "gh issue list --json number | jq '.[].title | ascii_downcase'",
+    "gh issue view 1 --json body --jq '.body | test(\"envelope\")'",
     "gh issue list --json number | jq '.[] | select(.number > 3)'",
     "gh issue list --label needs-pm | grep -i foo",
     "gh issue list | wc -l",
@@ -288,6 +306,21 @@ def test_shipped_deny_rules_cover_production_and_release_commands() -> None:
     assert required <= deny, f"missing deny rules: {sorted(required - deny)}"
     # The secret-file Read denies stay.
     assert "Read(./secrets/**)" in deny
+
+
+def test_shipped_deny_rules_cover_credential_directories_for_the_read_tool() -> None:
+    """The PM's Read tool is not behind the Bash guard; mirror drive.yml's home-directory denies."""
+    deny = set(json.loads(SETTINGS.read_text(encoding="utf-8"))["permissions"]["deny"])
+    required = {
+        "Read(~/.ssh/**)",
+        "Read(~/.aws/**)",
+        "Read(~/.config/**)",
+        "Read(~/.claude/**)",
+        "Read(~/.netrc)",
+        "Read(~/.docker/**)",
+        "Read(~/.gitconfig)",
+    }
+    assert required <= deny, f"missing deny rules: {sorted(required - deny)}"
 
 
 def test_hook_doc_lists_the_deny_rules_and_how_a_host_extends_them() -> None:

@@ -17,7 +17,14 @@
       "Bash(scripts/put_secret.sh *)",
       "Bash(gh secret *)",
       "Bash(gh variable set *)",
-      "Bash(gh workflow run *)"
+      "Bash(gh workflow run *)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/**)",
+      "Read(~/.claude/**)",
+      "Read(~/.netrc)",
+      "Read(~/.docker/**)",
+      "Read(~/.gitconfig)"
     ]
   },
   "hooks": {
