@@ -9,8 +9,11 @@ import base64
 import json
 import os
 import shutil
+import signal
+import socket
 import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -68,6 +71,8 @@ class FakeGitHub:
         self.pem = self.key.read_text()
         self.created: list[str] = []
         self.bad_signature = False
+        self.owner = "o"
+        self.name_override = ""
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -113,6 +118,9 @@ class FakeGitHub:
                         {
                             "id": 4242 + len(fake.created),
                             "slug": name,
+                            "name": fake.name_override or name,
+                            "owner": {"login": fake.owner},
+                            "events": [],
                             "pem": fake.pem,
                             "webhook_secret": None,
                         },
@@ -150,15 +158,43 @@ class FakeGitHub:
 
 
 FAKE_GH = """#!/usr/bin/env bash
-# Fake gh: records secret names and sizes, never values.
+# Fake gh: records secret names, scope and sizes, never values; keeps a fake environment.
 case "$1 $2" in
-  "secret list") cat "$FAKE_EXISTING" 2>/dev/null; exit 0 ;;
+  "secret list")
+    if [[ " $* " == *" --env trazo-apps "* ]]; then cat "$FAKE_EXISTING" 2>/dev/null
+    else cat "$FAKE_REPO_SECRETS" 2>/dev/null; fi
+    exit 0 ;;
   "secret set")
     name="$3"
     if [[ " $* " == *" --body "* ]]; then value_len=body
     else value_len="stdin:$(wc -c | tr -d ' ')"; fi
-    echo "$name $value_len" >> "$FAKE_LOG"; exit 0 ;;
+    scope=repo; [[ " $* " == *" --env trazo-apps "* ]] && scope=env:trazo-apps
+    app=none; [[ " $* " == *" --app actions "* ]] && app=actions
+    echo "$name $value_len $scope $app" >> "$FAKE_LOG"
+    [[ -n "$FAKE_SET_FAIL" && "$name" == "$FAKE_SET_FAIL" ]] && exit 1
+    exit 0 ;;
   "repo view") echo "o/r"; exit 0 ;;
+  "api "*)
+    shift
+    method=GET; [[ "$1" == -X ]] && { method="$2"; shift 2; }
+    path="$1"; input=""
+    [[ " $* " == *" --input - "* ]] && input="$(cat)"
+    echo "$method $path $input" >> "$FAKE_API_LOG"
+    case "$method $path" in
+      "PUT repos/o/r/environments/trazo-apps")
+        printf '%s' "$input" > "$FAKE_ENVDIR/env.json"; echo '{}' ;;
+      "GET repos/o/r/environments/trazo-apps")
+        jq -c '{deployment_branch_policy}' "$FAKE_ENVDIR/env.json" ;;
+      "GET repos/o/r/environments/trazo-apps/deployment-branch-policies")
+        [[ -f "$FAKE_ENVDIR/policies" ]] || echo '[]' > "$FAKE_ENVDIR/policies"
+        jq -c '{total_count:length,branch_policies:.}' "$FAKE_ENVDIR/policies" ;;
+      "POST repos/o/r/environments/trazo-apps/deployment-branch-policies")
+        [[ -f "$FAKE_ENVDIR/policies" ]] || echo '[]' > "$FAKE_ENVDIR/policies"
+        jq -c --argjson n "$input" '. + [$n]' "$FAKE_ENVDIR/policies" > "$FAKE_ENVDIR/p2" \\
+          && mv "$FAKE_ENVDIR/p2" "$FAKE_ENVDIR/policies"; echo '{}' ;;
+      *) exit 1 ;;
+    esac
+    exit 0 ;;
 esac
 exit 1
 """
@@ -168,11 +204,20 @@ FAKE_OPEN = """#!/usr/bin/env bash
 url="$1"
 case "$url" in
   */start)
+    [[ -z "$FAKE_NO_CALLBACK" ]] || exit 0
     page="$(curl -fsS "$url")"
     state="$(printf '%s' "$page" | sed -n 's/.*state=\\([0-9a-f]*\\)".*/\\1/p' | head -1)"
     base="${url%/start}"
     printf '%s' "$page" > "$FAKE_PAGE"
-    curl -fsS "$base/callback?code=${FAKE_CODE:-testcode}&state=${FAKE_STATE:-$state}" >/dev/null
+    if [[ -n "$FAKE_START_TWICE" ]]; then
+      curl -s -o /dev/null -w '%{http_code}' "$url" > "$FAKE_SECOND_START"
+    fi
+    if [[ -n "$FAKE_HOST" ]]; then
+      curl -s -o /dev/null -H "Host: $FAKE_HOST" \\
+        "$base/callback?code=${FAKE_CODE:-testcode}&state=$state"
+    else
+      curl -fsS "$base/callback?code=${FAKE_CODE:-testcode}&state=${FAKE_STATE:-$state}" >/dev/null
+    fi
     ;;
 esac
 exit 0
@@ -182,6 +227,10 @@ exit 0
 @pytest.fixture
 def world(tmp_path: Path):
     fake = FakeGitHub(tmp_path, PERMS)
+    envdir = tmp_path / "env"
+    envdir.mkdir()
+    tmpdir = tmp_path / "tmp"
+    tmpdir.mkdir()
     gh = tmp_path / "gh"
     gh.write_text(FAKE_GH)
     opener = tmp_path / "opener"
@@ -198,6 +247,12 @@ def world(tmp_path: Path):
         "FAKE_LOG": str(tmp_path / "secrets.log"),
         "FAKE_PAGE": str(tmp_path / "page.html"),
         "FAKE_EXISTING": str(tmp_path / "existing.txt"),
+        "FAKE_REPO_SECRETS": str(tmp_path / "repo_secrets.txt"),
+        "FAKE_API_LOG": str(tmp_path / "api.log"),
+        "FAKE_SECOND_START": str(tmp_path / "second_start.txt"),
+        "FAKE_ENVDIR": str(envdir),
+        "TRAZO_TEST": "1",
+        "TMPDIR": str(tmpdir),
     }
     yield fake, env, tmp_path
     fake.close()
@@ -238,8 +293,9 @@ def test_each_app_is_created_stored_verified_and_the_key_is_never_printed(world)
         "REVIEWER_APP_PRIVATE_KEY",
         "REVIEWER_APP_ID",
     ]
-    key_sizes = [int(line.split("stdin:")[1]) for line in stored if "stdin:" in line]
+    key_sizes = [int(line.split("stdin:")[1].split()[0]) for line in stored if "stdin:" in line]
     assert all(size > 1000 for size in key_sizes)
+    assert all(line.split()[2:] == ["env:trazo-apps", "actions"] for line in stored)
     body = fake.pem.splitlines()[1]
     assert body not in result.stdout + result.stderr
     assert "BEGIN" not in result.stdout + result.stderr
@@ -266,12 +322,13 @@ def test_granted_permissions_that_differ_from_the_manifest_fail_loudly(world) ->
     assert "Granted permissions differ" in result.stderr
 
 
-def test_an_app_installed_on_all_repositories_is_warned_about(world) -> None:
+def test_an_app_installed_on_all_repositories_fails(world) -> None:
     fake, env, tmp = world
     fake.selection = "all"
-    result = _run(env, "--only", "builder")
-    assert result.returncode == 0
-    assert "WARNING" in result.stdout
+    result = _run({**env, "WAIT_SECONDS": "4"}, "--only", "builder")
+    assert result.returncode != 0
+    assert "Done." not in result.stdout
+    assert "all" in result.stderr
 
 
 def test_existing_secrets_are_not_overwritten_without_force(world) -> None:
@@ -281,3 +338,131 @@ def test_existing_secrets_are_not_overwritten_without_force(world) -> None:
     assert result.returncode == 0
     assert "already exists" in result.stdout
     assert not (tmp / "secrets.log").exists()
+
+
+def test_either_existing_secret_blocks_a_second_app(world) -> None:
+    fake, env, tmp = world
+    (tmp / "existing.txt").write_text("BUILDER_APP_PRIVATE_KEY\n")
+    result = _run(env, "--only", "builder")
+    assert "already exists" in result.stdout
+    assert not (tmp / "secrets.log").exists()
+    assert fake.created == []
+
+
+def test_the_environment_is_created_limited_to_main_before_any_secret(world) -> None:
+    fake, env, tmp = world
+    result = _run(env, "--only", "builder")
+    assert result.returncode == 0, result.stdout + result.stderr
+    calls = (tmp / "api.log").read_text().splitlines()
+    put = next(c for c in calls if c.startswith("PUT repos/o/r/environments/trazo-apps "))
+    body = json.loads(put.split(" ", 2)[2])
+    assert body["deployment_branch_policy"] == {
+        "protected_branches": False,
+        "custom_branch_policies": True,
+    }
+    post = next(c for c in calls if c.startswith("POST "))
+    assert json.loads(post.split(" ", 2)[2]) == {"name": "main", "type": "branch"}
+    policies = json.loads((tmp / "env" / "policies").read_text())
+    assert policies == [{"name": "main", "type": "branch"}]
+
+
+def test_an_environment_that_allows_another_branch_fails_before_any_app(world) -> None:
+    fake, env, tmp = world
+    (tmp / "env" / "policies").write_text('[{"name":"main","type":"branch"},{"name":"*"}]')
+    result = _run(env, "--only", "builder")
+    assert result.returncode != 0
+    assert fake.created == []
+    assert not (tmp / "secrets.log").exists()
+
+
+def test_an_app_owned_by_someone_else_is_never_stored(world) -> None:
+    fake, env, tmp = world
+    fake.owner = "mallory"
+    result = _run(env, "--only", "builder")
+    assert result.returncode != 0
+    assert "owner" in result.stderr
+    assert not (tmp / "secrets.log").exists()
+
+
+def test_an_app_with_an_unexpected_name_is_never_stored(world) -> None:
+    fake, env, tmp = world
+    fake.name_override = "evil-app"
+    result = _run(env, "--only", "builder")
+    assert result.returncode != 0
+    assert not (tmp / "secrets.log").exists()
+
+
+def test_a_callback_with_a_foreign_host_header_is_ignored(world) -> None:
+    fake, env, tmp = world
+    env = {**env, "FAKE_HOST": "evil.example", "WAIT_SECONDS": "4"}
+    result = _run(env, "--only", "builder")
+    assert result.returncode != 0
+    assert not (tmp / "secrets.log").exists()
+
+
+def test_the_start_page_is_served_only_once(world) -> None:
+    fake, env, tmp = world
+    result = _run({**env, "FAKE_START_TWICE": "1"}, "--only", "builder")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (tmp / "second_start.txt").read_text() in {"403", "404", "410"}
+
+
+def test_granted_extra_permissions_fail(world) -> None:
+    fake, env, tmp = world
+    fake.perms = {**PERMS, "trazo-builder": {**PERMS["trazo-builder"], "workflows": "write"}}
+    result = _run(env, "--only", "builder")
+    assert result.returncode != 0
+    assert "Granted permissions differ" in result.stderr
+
+
+def test_a_failed_second_secret_names_the_app_to_recover(world) -> None:
+    fake, env, tmp = world
+    result = _run({**env, "FAKE_SET_FAIL": "BUILDER_APP_ID"}, "--only", "builder")
+    assert result.returncode != 0
+    assert "settings/apps/trazo-builder" in result.stderr
+
+
+def test_test_overrides_are_refused_outside_tests(world) -> None:
+    fake, env, tmp = world
+    env = {k: v for k, v in env.items() if k != "TRAZO_TEST"}
+    result = _run(env, "--only", "builder")
+    assert result.returncode != 0
+    assert "TRAZO_TEST" in result.stderr
+    assert fake.created == []
+
+
+def test_ctrl_c_stops_the_helper_and_removes_the_workdir(world) -> None:
+    fake, env, tmp = world
+    env = {**env, "FAKE_NO_CALLBACK": "1", "WAIT_SECONDS": "60"}
+    proc = subprocess.Popen(  # noqa: S603 - the script under test
+        [ZSH, str(SCRIPT), "--repo", "o/r", "--only", "builder"],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    tmpdir = tmp / "tmp"
+    port = None
+    for _ in range(100):
+        ports = list(tmpdir.glob("*/port"))
+        if ports and ports[0].read_text().strip():
+            port = int(ports[0].read_text())
+            break
+        time.sleep(0.1)
+    if port is None:
+        proc.kill()
+        out, err = proc.communicate()
+        pytest.fail(f"helper never started: {out} {err} {list(tmpdir.rglob('*'))}")
+    time.sleep(0.5)
+    proc.send_signal(signal.SIGINT)
+    try:
+        proc.communicate(timeout=20)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
+        pytest.fail("script did not exit on SIGINT")
+    assert proc.returncode == 130
+    assert list(tmpdir.iterdir()) == []
+    time.sleep(0.5)
+    with pytest.raises(OSError), socket.create_connection(("127.0.0.1", port), timeout=1):
+        pass
