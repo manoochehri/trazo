@@ -227,6 +227,48 @@ def test_named_sensitive_paths_are_sensitive():
         assert report_verdict.is_sensitive_path(path, patterns), path
 
 
+STOP_LIST_PATHS = (
+    ".trazo/skills/work.md",
+    ".trazo/ADVISOR.md",
+    ".trazo/ARCHITECTURE.md",
+    ".trazo/project/SKEPTIC_BAR.md",
+    ".trazo/project/ARCHITECTURE_CONTRACT.md",
+    "ARCHITECTURE_CONTRACT.md",
+    ".codex/agents/security.toml",
+    ".agents/skills/work/SKILL.md",
+    ".mcp.json",
+    "pkg/.mcp.json",
+    "CLAUDE.local.md",
+    "AGENTS.override.md",
+    "pkg/AGENTS.md",
+)
+
+
+def test_files_the_stop_list_protects_are_sensitive():
+    """rules.md "Ask before guessing" names these; editing them must never auto-merge (#273)."""
+    patterns = report_verdict.codeowners_patterns(CODEOWNERS)
+    missed = [p for p in STOP_LIST_PATHS if not report_verdict.is_sensitive_path(p, patterns)]
+    assert not missed, f"not sensitive: {missed}"
+
+
+def test_the_installed_templates_directory_is_listed():
+    """No file lives there in this repo, so check the prefix itself (#273)."""
+    assert ".trazo/templates/" in report_verdict.EXTRA_SENSITIVE_PREFIXES
+
+
+def test_ordinary_project_files_stay_non_sensitive():
+    """The stop list carves ordinary .trazo/project/ files out so routine PRs can update them."""
+    patterns = report_verdict.codeowners_patterns(CODEOWNERS)
+    for path in (
+        ".trazo/project/RUNBOOK.md",
+        ".trazo/project/STATUS.md",
+        ".trazo/project/PLAN.md",
+        ".trazo/project/workstreams/claude-md-imports.md",
+        ".trazo/project/reports/2026-10-08-v0.1.0-migration-inventory.md",
+    ):
+        assert not report_verdict.is_sensitive_path(path, patterns), path
+
+
 def test_ordinary_paths_are_not_sensitive():
     patterns = report_verdict.codeowners_patterns(CODEOWNERS)
     for path in ("src/other/notes.md", "tests/test_x.py", "docs/guide.md"):

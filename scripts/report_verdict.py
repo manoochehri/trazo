@@ -46,7 +46,21 @@ EXTRA_SENSITIVE_PREFIXES = (
     ".trazo/project/charter/",
     "src/overlay/",
     "src/adapters/",
+    # The rest of the installed framework and the other tools' agent files (#273): rules.md's stop
+    # list names them. Ordinary .trazo/project/ files (RUNBOOK, STATUS, PLAN, workstreams, reports)
+    # stay out so routine pull requests can update them.
+    ".trazo/skills/",
+    ".trazo/templates/",
+    ".trazo/ADVISOR.md",
+    ".trazo/ARCHITECTURE.md",
+    ".trazo/project/SKEPTIC_BAR.md",
+    ".trazo/project/ARCHITECTURE_CONTRACT.md",
+    ".codex/",
+    ".agents/",
 )
+# Prefixes are written with their real case so the layout test can check they exist; matching
+# lowercases both sides.
+_SENSITIVE_PREFIXES_LC = tuple(p.lower() for p in EXTRA_SENSITIVE_PREFIXES)
 # Matched against the file's base name, so a stand-in at any depth counts.
 EXTRA_SENSITIVE_BASENAMES = (
     "makefile",
@@ -64,8 +78,13 @@ EXTRA_SENSITIVE_BASENAMES = (
     ".env.example",
     "mkdocs.yml",
     "claude.md",
+    "claude.local.md",
     "agents.md",
+    "agents.override.md",
     "codeowners",
+    ".mcp.json",
+    "architecture_contract.md",
+    "skeptic_bar.md",
 )
 
 
@@ -200,7 +219,7 @@ def pattern_matches(path, pattern, anchored):
 def is_sensitive_path(path, patterns):
     path = path.lower()
     base = path.rsplit("/", 1)[-1]
-    if path.startswith(EXTRA_SENSITIVE_PREFIXES) or base in EXTRA_SENSITIVE_BASENAMES:
+    if path.startswith(_SENSITIVE_PREFIXES_LC) or base in EXTRA_SENSITIVE_BASENAMES:
         return True
     if base.startswith("requirements") and base.endswith(".txt"):
         return True
