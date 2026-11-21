@@ -446,7 +446,8 @@ jobs:
           gh pr list --state merged --search "merged:>=${since}" --limit 100 --json number,title,url,headRefName \
             -q '[.[] | select(.headRefName | test("^issue-[0-9]+")) | {number, title, url}]' > merged.json
           halt_flag=""
-          if [[ $(gh issue list --state open --label drive-halt --json number -q length) != "0" ]]; then halt_flag="--halted"; fi
+          # Same check as work, merge and breaker: halted until the owner closes the halt issue.
+          if ! grep -qx 'halted=false' <<<"$(python3 scripts/drive_guard.py halt)"; then halt_flag="--halted"; fi
           python3 scripts/drive_guard.py digest $halt_flag < merged.json > digest.md
           gh label create drive-digest --color ededed --description "Daily drive digest" 2>/dev/null || true
           issue=$(gh issue list --state open --label drive-digest --json number -q '.[0].number // ""')

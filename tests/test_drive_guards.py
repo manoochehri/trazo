@@ -253,3 +253,9 @@ def test_halt_is_read_through_the_owner_check_in_every_job_that_acts():
     for name in ("work", "merge", "breaker"):
         assert "scripts/drive_guard.py halt" in job(name), name
     assert "/events" in SCRIPT.read_text()  # the closer is read from the issue events API
+
+
+def test_digest_reports_halt_through_the_owner_closed_check():
+    d = job("digest")
+    assert "scripts/drive_guard.py halt" in d
+    assert "--label drive-halt" not in d

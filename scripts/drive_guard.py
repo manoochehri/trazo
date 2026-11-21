@@ -84,7 +84,7 @@ def digest(merged, halted):
         lines.append(f"- #{int(pr['number'])} {_plain(pr.get('title', ''))}")
     if halted:
         lines.append("")
-        lines.append("The driver is halted: an open issue carries the drive-halt label.")
+        lines.append("The driver is halted until the repository owner closes the drive-halt issue.")
     else:
         lines.append("")
         lines.append("The driver is not halted.")
