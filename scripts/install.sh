@@ -57,8 +57,14 @@ resolve_latest() {
 # fetch <source> <tag> <dest>: shallow clone of exactly that tag, refusing symlinks in src/.
 fetch() {
   local src="$1" tag="$2" dest="$3"
-  git -c core.symlinks=false clone --quiet --depth 1 --branch "$tag" -- "$src" "$dest" >/dev/null 2>&1 ||
+  # Fetch refs/tags/<tag> explicitly: `clone --branch <name>` prefers a branch of that name,
+  # so anyone able to push a branch `v0.2.0` could stand in for the release (#272).
+  git init --quiet -- "$dest" >/dev/null 2>&1 || die "cannot create a work tree for $src"
+  git -C "$dest" -c core.symlinks=false fetch --quiet --depth 1 --no-tags -- "$src" \
+    "+refs/tags/$tag:refs/tags/$tag" >/dev/null 2>&1 ||
     die "cannot fetch tag '$tag' from $src (does the tag exist?)"
+  git -C "$dest" -c core.symlinks=false checkout --quiet --detach "refs/tags/$tag" >/dev/null 2>&1 ||
+    die "cannot check out tag '$tag' from $src"
   [ -d "$dest/src/overlay" ] && [ -d "$dest/src/adapters" ] ||
     die "tag '$tag' has no src/overlay and src/adapters; it predates the installer layout"
   # With core.symlinks=false a link is checked out as a plain file, so read the tree itself.
