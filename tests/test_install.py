@@ -461,8 +461,13 @@ def test_shipped_settings_keep_deny_rules_and_engineer_default():
 
     perms = json.loads((REPO_ROOT / "src/adapters/claude/settings.json").read_text())
     assert perms["model"] == "haiku"
-    assert set(perms) == {"model", "permissions"}
+    assert set(perms) == {"model", "permissions", "hooks"}
     assert set(perms["permissions"]) == {"deny"}, "shipped settings may only deny"
+    # #279: the one shipped hook is the PM Bash guard, which can only block.
+    assert set(perms["hooks"]) == {"PreToolUse"}
+    (entry,) = perms["hooks"]["PreToolUse"]
+    assert entry["matcher"] == "Bash"
+    assert "pm_bash_guard.py" in entry["hooks"][0]["command"]
 
 
 def test_reversed_markers_are_refused(host, source):

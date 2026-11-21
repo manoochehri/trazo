@@ -1,6 +1,6 @@
 # 0019: The PM may spawn arbitrary subagents (accepted risk)
 
-**Date:** 2026-10-13  **Status:** accepted
+**Date:** 2026-10-13  **Status:** superseded by [0025](0025-pm-cannot-start-agents.md)
 
 ## Context
 The PM needs to sweep pull requests and issues and start work by spawning subagents. Issue
