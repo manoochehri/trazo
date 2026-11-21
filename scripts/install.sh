@@ -22,7 +22,14 @@
 #                      installed as trazo-<name>.md. settings.json only if absent
 #   .codex/agents/     project-scoped Codex role agents; names are prefixed with trazo-
 #   .agents/skills/    Codex workflow skills; names are prefixed with trazo-
-#   .github/CODEOWNERS never edited; suggested lines are printed
+#   harness (src/harness/)
+#                      CI (ci.yml; review.yml and drive.yml with the Claude adapter), the PR
+#                      template, gitleaks and pre-commit config, scripts/scan*.sh, put_secret.sh,
+#                      check_pr_evidence.py, report_verdict.py, .env.example (placeholders) and a
+#                      placeholder Dockerfile. A path the host already has is never overwritten;
+#                      a file we placed is tracked in the manifest like an adapter file
+#   .github/CODEOWNERS written only when absent (owner guessed from origin); an existing one is
+#                      never edited, and suggested lines are printed
 #   .trazo/INSTALLED   manifest: sha256 and path of each adapter file placed. Upgrade and
 #                      uninstall touch only listed files, and skip any whose hash no longer
 #                      matches (the host edited it). Entries are validated before use
@@ -163,7 +170,8 @@ drop_block() {
 
 MANIFEST=.trazo/INSTALLED
 P=.trazo/project
-PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.json|\.codex/agents/[A-Za-z0-9._-]+\.toml|\.agents/skills/[A-Za-z0-9._-]+/SKILL\.md)$'
+HARNESS_RE='\.github/workflows/(ci|review|drive)\.yml|\.github/pull_request_template\.md|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.env\.example|Dockerfile|scripts/(scan\.sh|scan-preflight\.sh|put_secret\.sh|check_pr_evidence\.py|report_verdict\.py|drive_guard\.py|drive_sweep\.py)'
+PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.json|'"$HARNESS_RE"'|\.codex/agents/[A-Za-z0-9._-]+\.toml|\.agents/skills/[A-Za-z0-9._-]+/SKILL\.md)$'
 
 # check_manifest: the manifest is a committed file anyone can edit, and it decides what we
 # overwrite and delete. Accept only "<sha256>  <path>" with a path from the allowed set.
@@ -276,6 +284,58 @@ place_codex_skill() {
   fi
   put_file "$rendered" "$dest" "$placed"
   rm -f "$rendered"
+}
+
+# place_harness <src> <dest> <placed-list>: the host's own path is never overwritten. A path that
+# is absent, or that we placed and the host has not edited, is written; one we placed and the host
+# edited is left with a diff (put_file). A path the host created is skipped and not recorded.
+place_harness() {
+  local src="$1" dest="$2" placed="$3"
+  if [ -e "$dest" ] && ! in_manifest "$dest"; then
+    echo "kept: $dest is yours; not overwritten" >&2
+    return
+  fi
+  put_file "$src" "$dest" "$placed"
+}
+
+# remote_slug: owner/repo from the origin remote when it is on github.com, else empty.
+remote_slug() {
+  local url
+  url="$(git remote get-url origin 2>/dev/null)" || return 0
+  url="${url%.git}"
+  case "$url" in
+    *github.com[:/]*/*) echo "${url#*github.com[:/]}" ;;
+  esac
+}
+
+# place_harness_all <repo> <adapter> <placed-list>
+place_harness_all() {
+  local repo="$1" adapter="$2" placed="$3" h="$1/src/harness" slug owner f
+  [ -d "$h" ] || { echo "note: this tag ships no src/harness; no CI or scripts placed" >&2; return 0; }
+  for f in .github/workflows/ci.yml .github/pull_request_template.md .gitleaks.toml \
+    .pre-commit-config.yaml Dockerfile scripts/scan.sh scripts/scan-preflight.sh \
+    scripts/put_secret.sh scripts/check_pr_evidence.py scripts/report_verdict.py scripts/drive_guard.py scripts/drive_sweep.py; do
+    place_harness "$h/$f" "$f" "$placed"
+  done
+  # Stored as env.example in src/ so no tool mistakes the source for a real .env file.
+  place_harness "$h/env.example" .env.example "$placed"
+  if [ "$adapter" = claude ] || [ "$adapter" = both ]; then
+    for f in .github/workflows/review.yml .github/workflows/drive.yml; do
+      place_harness "$h/$f" "$f" "$placed"
+    done
+  fi
+  if [ ! -e .github/CODEOWNERS ]; then
+    slug="$(remote_slug)"
+    owner="${slug%%/*}"
+    mkdir -p .github
+    if [ -n "$owner" ]; then
+      sed "s/@OWNER/@$owner/" "$h/.github/CODEOWNERS" >.github/CODEOWNERS
+    else
+      cp "$h/.github/CODEOWNERS" .github/CODEOWNERS
+    fi
+    echo "created .github/CODEOWNERS (starter)"
+    CODEOWNERS_NEW=1
+  fi
 }
 
 # ---------------------------------------------------------------- install / upgrade
@@ -404,6 +464,8 @@ do_install() {
       echo "== end settings.json"
     fi
   fi
+  CODEOWNERS_NEW=0
+  place_harness_all "$work/repo" "$adapter" "$placed"
   # Keep manifest entries from an earlier adapter choice that are still on disk.
   if [ -f "$MANIFEST" ]; then
     while IFS= read -r line; do
@@ -416,23 +478,46 @@ do_install() {
   sort -u "$placed" >"$MANIFEST"
 
   echo "installed Trazo $tag"
-  cat <<EOF
+  print_owner_steps "$tag" "$adapter"
+}
 
-CODEOWNERS is never edited by this script. Safety limits are only limits if the owner
-reviews them; add these lines to .github/CODEOWNERS (replace @owner):
-
-  /.trazo/project/charter/   @owner
-  /.claude/settings.json     @owner
-  /.github/workflows/        @owner
-  /.github/CODEOWNERS        @owner
-
-The installer does not change GitHub repository settings. Ask the owner to enable
-Settings > General > Pull Requests > Automatically delete head branches. Verify with:
-
-  gh api repos/OWNER/REPO --jq .delete_branch_on_merge
-
-The result should be true.
-EOF
+# print_owner_steps <tag> <adapter>: only what a script cannot do for the owner.
+print_owner_steps() {
+  local tag="$1" adapter="$2" slug n=1
+  slug="$(remote_slug)"
+  [ -n "$slug" ] || slug="<owner>/<repo>"
+  echo
+  echo "Owner-only steps (secrets, variables and settings are yours; this script never sets them):"
+  echo
+  if [ "$adapter" = claude ] || [ "$adapter" = both ]; then
+    echo "  $n. ANTHROPIC_API_KEY secret, for automatic review and drive. One per repo, unless the"
+    echo "     repo is in a GitHub organization (then set it once as an organization secret):"
+    echo "       gh secret set ANTHROPIC_API_KEY -R $slug"
+    n=$((n + 1))
+    echo "  $n. AUTO_REVIEW_ENABLED variable. Automatic review runs only when it is true; the default"
+    echo "     is off. Turn it on after the secret is set:"
+    echo "       gh variable set AUTO_REVIEW_ENABLED --body true -R $slug"
+    n=$((n + 1))
+    echo "  $n. If you will enable drive: create the builder and reviewer GitHub Apps with"
+    echo "     scripts/setup_github_apps.zsh from Trazo at $tag (it is not installed in your repo)."
+    n=$((n + 1))
+    echo "  $n. DRIVE_ENABLED stays unset (drive does nothing) until you can watch one run. Then set it"
+    echo "     to true, watch that one watched run, and unset it again if anything looks wrong."
+    n=$((n + 1))
+  fi
+  if [ "${CODEOWNERS_NEW:-0}" = 1 ]; then
+    echo "  $n. Check .github/CODEOWNERS: the handle is guessed from origin (or is still @OWNER) and"
+    echo "     must name a user or team that can review."
+  else
+    echo "  $n. Your .github/CODEOWNERS was not edited. Add these lines (replace @owner):"
+    echo "       /.trazo/project/charter/   @owner"
+    echo "       /.claude/settings.json     @owner"
+    echo "       /.github/workflows/        @owner"
+    echo "       /.github/CODEOWNERS        @owner"
+  fi
+  n=$((n + 1))
+  echo "  $n. Settings > General > Pull Requests > Automatically delete head branches. Verify:"
+  echo "       gh api repos/$slug --jq .delete_branch_on_merge     (should print true)"
 }
 
 # ---------------------------------------------------------------- uninstall

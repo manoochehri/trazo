@@ -37,7 +37,7 @@ Trazo's answer: **the repo is the memory, and the rails are mounted rather than 
 
 ### What the installer gives your repo
 
-`install.sh` writes only what is in `src/overlay/` and `src/adapters/`, and nothing else:
+`install.sh` writes only what is in `src/overlay/`, `src/adapters/` and `src/harness/`, and nothing else:
 
 | Area | What's included |
 |---|---|
@@ -60,7 +60,15 @@ Run after install. It interviews you, then writes and configures:
 - `make setup`, `make test` and `make scan` run once, with failures fixed
 - where the project runs, recorded in the runbook and architecture; if it deploys anywhere, a budget alert and the teardown command
 
-What neither step provides: **CI workflows, gitleaks, pre-commit, a Dockerfile, a PR template, `.env.example`, `scripts/put_secret.sh`, or CODEOWNERS.** Those are this repository's own harness. The installer prints suggested CODEOWNERS lines for you to add (safety limits only count if you review them), and CI and secret scanning are yours to bring.
+The installer also writes the harness from `src/harness/`, and never overwrites a path you already have (a file it placed that you then edit is kept too):
+
+- CI: `ci.yml` (secret scan, PR evidence check), and with the Claude adapter `review.yml` (automatic review, off until `AUTO_REVIEW_ENABLED` is `true`) and `drive.yml` (off until `DRIVE_ENABLED` is `true`; unset on a fresh install)
+- `.gitleaks.toml`, `.pre-commit-config.yaml`, `scripts/scan.sh`, `scripts/scan-preflight.sh`
+- the PR template and `scripts/check_pr_evidence.py`, so a missing review-rounds, defects or fail-first field fails CI; `scripts/report_verdict.py`
+- `scripts/put_secret.sh` (stores a secret in AWS Secrets Manager) and an `.env.example` of placeholders
+- a starter `.github/CODEOWNERS` for agent prompts, roles, settings and the gate, only if you have none; with one, suggested lines are printed instead
+
+The test command in `ci.yml` and the `Dockerfile` depend on your stack, so they are placeholders that fail until `/kickoff` asks and sets them. `docs.yml` is not shipped: it builds this repository's own MkDocs site. At the end the installer prints only the owner-only steps: the `ANTHROPIC_API_KEY` secret, the `AUTO_REVIEW_ENABLED` variable, GitHub App setup if you will use drive, and keeping `DRIVE_ENABLED` unset until one watched run.
 
 Beneath the files, the design has two layers. The second is the one that matters.
 

@@ -1,0 +1,23 @@
+# Starter placed by the Trazo installer. The owner must review changes to what governs the agents:
+# agents may not change their own prompts, roles, hooks or settings; everything else is agentic.
+# @OWNER is replaced from the origin remote when it can be; check it names someone who can review.
+# Agent prompts, roles, skills, hooks and adapters
+/.trazo/rules.md         @OWNER
+/.trazo/roles/           @OWNER
+/.trazo/skills/          @OWNER
+/.trazo/hooks/           @OWNER
+/.trazo/templates/       @OWNER
+/.trazo/ADVISOR.md       @OWNER
+/.trazo/ARCHITECTURE.md  @OWNER
+/.trazo/project/SKEPTIC_BAR.md @OWNER
+/.trazo/project/charter/ @OWNER
+/.claude/                @OWNER
+/.codex/                 @OWNER
+/.agents/                @OWNER
+/.mcp.json               @OWNER
+/AGENTS.md               @OWNER
+/CLAUDE.md               @OWNER
+# The gate: CI, review, drive and the scripts they run
+/.github/workflows/      @OWNER
+/.github/CODEOWNERS      @OWNER
+/scripts/                @OWNER
