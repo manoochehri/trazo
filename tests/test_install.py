@@ -301,6 +301,32 @@ def test_branch_name_is_not_a_tag(host, source):
     assert not (host / ".trazo").exists()
 
 
+def clash_source(tmp_path: Path, name: str, with_tag: bool = True) -> Path:
+    """A source whose branch `name` holds an attacker commit; the tag (if any) the release."""
+    src = make_source(tmp_path, (name,) if with_tag else ("v0.1.0",))
+    work = tmp_path / "source-work"
+    git(work, "checkout", "-q", "-b", name)
+    (work / "src" / "overlay" / "ATTACKER").write_text("branch\n")
+    git(work, "add", "-A")
+    git(work, "commit", "-q", "-m", "attacker commit")
+    git(work, "push", "-q", str(src), f"HEAD:refs/heads/{name}")
+    return src
+
+
+def test_tag_is_installed_not_a_same_named_branch(tmp_path, host):
+    src = clash_source(tmp_path, "v9.9.9")
+    run(host, "install", "v9.9.9", source=src)
+    assert not (host / ".trazo" / "ATTACKER").exists()
+    assert version(host) == "v9.9.9"
+
+
+def test_branch_named_like_a_tag_without_the_tag_refuses(tmp_path, host):
+    src = clash_source(tmp_path, "v9.9.9", with_tag=False)
+    r = run(host, "install", "v9.9.9", source=src, check=False)
+    assert r.returncode != 0
+    assert not (host / ".trazo").exists()
+
+
 def test_latest_resolves_to_the_highest_tag(tmp_path, host):
     src = make_source(tmp_path, ("v0.2.0", "v0.10.0", "v0.9.0"))
     run(host, "install", "latest", source=src)
