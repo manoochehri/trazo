@@ -1,4 +1,4 @@
-# 0025: Drive spend cap and runaway guardrails
+# 0027: Drive spend cap and runaway guardrails
 
 **Date:** 2026-11-19  **Status:** accepted
 

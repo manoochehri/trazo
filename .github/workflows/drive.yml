@@ -14,7 +14,7 @@ name: drive
 #            success, passing checks, no blocking label, exactly one closing reference that matches its
 #            branch, and scripts/report_verdict.py --sensitive says the change touches no owner-protected
 #            path. That script is the one classifier review.yml also uses.
-# Backstops (ADR 0025, #249, #258), all repository variables, all optional, every bad value falls back to the default:
+# Backstops (ADR 0027, #249, #258), all repository variables, all optional, every bad value falls back to the default:
 #   DRIVE_ENABLED              kill switch; anything but 'true' stops everything
 #   DRIVE_MAX_MERGES_PER_DAY   default 5   merges per UTC day, counted by the work guard and the merge job
 #   DRIVE_MAX_RUNS_PER_DAY     default 4   agent runs per UTC day
@@ -340,7 +340,7 @@ jobs:
               echo "PR #${pr}: verdict=${verdict:-none} security=${security} ci=${ci}; not merging."
             fi
           }
-          # Backstops (ADR 0025): an open drive-halt issue stops merging, and merges per UTC day are capped.
+          # Backstops (ADR 0027): an open drive-halt issue stops merging, and merges per UTC day are capped.
           if ! grep -qx 'halted=false' <<<"$(python3 scripts/drive_guard.py halt)"; then
             echo "Drive is halted (drive-halt, until the owner closes it); not merging."; exit 0
           fi
