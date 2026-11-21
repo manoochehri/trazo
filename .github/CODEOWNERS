@@ -1,7 +1,25 @@
-# Owner must review changes to safety-critical paths. Replace manoochehri at kickoff.
-/.github/workflows/      @manoochehri
-/.github/CODEOWNERS      @manoochehri
-/.claude/settings.json   @manoochehri
-/.trazo/project/charter/        @manoochehri
+# Owner must review changes to what governs agents (owner decision, #281: agents may not change
+# their own prompts and roles; everything else is agentic). Replace manoochehri at kickoff.
+# Agent prompts, roles, skills and adapters
+/src/overlay/            @manoochehri
 /src/adapters/           @manoochehri
+/.trazo/rules.md         @manoochehri
+/.trazo/roles/           @manoochehri
+/.trazo/skills/          @manoochehri
+/.trazo/templates/       @manoochehri
+/.trazo/ADVISOR.md       @manoochehri
+/.trazo/ARCHITECTURE.md  @manoochehri
+/.trazo/project/SKEPTIC_BAR.md @manoochehri
+/.claude/agents/         @manoochehri
+/.claude/commands/       @manoochehri
+/.claude/settings.json   @manoochehri
+/.codex/                 @manoochehri
+/.agents/                @manoochehri
+/AGENTS.md               @manoochehri
+/CLAUDE.md               @manoochehri
+/.github/CODEOWNERS      @manoochehri
+# Kept until #212 lands (a PR that edits review.yml runs its own copy and can post trazo/verdict);
+# removing these is a follow-up.
+/.github/workflows/      @manoochehri
 /scripts/install.sh      @manoochehri
+/.trazo/project/charter/        @manoochehri
