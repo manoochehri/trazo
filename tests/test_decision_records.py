@@ -266,3 +266,21 @@ def test_0026_describes_codeowners_as_agent_prompts_roles_and_settings() -> None
         "old CODEOWNERS gap wording remains"
     )
     assert "CODEOWNERS does not cover `src/overlay/`, `.trazo/rules.md`, roles, ADRs" not in text
+
+
+def test_0026_protects_rules_skills_and_instruction_files_by_the_owner_decision() -> None:
+    """Owner decision on #278 (2026-11-19): agents must not change their own prompts and
+    roles. The rules, skills and instruction files that carry those prompts are under the
+    same decision (tracked in #281), so the record must not call them ungated."""
+    text = " ".join((DECISIONS / "0026-decide-then-tell.md").read_text(encoding="utf-8").split())
+    assert "ADRs, rules and dependency files are not" not in text, "rules are still called ungated"
+    protected = [
+        "src/overlay/rules.md",
+        ".trazo/rules.md",
+        "src/overlay/skills/",
+        "CLAUDE.md",
+        "AGENTS.md",
+    ]
+    for name in protected:
+        assert name in text, f"{name} is not named as protected"
+    assert "#281" in text, "the tracking issue #281 is not named"

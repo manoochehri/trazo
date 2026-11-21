@@ -67,8 +67,10 @@ The rules produce this. `rules.md` "Ask before guessing" said to stop and ask fo
   owner audit decisions.
 - Known gaps this does not fix, tracked elsewhere: CODEOWNERS is to cover agent prompts, roles and
   settings only (owner decision, 2026-11-19, #278), and does not yet list `.claude/agents/`,
-  `.claude/commands/` or `src/overlay/roles/` (#231, #45). ADRs, rules and dependency files are not
-  owner-gated; the reviewer, security and CI checks guard them instead;
+  `.claude/commands/` or `src/overlay/roles/` (#231, #45). The same owner decision covers
+  `src/overlay/rules.md`, `.trazo/rules.md`, `src/overlay/skills/`, `CLAUDE.md` and `AGENTS.md`,
+  which carry the agents' prompts; that protection is tracked in #281. ADRs and dependency files are
+  not owner-gated; the reviewer, security and CI checks guard them instead;
   `trazo/security` is not a required check (#212); agents post as the owner's account (#44), so a
   `Decided:` comment, or an owner reply, cannot be told apart from an agent's comment. "Expensive" and "data" are not defined
   precisely and will need examples from real decisions.
