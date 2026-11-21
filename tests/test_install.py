@@ -106,9 +106,9 @@ def test_fresh_install(host, source):
     assert (host / ".claude/agents/pm.md").is_file()
     assert (host / ".claude/commands/work.md").is_file()
     assert (host / ".claude/settings.json").is_file()
-    # CODEOWNERS is suggested, never written.
-    assert "/.trazo/project/charter/" in out
-    assert not (host / ".github/CODEOWNERS").exists()
+    # A starter CODEOWNERS is written only when the host has none (#285); see test_install_harness.
+    assert "/.trazo/project/charter/" in (host / ".github/CODEOWNERS").read_text()
+    assert "Owner-only steps" in out
 
 
 def test_agents_adapter_only(host, source):
@@ -358,7 +358,7 @@ def manifest_lines(host):
 def test_hostile_manifest_is_refused(host, source, bad):
     run(host, "install", "v0.1.0", source=source)
     victim = host / ".github" / "CODEOWNERS"
-    victim.parent.mkdir(parents=True)
+    victim.parent.mkdir(parents=True, exist_ok=True)
     victim.write_text("owner\n")
     with (host / ".trazo" / "INSTALLED").open("a") as f:
         f.write(f"{'0' * 64}  {bad}\n")
