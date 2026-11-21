@@ -105,9 +105,13 @@ def test_digest_lists_merges_and_halt_state_without_mentions():
 
 def test_cli_limit_and_breaker():
     r = subprocess.run(  # noqa: S603
-        [sys.executable, str(SCRIPT), "limit", "abc", "5"], capture_output=True, text=True
+        [sys.executable, str(SCRIPT), "cap", "merges", "abc"], capture_output=True, text=True
     )
     assert r.stdout.strip() == "5"
+    r = subprocess.run(  # noqa: S603
+        [sys.executable, str(SCRIPT), "cap", "merges", "99999"], capture_output=True, text=True
+    )
+    assert r.stdout.strip() == "10"
     events = '[{"time":"1","kind":"fail"},{"time":"2","kind":"fail"}]'
     r = subprocess.run(  # noqa: S603
         [sys.executable, str(SCRIPT), "breaker"], input=events, capture_output=True, text=True
@@ -182,3 +186,70 @@ def test_no_action_is_unpinned_and_no_new_secret():
     for use in re.findall(r"^\s*(?:- )?uses: (\S+)", t, re.M):
         assert re.search(r"@[0-9a-f]{40}$", use), use
     assert t.count("${{ secrets.") == 1  # still only ANTHROPIC_API_KEY
+
+
+# --- security round 1 (PR #284) -------------------------------------------------------------
+
+
+def test_caps_have_hard_ceilings_a_variable_cannot_exceed():
+    g = guard()
+    assert g.cap("merges", "999999") == 10
+    assert g.cap("runs", "999999") == 8
+    assert g.cap("usd", "999999") == 5
+    assert g.cap("merges", "7") == 7
+    for name, default in (("merges", 5), ("runs", 4), ("usd", 2)):
+        assert g.cap(name, None) == default
+        assert g.cap(name, "junk") == default
+        assert default <= g.CEILINGS[name]
+    assert g.cap("usd", "0") >= 1  # a zero dollar budget is not a cap, it is a broken run
+
+
+def issue(state, closed_by=None, closed_at=None):
+    return {"state": state, "closed_by": closed_by, "closed_at": closed_at}
+
+
+def test_halt_holds_until_the_owner_closes_the_halt_issue():
+    g = guard()
+    assert g.halt_status([], "owner") == (False, "")
+    assert g.halt_status([issue("open")], "owner")[0] is True
+    assert g.halt_status([issue("closed", "owner", "2026-01-02T00:00:00Z")], "owner") == (
+        False,
+        "2026-01-02T00:00:00Z",
+    )
+    # closed by anyone else, or by nobody we can identify, is still a halt
+    assert g.halt_status([issue("closed", "someone-else", "2026-01-02T00:00:00Z")], "owner")[0]
+    assert g.halt_status([issue("closed", None, "2026-01-02T00:00:00Z")], "owner")[0]
+    assert g.halt_status("junk", "owner")[0] is True
+    assert g.halt_status([issue("closed", "owner", "x")], "")[0] is True
+
+
+def test_breaker_ignores_failures_from_before_the_owner_cleared_the_halt():
+    g = guard()
+    old = [ev("2026-01-01T00:00:00Z", "fail"), ev("2026-01-01T01:00:00Z", "fail")]
+    assert g.breaker(old) is True
+    assert g.breaker(old, since="2026-01-02T00:00:00Z") is False
+    assert (
+        g.breaker(old + [ev("2026-01-03T00:00:00Z", "fail")], since="2026-01-02T00:00:00Z") is False
+    )
+
+
+def test_run_cap_and_breaker_count_cancelled_and_timed_out_runs():
+    work = job("work")
+    guard_step = work[work.index("id: guard") : work.index("id: pick")]
+    assert "cancelled" in guard_step and "timed_out" in guard_step
+    b = job("breaker")
+    assert "cancelled" in b and "timed_out" in b
+    assert "needs.work.result != 'cancelled'" not in b
+    assert '"cancelled"' in b and "needs.work.result" in b  # this run's own timeout counts
+
+
+def test_stuck_runs_for_a_cancelled_work_job():
+    stuck = job("stuck")
+    assert "needs.work.result != 'cancelled'" not in stuck
+    assert "needs.work.result == 'cancelled'" in stuck
+
+
+def test_halt_is_read_through_the_owner_check_in_every_job_that_acts():
+    for name in ("work", "merge", "breaker"):
+        assert "scripts/drive_guard.py halt" in job(name), name
+    assert "/events" in SCRIPT.read_text()  # the closer is read from the issue events API

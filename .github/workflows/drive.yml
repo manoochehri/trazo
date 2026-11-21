@@ -66,21 +66,23 @@ jobs:
           # Fail closed: ok stays false unless every check below passes (the last line written wins).
           echo "ok=false" >> "$GITHUB_OUTPUT"
           today=$(date -u +%F)
-          max_merges=$(python3 scripts/drive_guard.py limit "$RAW_MERGES" 5)
-          max_runs=$(python3 scripts/drive_guard.py limit "$RAW_RUNS" 4)
-          usd=$(python3 scripts/drive_guard.py limit "$RAW_USD" 2)
-          [[ "$usd" -ge 1 ]] || usd=2
-          halted=$(gh issue list --state open --label drive-halt --json number -q length)
-          if [[ "$halted" != "0" ]]; then echo "An open issue carries drive-halt; stopping."; exit 0; fi
+          # Limits come from scripts/drive_guard.py: a variable may lower them or raise them to a hard ceiling.
+          max_merges=$(python3 scripts/drive_guard.py cap merges "$RAW_MERGES")
+          max_runs=$(python3 scripts/drive_guard.py cap runs "$RAW_RUNS")
+          usd=$(python3 scripts/drive_guard.py cap usd "$RAW_USD")
+          # Halted until the repository OWNER closes the drive-halt issue (an open halt issue, or one closed by
+          # anyone else, or any error reading it, is a halt).
+          if ! grep -qx 'halted=false' <<<"$(python3 scripts/drive_guard.py halt)"; then echo "Drive is halted (drive-halt); stopping."; exit 0; fi
           inflight=$(gh pr list --state open --limit 200 --json headRefName -q '[.[] | select(.headRefName | test("^issue-[0-9]+-drive-"))] | length')
           if [[ "$inflight" != "0" ]]; then echo "A drive pull request is still open; stopping."; exit 0; fi
           merged=$(gh pr list --state merged --search "merged:>=${today}" --limit 200 --json headRefName -q '[.[] | select(.headRefName | test("^issue-[0-9]+"))] | length')
           if (( merged >= max_merges )); then echo "Merge cap ${max_merges} reached today (${merged}); stopping."; exit 0; fi
-          # Agent runs today: earlier runs of this workflow whose agent step ran. The current run is skipped.
+          # Agent runs today: earlier runs whose agent step started, however it ended. A cancelled or timed-out
+          # step counts, so a run that hits the job timeout cannot repeat uncounted. The current run is skipped.
           agent_runs=0
           for id in $(gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/workflows/drive.yml/runs" -f created=">=${today}" -f per_page=100 -q '.workflow_runs[].id'); do
             [[ "$id" == "$GITHUB_RUN_ID" ]] && continue
-            n=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" -q '[.jobs[] | select(.name == "work") | .steps[] | select((.name | startswith("work the issue")) and (.conclusion == "success" or .conclusion == "failure"))] | length')
+            n=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" -q '[.jobs[] | select(.name == "work") | .steps[] | select((.name | startswith("work the issue")) and (.conclusion == "success" or .conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out"))] | length')
             agent_runs=$((agent_runs + n))
           done
           if (( agent_runs >= max_runs )); then echo "Run cap ${max_runs} reached today (${agent_runs}); stopping."; exit 0; fi
@@ -247,9 +249,9 @@ jobs:
     if: >-
       always() && vars.DRIVE_ENABLED == 'true' &&
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
-      needs.work.result != 'cancelled' && needs.publish.result != 'cancelled' &&
       needs.work.outputs.issue != '' &&
-      (needs.work.result == 'failure' || needs.work.outputs.has_change != 'true' || needs.publish.result == 'failure')
+      (needs.work.result == 'failure' || needs.work.result == 'cancelled' || needs.work.outputs.has_change != 'true' ||
+       needs.publish.result == 'failure' || needs.publish.result == 'cancelled')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -339,10 +341,10 @@ jobs:
             fi
           }
           # Backstops (ADR 0025): an open drive-halt issue stops merging, and merges per UTC day are capped.
-          if [[ $(gh issue list --state open --label drive-halt --json number -q length) != "0" ]]; then
-            echo "An open issue carries drive-halt; not merging."; exit 0
+          if ! grep -qx 'halted=false' <<<"$(python3 scripts/drive_guard.py halt)"; then
+            echo "Drive is halted (drive-halt, until the owner closes it); not merging."; exit 0
           fi
-          max_merges=$(python3 scripts/drive_guard.py limit "$RAW_MERGES" 5)
+          max_merges=$(python3 scripts/drive_guard.py cap merges "$RAW_MERGES")
           merged_today=$(gh pr list --state merged --search "merged:>=$(date -u +%F)" --limit 200 --json headRefName -q '[.[] | select(.headRefName | test("^issue-[0-9]+"))] | length')
           prs=$(gh pr list --state open --base "$DEFAULT_BRANCH" --limit 200 --json number,headRefName,headRefOid,isDraft,isCrossRepository \
             -q '.[] | select(.isDraft == false and .isCrossRepository == false and (.headRefName | test("^issue-[0-9]+"))) | [.number, .headRefOid, (.headRefName | capture("^issue-(?<n>[0-9]+)").n)] | @tsv')
@@ -361,8 +363,7 @@ jobs:
     needs: [work, publish, merge]
     if: >-
       always() && vars.DRIVE_ENABLED == 'true' &&
-      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
-      needs.work.result != 'cancelled'
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -380,15 +381,19 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          THIS_RUN_FAILED: ${{ (needs.work.result == 'failure' || needs.publish.result == 'failure' || needs.merge.result == 'failure') && 'true' || 'false' }}
+          THIS_RUN_FAILED: ${{ (contains(fromJSON('["failure","cancelled"]'), needs.work.result) || contains(fromJSON('["failure","cancelled"]'), needs.publish.result) || contains(fromJSON('["failure","cancelled"]'), needs.merge.result)) && 'true' || 'false' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          if [[ $(gh issue list --state open --label drive-halt --json number -q length) != "0" ]]; then echo "Already halted."; exit 0; fi
+          halt=$(python3 scripts/drive_guard.py halt)
+          if grep -qx 'halted=true' <<<"$halt"; then echo "Already halted."; exit 0; fi
+          since=$(sed -n 's/^since=//p' <<<"$halt")
           now=$(date -u +%FT%TZ)
-          # Earlier completed runs that failed. Idle runs are not events, so they cannot reset the count.
+          # Earlier completed runs that failed, were cancelled or timed out (a job timeout cancels the run).
+          # Idle runs are not events, so they cannot reset the count. Events before the owner last closed a
+          # halt issue (since) are ignored, so a cleared halt does not trip again on the same failures.
           gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/workflows/drive.yml/runs" -f status=completed -f per_page=20 \
-            -q '[.workflow_runs[] | select(.conclusion == "failure") | {time: .updated_at, kind: "fail"}]' > runs.json
+            -q '[.workflow_runs[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out") | {time: .updated_at, kind: "fail"}]' > runs.json
           gh pr list --state all --limit 30 --json number,headRefName,headRefOid,createdAt,mergedAt,mergeCommit \
             -q '[.[] | select(.headRefName | test("^issue-[0-9]+-drive-"))]' > prs.json
           gh api "repos/${GITHUB_REPOSITORY}/commits?per_page=100" -q '[.[] | {date: .commit.committer.date, message: .commit.message}]' > commits.json
@@ -404,7 +409,7 @@ jobs:
           done
           if [[ "$THIS_RUN_FAILED" == "true" ]]; then jq -n --arg t "$now" '[{time: $t, kind: "fail"}]' > now.json; else echo "[]" > now.json; fi
           jq -s 'add' runs.json merged.json reverts.json verdicts.json now.json > events.json
-          trip=$(python3 scripts/drive_guard.py breaker < events.json)
+          trip=$(python3 scripts/drive_guard.py breaker --since "$since" < events.json)
           echo "$trip"
           if [[ "$trip" == "trip=true" ]]; then
             gh label create drive-halt --color b60205 --description "Stops the unattended driver" 2>/dev/null || true
