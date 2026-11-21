@@ -1,27 +1,39 @@
 # PM limits: enforced by the harness, not by prompt (issue #279)
 
-The `pm` subagent cannot deploy, merge, push, dispatch a workflow or change a secret. Two
-mechanical layers hold that, and the prompts only explain it.
+The `pm` agent cannot deploy, merge, push, dispatch a workflow, change a secret, start another
+agent, or lift the `needs-decision` and `drive-halt` labels. Three mechanical layers hold that,
+and the prompts only explain it.
 
-## 1. The PM's Bash allowlist (`pm_bash_guard.py`)
+## 1. The PM has no `Agent` tool (ADR 0025)
 
-`.claude/agents/pm.md` declares a `PreToolUse` hook on `Bash` in its own frontmatter. Claude Code
-runs frontmatter hooks only while that subagent is running. The hook is an allowlist: it permits
+A subagent the PM started would not carry the PM's Bash allowlist, so the tool is removed from
+`tools:` in `agents/pm.md`. The front door (the main session) dispatches work the PM records on
+an issue. A test fails if `Agent` returns.
 
-- read-only `git` (`status`, `log`, `diff`, `show`, `fetch`, list-only `branch` and `tag`, ...);
-- read-only `gh` (`issue|pr|run|release|label|workflow` view and list, `search`, `api` without
-  method, field or input flags);
-- `gh issue create`, `gh issue comment`, `gh issue edit` with a fixed flag set;
-- `head tail wc cut grep jq tr` after a pipe.
+## 2. The PM's Bash allowlist (`pm_bash_guard.py`)
 
-It blocks everything else, every unquoted `;` `&` `||` redirection or substitution, and any word
-that names `.env`, `secrets/`, `*.pem` or `*.key`. It exits 2 with the reason on stderr; any
-error in the hook also blocks. The declared command ends in `|| exit 2`, so a missing script or
-missing `python3` blocks too.
+An allowlist of exact argument shapes, registered twice so a skipped layer does not fail open:
+
+- in `agents/pm.md` frontmatter (runs only while the PM runs, and only in a trusted workspace:
+  Claude Code skips project subagent frontmatter hooks in `-p` sessions and when only a parent
+  folder is trusted);
+- in `settings.json` as a `PreToolUse` hook on `Bash` run with `--agent pm`: it enforces only
+  when the hook input's `agent_type` is `pm`, and it runs in `-p` sessions too.
+
+It permits read-only `git` and `gh` with known flags, `gh api repos/<owner>/<repo>/...` with
+`--jq`/`--paginate` only, `gh issue create|comment|edit` with a fixed flag set (`--body`, not
+`--body-file`), and stdin-only filters after a pipe (`head tail wc cut tr grep jq`, no file
+operands). It blocks everything else: `gh auth`, any glob, `;` `&` `||` redirection, substitution,
+absolute, `~` or `..` paths for git, `git diff --no-index` (and its abbreviations), and any word
+naming `.env`, `secrets/`, `*.pem`, `*.key` or similar. `gh issue edit --remove-label` may not
+name `needs-decision` or `drive-halt`. Exit 2 blocks and the reason is on stderr; any error also
+blocks, and the declared command ends `|| exit 2`, so a missing script or missing `python3`
+blocks too. For the settings hook that means every Bash call in a host fails if `python3` is
+missing; install `python3` or remove the hook knowingly.
 
 The allowlist is not host-extendable: a PM that needs more should file an issue for the engineer.
 
-## 2. Shipped deny rules (every role, including subagents the PM spawns)
+## 3. Shipped deny rules (every role, including every subagent)
 
 `settings.json` ships these `permissions.deny` rules. Claude Code applies deny rules to the main
 conversation and to subagents, and they win over any hook's `allow`.
@@ -46,10 +58,10 @@ allowlist above and why deploy credentials should live only in CI.
 Deploy commands are host-specific. Add your own rules to the host's `.claude/settings.json`
 under `permissions.deny`, for example `Bash(./bin/ship *)` or `Bash(terraform apply *)`. The
 installer writes `settings.json` only when absent and never overwrites an existing one, so your
-additions survive an upgrade; add any rule this release ships that your file lacks.
+additions survive an upgrade, and a host with an existing file must add this release's `hooks`
+block and deny rules by hand.
 
 ## Not covered
 
-Subagents the PM spawns (ADR 0019) do not carry the PM's frontmatter hook; they inherit only the
-deny rules in section 2. Whether a frontmatter hook also fires for a nested subagent is
-UNVERIFIED.
+Engineers and the main session keep Bash; they are bound only by the deny rules in section 3.
+Symlinks inside the repository that point outside it are not resolved by the guard (UNVERIFIED).

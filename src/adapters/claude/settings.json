@@ -19,5 +19,18 @@
       "Bash(gh variable set *)",
       "Bash(gh workflow run *)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.trazo/hooks/pm_bash_guard.py\" --agent pm || exit 2"
+          }
+        ]
+      }
+    ]
   }
 }

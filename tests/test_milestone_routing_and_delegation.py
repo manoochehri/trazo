@@ -33,9 +33,9 @@ def test_advisor_may_dispatch_any_subagent_but_keeps_independent_gates() -> None
     rules = _flat("src/overlay/rules.md")
     pm_adapter = _flat("src/adapters/claude/agents/pm.md")
 
-    assert "may spawn arbitrary subagents" in advisor.lower()
+    assert "cannot start agents" in advisor.lower()
     assert "never investigates or edits code itself" in advisor
     assert "reviewer, security and skeptic" in advisor
-    assert "arbitrary subagents" in rules.lower()
-    assert "reviewer, security and skeptic" in rules
-    assert "Read-path denies for secret files only" in pm_adapter
+    assert "does not start agents" in rules.lower()
+    assert "reviewer, security, and skeptic" in rules or "reviewer, security and skeptic" in rules
+    assert "you cannot start agents" in pm_adapter.lower()
