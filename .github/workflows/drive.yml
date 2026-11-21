@@ -457,3 +457,101 @@ jobs:
             issue=${url##*/}
           fi
           gh issue comment "$issue" --body-file digest.md
+  sweep:
+    # Liveness (#262). No LLM. Reads the open pull requests and ready issues, asks scripts/drive_sweep.py what
+    # stalled, then re-runs a stalled review or opens one alert issue per stall. It never sets a commit status:
+    # only the reviewer path sets trazo/verdict. It re-runs only; the guards (DRIVE_ENABLED, the owner-closed halt
+    # check and run ceiling in scripts/drive_guard.py, caps in drive_sweep.py) can only stop it, never widen what it does. Scripts come from the default branch.
+    # Runs after work and publish so it sees what this run picked and whether that produced a PR. A run the work
+    # guard stopped (halt, run or merge cap) picks nothing, so it raises no no-PR alert.
+    needs: [work, publish]
+    if: >-
+      always() && vars.DRIVE_ENABLED == 'true' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      needs.work.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+      statuses: read
+      actions: write
+    steps:
+      # The default branch supplies scripts and .github/CODEOWNERS, as in the merge job.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: sweep stalled reviews and flag stalled issues
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RAW_RUNS: ${{ vars.DRIVE_MAX_RUNS_PER_DAY }}
+          WORK_ISSUE: ${{ needs.work.outputs.issue }}
+          HAS_CHANGE: ${{ needs.work.outputs.has_change }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -euo pipefail
+          # Same halt check as work, merge and breaker (scripts/drive_guard.py): halted until the owner closes
+          # the halt issue, and any read error counts as halted.
+          halted=true
+          if grep -qx 'halted=false' <<<"$(python3 scripts/drive_guard.py halt)"; then halted=false; fi
+          max_reruns=$(python3 scripts/drive_guard.py cap runs "$RAW_RUNS")
+          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          today=${now%%T*}
+          prs='[]'
+          while IFS=$'\t' read -r n sha labels <&3; do
+            [[ -n "$n" ]] || continue
+            pushed=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}" -q '.commit.committer.date')
+            vline=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/status?per_page=100" \
+              -q '[.statuses[] | select(.context == "trazo/verdict")][0] | ((.state // "") + " " + (.updated_at // ""))')
+            vstate=${vline%% *}; vat=${vline#* }
+            runjson=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/review.yml/runs?head_sha=${sha}&event=pull_request&per_page=1" \
+              -q '.workflow_runs[0] // null | if . == null then null else {id, status, conclusion, run_attempt} end')
+            # A green PR on owner-protected paths never auto-merges; mark it so it is not reported as stalled.
+            # Same classifier as the merge job; any error counts as sensitive.
+            sensitive=true
+            if [[ "$vstate" == "success" ]]; then
+              changed=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${n}" -q '.changed_files' 2>/dev/null) || changed=""
+              out=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${n}/files" -q '.[] | [.filename, (.previous_filename // "")] | @tsv' 2>/dev/null \
+                | CHANGED_FILES="$changed" python3 scripts/report_verdict.py --sensitive .github/CODEOWNERS 2>/dev/null) || out=""
+              [[ "$out" == "sensitive=false" ]] && sensitive=false
+            else
+              sensitive=false
+            fi
+            prs=$(jq -c --argjson sens "$sensitive" --argjson n "$n" --arg sha "$sha" --arg pushed "$pushed" --arg v "$vstate" --arg vat "$vat" \
+              --argjson run "$runjson" --arg labels "$labels" \
+              '. + [{number: $n, head_sha: $sha, head_pushed_at: $pushed, draft: false, fork: false, verdict: $v, verdict_at: $vat, sensitive: $sens, review_run: $run, labels: ($labels | split(",") | map(select(. != "")))}]' <<<"$prs")
+          done 3< <(gh pr list --state open --limit 100 --json number,headRefOid,isDraft,isCrossRepository,labels \
+            -q '.[] | select(.isDraft == false and .isCrossRepository == false) | [.number, .headRefOid, ([.labels[].name] | join(","))] | @tsv')
+          # The issue the picker chose in this run, and whether the run produced a PR. Nothing picked (halt, cap,
+          # empty queue) is null and raises no alert.
+          picked=null
+          if [[ "$WORK_ISSUE" =~ ^[0-9]+$ ]]; then
+            produced=false
+            if [[ "$HAS_CHANGE" == "true" && "$PUBLISH_RESULT" == "success" ]]; then produced=true; fi
+            picked=$(jq -cn --argjson n "$WORK_ISSUE" --argjson p "$produced" '{number: $n, produced_pr: $p}')
+          fi
+          # Alert issues carry a marker line <!-- liveness:KEY -->. The open ones dedupe; today's count is the daily cap.
+          alerts=$(gh issue list --state all --search "Liveness: in:title" --limit 100 --json number,state,createdAt,body)
+          open_keys=$(jq -c '[.[] | select(.state == "OPEN") | .body | capture("<!-- liveness:(?<k>[A-Za-z0-9-]+) -->").k?] | map(select(. != null))' <<<"$alerts")
+          today_n=$(jq --arg d "$today" '[.[] | select(.createdAt | startswith($d))] | length' <<<"$alerts")
+          snapshot=$(jq -cn --arg now "$now" --arg halt "$halted" --argjson maxr "$max_reruns" --argjson prs "$prs" --argjson picked "$picked" \
+            --argjson open "$open_keys" --argjson today "$today_n" \
+            '{now: $now, halt: ($halt == "true"), prs: $prs, picked: $picked, open_alerts: $open, alerts_today: $today, max_reruns: $maxr}')
+          result=$(python3 scripts/drive_sweep.py <<<"$snapshot")
+          echo "Sweep: $(jq -r .digest <<<"$result")" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Re-run the stalled review. Whether a re-run started with the built-in token starts the review
+          # workflow again is UNVERIFIED (#252); a refusal is reported, not retried.
+          while read -r run_id <&5; do
+            [[ -n "$run_id" ]] || continue
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/rerun" || echo "Re-run of run ${run_id} was refused."
+          done 5< <(jq -r '.rerun[].run_id' <<<"$result")
+          while read -r alert <&6; do
+            [[ -n "$alert" ]] || continue
+            key=$(jq -r .key <<<"$alert")
+            [[ "$key" =~ ^[A-Za-z0-9-]+$ ]] || continue
+            { jq -r .body <<<"$alert"; printf '\n<!-- liveness:%s -->\n\n🛠️ Posted by eng via Claude Code (drive workflow)\n' "$key"; } > alert.md
+            gh issue create --title "$(jq -r .title <<<"$alert")" --body-file alert.md
+          done 6< <(jq -c '.alerts[]' <<<"$result")
