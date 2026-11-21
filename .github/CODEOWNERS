@@ -1,5 +1,7 @@
 # Owner must review changes to what governs agents (owner decision, #281: agents may not change
 # their own prompts and roles; everything else is agentic). Replace manoochehri at kickoff.
+# The drive classifier (scripts/report_verdict.py) is the authority for auto-merge and is stricter:
+# it also treats scripts/ and ADRs as sensitive.
 # Agent prompts, roles, skills and adapters
 /src/overlay/            @manoochehri
 /src/adapters/           @manoochehri

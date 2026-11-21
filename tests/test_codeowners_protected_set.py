@@ -67,6 +67,13 @@ def test_classifier_agrees_with_codeowners():
     assert not not_sensitive, f"classifier misses: {not_sensitive}"
 
 
+def test_classifier_is_stricter_than_codeowners_on_purpose():
+    """The drive classifier is the authority for auto-merge and stays stricter: ADRs and
+    scripts/ are agentic in CODEOWNERS but the drive never auto-merges them."""
+    for path in (".trazo/project/adr/0001-record-decisions.md", "scripts/report_verdict.py"):
+        assert report_verdict.is_sensitive_path(path, []), path
+
+
 def test_agentic_paths_are_not_protected():
     patterns = [pattern for pattern, _ in _rules()]
     for path in (
