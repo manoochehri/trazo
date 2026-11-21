@@ -113,6 +113,7 @@ JQ_BAD = re.compile(
     r"|\bmodulemeta\b|\binput_line_number\b"
 )
 JQ_FLAGS = {"--jq", "-q"}
+JQ_INLINE = ("--jq=", "-q=")  # the flag and its program in one word
 UNQUOTED_BAD = "\n\r;&<>(){}`$\\*?[]~!"
 GIT_BAD_CHARS = set("*?[]{}~\\")
 
@@ -308,10 +309,9 @@ def check(command: str) -> None:
         # Free text and programs may mention secret paths; every other word may not name one.
         prev = ""
         for a in args:
-            program = a.partition("=")[2] if a.startswith("--jq=") else a
-            if (head == "jq" or prev in JQ_FLAGS or a.startswith("--jq=")) and JQ_BAD.search(
-                program
-            ):
+            inline = a.startswith(JQ_INLINE)
+            program = a.partition("=")[2] if inline else a
+            if (head == "jq" or prev in JQ_FLAGS or inline) and JQ_BAD.search(program):
                 raise Deny("jq programs may not read the environment or files")
             if prev not in TEXT_FLAGS and SECRET_PATH.search(a):
                 raise Deny("a secret path is not readable by the PM")
