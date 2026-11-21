@@ -43,12 +43,12 @@ def run(status="completed", conclusion="success", attempt=1, run_id=99):
     return {"id": run_id, "status": status, "conclusion": conclusion, "run_attempt": attempt}
 
 
-def snap(prs=(), issues=(), halt=False, alerts=(), alerts_today=0):
+def snap(prs=(), picked=None, halt=False, alerts=(), alerts_today=0):
     return {
         "now": NOW,
         "halt": halt,
         "prs": list(prs),
-        "ready_issues": list(issues),
+        "picked": picked,
         "open_alerts": list(alerts),
         "alerts_today": alerts_today,
     }
@@ -98,7 +98,7 @@ def test_drafts_and_forks_are_skipped():
 
 
 def test_halt_does_nothing():
-    out = drive_sweep.sweep(snap([pr(run=run())], [{"number": 5, "ready_since": OLD}], halt=True))
+    out = drive_sweep.sweep(snap([pr(run=run())], {"number": 5, "produced_pr": False}, halt=True))
     assert out["rerun"] == [] and out["alerts"] == []
 
 
@@ -112,32 +112,50 @@ def test_green_pr_with_blocking_label_does_not_alert():
     assert out["alerts"] == []
 
 
-def test_ready_issue_without_pr_alerts_when_nothing_in_flight():
-    out = drive_sweep.sweep(snap(issues=[{"number": 5, "ready_since": OLD}]))
+def test_green_sensitive_pr_waits_on_the_owner_and_does_not_alert():
+    p = pr(verdict="success", verdict_at=OLD)
+    p["sensitive"] = True
+    out = drive_sweep.sweep(snap([p]))
+    assert out["alerts"] == []
+    assert "owner" in out["digest"]
+
+
+def test_recent_pending_verdict_is_in_progress_not_stalled():
+    out = drive_sweep.sweep(snap([pr(verdict="pending", verdict_at=FRESH, run=run())]))
+    assert out["rerun"] == [] and out["alerts"] == []
+
+
+def test_old_pending_verdict_still_counts_as_stalled():
+    out = drive_sweep.sweep(snap([pr(verdict="pending", verdict_at=OLD, run=run())]))
+    assert out["rerun"] == [{"pr": 7, "run_id": 99}]
+
+
+def test_picked_issue_that_produced_no_pr_alerts():
+    out = drive_sweep.sweep(snap(picked={"number": 5, "produced_pr": False}))
     assert [a["key"] for a in out["alerts"]] == ["no-pr-issue-5"]
 
 
-def test_ready_issue_waits_while_a_pr_is_in_flight():
-    out = drive_sweep.sweep(
-        snap([pr(pushed=FRESH, run=run())], [{"number": 5, "ready_since": OLD}])
-    )
+def test_picked_issue_that_produced_a_pr_does_not_alert():
+    out = drive_sweep.sweep(snap(picked={"number": 5, "produced_pr": True}))
     assert out["alerts"] == []
 
 
-def test_recent_ready_issue_is_not_flagged():
-    assert drive_sweep.sweep(snap(issues=[{"number": 5, "ready_since": FRESH}]))["alerts"] == []
+def test_nothing_picked_never_alerts_even_with_no_pr_open():
+    # After a merge, or when the work guard stopped on purpose (run or merge cap), the work job
+    # picks nothing. That is not a stall, however long an issue has been queued.
+    assert drive_sweep.sweep(snap(picked=None))["alerts"] == []
 
 
 def test_existing_alert_is_not_duplicated():
     out = drive_sweep.sweep(
-        snap(issues=[{"number": 5, "ready_since": OLD}], alerts=["no-pr-issue-5"])
+        snap(picked={"number": 5, "produced_pr": False}, alerts=["no-pr-issue-5"])
     )
     assert out["alerts"] == []
 
 
 def test_daily_alert_cap():
-    issues = [{"number": n, "ready_since": OLD} for n in range(1, 20)]
-    out = drive_sweep.sweep(snap(issues=issues, alerts_today=drive_sweep.MAX_ALERTS_PER_DAY - 1))
+    prs = [pr(number=n, run=None) for n in range(1, 20)]
+    out = drive_sweep.sweep(snap(prs, alerts_today=drive_sweep.MAX_ALERTS_PER_DAY - 1))
     assert len(out["alerts"]) == 1
 
 
@@ -204,3 +222,12 @@ def test_workflow_sweep_uses_the_guard_halt_check_not_a_variable():
     job = text[text.index("\n  sweep:") :]
     assert "scripts/drive_guard.py halt" in job
     assert "scripts/drive_guard.py cap runs" in job
+
+
+def test_workflow_sweep_waits_for_work_and_publish_and_uses_the_picked_issue():
+    text = (REPO_ROOT / ".github" / "workflows" / "drive.yml").read_text()
+    job = text[text.index("\n  sweep:") :]
+    assert "needs: [work, publish]" in job
+    assert "needs.work.outputs.issue" in job
+    assert "needs.work.outputs.has_change" in job
+    assert "ready_issues" not in job

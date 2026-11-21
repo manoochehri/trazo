@@ -16,7 +16,7 @@ Unreadable input exits non-zero with no output, so the workflow does nothing.
 
 Snapshot fields: now (ISO time), halt, prs[{number, head_sha, head_pushed_at, draft, fork, verdict
 ("", pending, success, failure), verdict_at, review_run {id, status, conclusion, run_attempt} or
-null, labels}], ready_issues[{number, ready_since}], open_alerts[keys],
+null, labels}], picked ({number, produced_pr} or null), open_alerts[keys],
 alerts_today, max_reruns (from drive_guard cap runs; at most its ceiling).
 """
 
@@ -68,7 +68,9 @@ def sweep(snapshot):
         n = p["number"]
         verdict = p.get("verdict") or ""
         if verdict in ("success", "failure"):
-            if (
+            if verdict == "success" and p.get("sensitive"):
+                lines.append(f"#{n} is green and waiting on the owner (protected paths)")
+            elif (
                 verdict == "success"
                 and p.get("verdict_at")
                 and _minutes(now, p["verdict_at"]) >= ONE_RUN_MIN
@@ -85,6 +87,9 @@ def sweep(snapshot):
                 )
             continue
         if _minutes(now, p["head_pushed_at"]) < REVIEW_DEADLINE_MIN:
+            continue
+        # A recent pending status is a review in progress, not no verdict.
+        if verdict == "pending" and _minutes(now, p.get("verdict_at") or now) < REVIEW_DEADLINE_MIN:
             continue
         r = p.get("review_run")
         if r and r.get("status") != "completed":
@@ -110,17 +115,18 @@ def sweep(snapshot):
             )
         )
 
-    if not prs:
-        for i in snapshot.get("ready_issues", []):
-            if _minutes(now, i["ready_since"]) >= ONE_RUN_MIN:
-                candidates.append(
-                    (
-                        f"no-pr-issue-{i['number']}",
-                        f"Liveness: ready issue #{i['number']} has no PR after one driver run",
-                        f"Issue #{i['number']} is ready, nothing is in flight, "
-                        f"and no PR exists after {ONE_RUN_MIN} minutes.",
-                    )
-                )
+    # Only the issue the picker chose in this run, and only if it produced no PR. A run the work
+    # guard stopped on purpose (halt, run or merge cap) picks nothing, so it never alerts here.
+    picked = snapshot.get("picked")
+    if isinstance(picked, dict) and not picked.get("produced_pr"):
+        k = picked["number"]
+        candidates.append(
+            (
+                f"no-pr-issue-{k}",
+                f"Liveness: picked issue #{k} produced no PR in its driver run",
+                f"The driver picked issue #{k} and the run ended without a pull request.",
+            )
+        )
 
     open_alerts = set(snapshot.get("open_alerts", []))
     room = max(0, MAX_ALERTS_PER_DAY - int(snapshot.get("alerts_today", 0)))
