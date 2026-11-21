@@ -80,9 +80,15 @@ def test_codeowners_owners_are_handles():
             assert owner.startswith("@"), f"{owner!r} on {pattern!r} is not an @handle"
 
 
+# Agent-config directories no adapter ships yet; protected before they exist (issue #281).
+RESERVED_PATTERNS = {"/.codex/", "/.agents/"}
+
+
 def test_every_codeowners_pattern_matches_a_tracked_path():
     tracked = _tracked_paths()
     for pattern, _ in _rules():
+        if pattern in RESERVED_PATTERNS:
+            continue
         normalized = pattern.lstrip("/")
         matches = [path for path in tracked if fnmatch.fnmatchcase(path, normalized)]
         if normalized.endswith("/"):
