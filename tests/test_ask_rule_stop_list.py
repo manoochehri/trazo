@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-RULES = Path(__file__).resolve().parent.parent / "src" / "overlay" / "rules.md"
+REPO = Path(__file__).resolve().parent.parent
+RULES = REPO / "src" / "overlay" / "rules.md"
 
 # Hosts do not receive scripts/report_verdict.py, so the rule text itself must name these.
 REQUIRED = [
@@ -10,7 +11,6 @@ REQUIRED = [
     "the charter",
     "agent rules",
     "role definitions",
-    "decision records",
     "CLAUDE.md",
     "AGENTS.md",
     ".claude/",
@@ -54,3 +54,13 @@ def test_the_ask_rule_names_every_stop_list_category() -> None:
     section = _section()
     missing = [item for item in REQUIRED if item not in section]
     assert not missing, f"the stop list in rules.md no longer names: {missing}"
+
+
+def test_decision_records_are_not_on_the_stop_list() -> None:
+    """Owner decision on #278 (2026-11-19): agents record decisions without asking.
+    Writing a decision record is therefore not a stop, and the stop list must not say so."""
+    section = _section()
+    assert "decision records" not in section, "the stop list still names decision records"
+    assert "write the decision records" in " ".join(
+        (REPO / "src/overlay/rules.md").read_text(encoding="utf-8").split()
+    ), "End every session must still tell agents to write the decision records"

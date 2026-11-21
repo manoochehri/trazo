@@ -200,7 +200,7 @@ stop list below. Anything not done through a pull request is never reversible.
 Stop and ask (`needs-pm`; the PM escalates to `needs-decision` when the choice is the owner's)
 when the choice is expensive or hard to reverse, or touches any of: a path in `CODEOWNERS` or on
 the repository's sensitive-path list (`scripts/report_verdict.py` where the repository has one);
-the charter; agent rules, role definitions, decision records, and agent instruction files and
+the charter; agent rules, role definitions, and agent instruction files and
 skills (for example `CLAUDE.md`, `AGENTS.md`, `.claude/`, `.codex/`, `.agents/`, and `.trazo/`
 outside `.trazo/project/`); `ARCHITECTURE_CONTRACT.md` and `SKEPTIC_BAR.md`; the build, CI and
 test configuration that workflows run; secrets; spend; production (no access unless the issue or

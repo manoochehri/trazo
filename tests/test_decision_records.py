@@ -243,3 +243,26 @@ def test_0010_does_not_edit_the_records_it_supersedes() -> None:
     assert re.search(r"superseded, not edited", text, re.IGNORECASE), (
         "0010 must say the old records are superseded rather than edited"
     )
+
+
+def test_decide_then_tell_adr_is_numbered_0026() -> None:
+    """0025 is taken by open pull requests #283 and #284, so the decide-then-tell record
+    takes the next free number, 0026. A record under a taken number is the collision the
+    numbering guard exists to prevent."""
+    assert (DECISIONS / "0026-decide-then-tell.md").exists(), (
+        "the decide-then-tell record is not 0026"
+    )
+    assert not (DECISIONS / "0025-decide-then-tell.md").exists(), "the record still sits at 0025"
+    text = (DECISIONS / "0026-decide-then-tell.md").read_text(encoding="utf-8")
+    assert text.startswith("# 0026: Decide, then tell"), "the title still carries the old number"
+
+
+def test_0026_describes_codeowners_as_agent_prompts_roles_and_settings() -> None:
+    """Owner decision on #278 (2026-11-19): CODEOWNERS covers agent prompts, roles and
+    settings only. The record must not call ADRs or dependency files a CODEOWNERS gap."""
+    text = " ".join((DECISIONS / "0026-decide-then-tell.md").read_text(encoding="utf-8").split())
+    assert "agent prompts, roles and settings" in text, "the CODEOWNERS scope is not stated"
+    assert "CODEOWNERS does not cover `src/overlay/`" not in text, (
+        "old CODEOWNERS gap wording remains"
+    )
+    assert "CODEOWNERS does not cover `src/overlay/`, `.trazo/rules.md`, roles, ADRs" not in text

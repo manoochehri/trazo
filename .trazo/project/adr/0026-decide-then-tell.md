@@ -1,4 +1,4 @@
-# 0025: Decide, then tell
+# 0026: Decide, then tell
 
 **Date:** 2026-10-30  **Status:** proposed (becomes accepted when the owner merges this change; it loosens a gate in `rules.md`)
 
@@ -24,7 +24,7 @@ The rules produce this. `rules.md` "Ask before guessing" said to stop and ask fo
   that starts `Decided:` with the reason, and keep going.
 - The stop list is: a `CODEOWNERS` path or the repository's sensitive-path list
   (`scripts/report_verdict.py` where the repository has one); the charter; agent rules, role
-  definitions, decision records, and agent instruction files and skills (including `.codex/`,
+  definitions, and agent instruction files and skills (including `.codex/`,
   `.agents/` and `.trazo/` outside `.trazo/project/`); `ARCHITECTURE_CONTRACT.md` and
   `SKEPTIC_BAR.md`; the build, CI and test configuration that workflows run; secrets; spend;
   production (no access unless the issue or the owner explicitly asks, as in "Roles are
@@ -65,8 +65,10 @@ The rules produce this. `rules.md` "Ask before guessing" said to stop and ask fo
 - This loosens a rule that was a gate. The guardrails are the stop list, the precedence of every other
   rule, the unchanged review, security and skeptic gates, and the `Decided:` record, which lets the
   owner audit decisions.
-- Known gaps this does not fix, tracked elsewhere: CODEOWNERS does not cover `src/overlay/`,
-  `.trazo/rules.md`, roles, ADRs, `.claude/`, `CLAUDE.md`, `AGENTS.md` or dependency files (#231, #45);
+- Known gaps this does not fix, tracked elsewhere: CODEOWNERS is to cover agent prompts, roles and
+  settings only (owner decision, 2026-11-19, #278), and does not yet list `.claude/agents/`,
+  `.claude/commands/` or `src/overlay/roles/` (#231, #45). ADRs, rules and dependency files are not
+  owner-gated; the reviewer, security and CI checks guard them instead;
   `trazo/security` is not a required check (#212); agents post as the owner's account (#44), so a
   `Decided:` comment, or an owner reply, cannot be told apart from an agent's comment. "Expensive" and "data" are not defined
   precisely and will need examples from real decisions.
