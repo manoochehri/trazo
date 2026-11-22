@@ -209,3 +209,35 @@ def test_no_claim_that_report_is_the_only_writer_until_212_is_pinned():
     ).read_text()
     assert "integration_id" in adr and "BOT_LOGIN" in adr
     assert "default branch" in adr and "gate" in adr.lower()
+
+
+def _gate_if():
+    return str(load("review.yml")["jobs"]["gate"]["if"])
+
+
+def test_gate_only_reviews_pull_requests_into_the_default_branch():
+    # A re-run keeps the original event payload, so a review started against another base must be
+    # gated out, or a retarget to the default branch would turn it into a verdict (#294 review).
+    cond = _gate_if()
+    assert "github.event.pull_request.base.ref == github.event.repository.default_branch" in cond
+
+
+def test_a_retarget_starts_a_fresh_review_and_other_edits_do_not():
+    wf = load("review.yml")
+    types = triggers(wf)["pull_request"]["types"]
+    assert "edited" in types
+    cond = _gate_if()
+    # An edit only counts when the base changed, so a title or body edit starts nothing and cannot
+    # cancel a review in progress or be used to loop.
+    assert "github.event.action != 'edited' || github.event.changes.base != null" in cond
+    # the job that holds the cancel-in-progress group is behind the gate
+    assert load("review.yml")["jobs"]["review"]["needs"] == "gate"
+    assert "needs.gate.outputs.skip == 'false'" in str(load("review.yml")["jobs"]["review"]["if"])
+
+
+def test_adr_0028_does_not_claim_a_verdict_cannot_come_from_another_base():
+    adr = (
+        REPO_ROOT / ".trazo/project/adr/0028-report-job-sets-verdict-as-reviewer-app.md"
+    ).read_text()
+    assert "can only come from a default-base review run" not in adr
+    assert "retarget" in adr and "edited" in adr

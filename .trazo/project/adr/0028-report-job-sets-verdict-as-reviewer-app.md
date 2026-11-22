@@ -26,9 +26,14 @@ session on 2026-11-22 ("lock it first", recorded on the issue). Amends where the
 - **Only pull requests into the default branch are reported** (`.base.ref` equals the repository's default
   branch, from the API and the event, never PR text; else no verdict). A commit status is shared by every PR
   with that head, so a verdict earned against another base (a sensitive branch plus one benign commit) would
-  otherwise show green on a PR of the same head into the default branch. Because of this the `gate` in
-  `review.yml` needs no change: a terminal verdict on a head can only come from a default-base review run, or
-  from a person's `/check-pr`, which is a deliberate act.
+  otherwise show green on a PR of the same head into the default branch. The review must also have
+  seen that base: a re-run keeps its original event, so a review of `x...H` re-run after a retarget to the
+  default branch would otherwise yield a verdict for a diff the reviewer never saw. The `gate` in `review.yml`
+  therefore requires the event's base branch to be the default branch, and the `edited` trigger counts only
+  when the base changed (`changes.base`), so a retarget starts a fresh review of `main...H`. A title or body
+  edit starts nothing (the gate skips it before the review job's cancel group), and a head that already has a
+  terminal verdict is still skipped, so the trigger cannot loop. `UNVERIFIED` live (#247): that
+  `changes.base` is present on a base change.
 - Same decision rules as before: success only for a `github-actions[bot]` review that is on this head,
   names it in one `Reviewed-Head` line, says exactly `merge`, and was submitted after the `review` job
   started; sensitive paths never get success from the bot; a head that moved since the review gets no

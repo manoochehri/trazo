@@ -7,15 +7,20 @@ name: review
 # branch as the reviewer App (#291, ADR 0028). Nothing in this file may set a status or hold a key.
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review]
+    types: [opened, synchronize, ready_for_review, edited]
 permissions:
   contents: read
 jobs:
   gate:
     # vars.AUTO_REVIEW_ENABLED is the owner's kill switch. Forked PRs never get the key:
-    # their diff is untrusted input.
+    # their diff is untrusted input. Only PRs into the default branch are reviewed: a re-run keeps its
+    # original event, so a review started against another base must never run, or a later retarget to
+    # the default branch would turn it into a verdict (#291). `edited` counts only when the base
+    # changed (a retarget starts a fresh review); a title or body edit starts nothing.
     if: >-
       vars.AUTO_REVIEW_ENABLED == 'true' &&
+      (github.event.action != 'edited' || github.event.changes.base != null) &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch &&
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
