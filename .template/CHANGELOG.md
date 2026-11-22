@@ -1,12 +1,8 @@
 # Trazo changelog
 
 ## 0.3.0 (2026-11-22)
-Agents decide and ship. Read "Before you enable anything" and "Known limits for hosts
-- The GitHub Apps setup script is not shipped to hosts yet (run it from a checkout of this tag)
-  and only supports a default branch named `main` (follow-up to be filed).
-- The driver and the App identity have not run live (#247, v0.4.0).
-
-Upgrading from 0.2.0" first.
+Agents decide and ship. Read "Before you enable anything", "Known limits for hosts" and
+"Upgrading from 0.2.0" first.
 
 **Status of the driver, stated plainly.** The unattended driver (`drive.yml`) ships switched
 off (`DRIVE_ENABLED` unset) and has NOT been verified on a live run: #247 (the supervised first
@@ -39,7 +35,7 @@ Protections
 
 Installer
 - #272 The installer resolves release tags, not a branch with the same name
-- #285 The installer ships the full harness to hosts: CI, review and drive workflows (Claude
+- #285 The installer ships the full harness to hosts: CI, review, report and drive workflows (Claude
   adapter), PR template, secret scanning, `put_secret.sh`, evidence and verdict scripts,
   `.env.example`, placeholder Dockerfile, and a CODEOWNERS starter
 
@@ -55,16 +51,24 @@ Before you enable anything (owner-only; the installer prints these and sets none
   Apps, made with `scripts/setup_github_apps.zsh` from this tag (not installed in your repo)
 - `DRIVE_ENABLED=true` only when you can watch a run; unset it if anything looks wrong
 
+Known limits for hosts
+- The GitHub Apps setup script is not shipped to hosts yet (run it from a checkout of this tag)
+  and only supports a default branch named `main` (follow-up: #296).
+- The driver and the App identity have not run live (#247, v0.4.0).
+
 Upgrading from 0.2.0
 - Run `install.sh upgrade v0.3.0` (use `--dry-run` first). `.trazo/` is replaced from the tag, so
   hand edits inside `.trazo/` (outside `.trazo/project/`) are lost; `.trazo/project/` is never touched.
 - Harness files are new to you: a path you already have (your own `ci.yml`, PR template,
   Dockerfile and so on) is kept, not overwritten. Files Trazo placed and you edited are left with a diff.
-- `review.yml` and `drive.yml` are placed with the Claude adapter and do nothing until you set
-  the variables above. If you do not want them, delete them.
-- Your `.github/CODEOWNERS` and `.claude/settings.json` are never edited. Add the suggested
-  CODEOWNERS lines and merge the new deny rules from `src/adapters/claude/settings.json` yourself;
-  without the settings merge you do not get the PM guard's deny rules.
+- `review.yml`, `report.yml` and `drive.yml` are placed with the Claude adapter. `review.yml` and
+  `drive.yml` do nothing until you set the variables above; `report.yml` sets `trazo/verdict` as
+  the reviewer App and needs that App and the `trazo-apps` environment. If you do not want them,
+  delete them.
+- An existing `.github/CODEOWNERS` or `.claude/settings.json` is never edited. A host with no
+  CODEOWNERS gets a starter on upgrade; otherwise add the suggested lines yourself. Merge the new
+  deny rules and the PreToolUse hook entry from `src/adapters/claude/settings.json` in the Trazo
+  repo at v0.3.0 yourself; without that merge you do not get the PM guard.
 - `rules.md` changes behavior: agents now decide reversible choices and record `Decided:` on the
   issue instead of asking.
 
