@@ -44,12 +44,13 @@ Installer
   `.env.example`, placeholder Dockerfile, and a CODEOWNERS starter
 
 Docs
-- README how-tos for installing from scratch, upgrading and setting up the GitHub Apps (landing
-  in a separate README change before the tag)
+- The README now has how-tos for installing from scratch, upgrading, and setting up the GitHub Apps
 
 Before you enable anything (owner-only; the installer prints these and sets none of them)
 - `ANTHROPIC_API_KEY` secret, for automatic review and drive
-- `AUTO_REVIEW_ENABLED=true` variable to turn on automatic review (default off)
+- `AUTO_REVIEW_ENABLED=true` variable to turn on automatic review (default off). Automatic review
+  also needs the reviewer App and the `trazo-apps` environment: `report.yml` sets `trazo/verdict`
+  as the reviewer App
 - the `trazo-apps` environment (deployment branches: `main` only) and the builder and reviewer
   Apps, made with `scripts/setup_github_apps.zsh` from this tag (not installed in your repo)
 - `DRIVE_ENABLED=true` only when you can watch a run; unset it if anything looks wrong
