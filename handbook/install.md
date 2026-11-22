@@ -43,12 +43,12 @@ What it does:
 - Records a sha256 and path for each adapter file it placed in `.trazo/INSTALLED`, so upgrade
   and uninstall touch only those. A listed file you have edited since is never overwritten
   or deleted: the script warns and, on upgrade, prints the diff. Entries outside
-  the supported Claude and Codex adapter paths make the script refuse.
+  the supported adapter and harness paths make the script refuse.
 - Prints the `settings.json` it installs. It only denies reads of secrets.
 - Refuses if `.trazo/` exists without `INSTALLED` (an older layout), and on unbalanced
   markers in `AGENTS.md` or `CLAUDE.md`.
-- Never edits `.github/CODEOWNERS`. It prints lines for you to add; a safety limit only
-  counts if you review it.
+- Writes a starter `.github/CODEOWNERS` only if you have none. It never edits an existing one;
+  it prints lines for you to add. A safety limit only counts if you review it.
 
 ## Upgrade
 
@@ -69,8 +69,8 @@ bash install.sh uninstall --purge    # removes it too; refuses if it has uncommi
 bash install.sh uninstall --purge --force   # ...unless you pass --force
 ```
 
-Removes the framework files under `.trazo/`, the adapter files listed in
-`.trazo/INSTALLED`, and the marked blocks in `AGENTS.md` and `CLAUDE.md`. A file that held
+Removes the framework files under `.trazo/`, the adapter and harness files listed in
+`.trazo/INSTALLED` (the ones you have not edited), and the marked blocks in `AGENTS.md` and `CLAUDE.md`. A file that held
 only the block is deleted; otherwise your content stays. Your own `.claude/` files, your
 `.codex/` agents, `.agents/skills/`, `CODEOWNERS`, and `.trazo/project/` (without `--purge`)
 are not touched.
@@ -79,6 +79,18 @@ are not touched.
 
 Besides `.trazo/` and the adapter, a release that ships the harness (`src/harness/`; not
 `v0.2.0`) also places CI and helper files. A path you already have is never overwritten.
+
+### The harness
+
+The harness comes from `src/harness/`. The installer never overwrites a path you already have (a file it placed that you then edit is kept too):
+
+- CI: `ci.yml` (secret scan, PR evidence check), and with the Claude adapter `review.yml` (automatic review, off until `AUTO_REVIEW_ENABLED` is `true`) and `drive.yml` (off until `DRIVE_ENABLED` is `true`; unset on a fresh install)
+- `.gitleaks.toml`, `.pre-commit-config.yaml`, `scripts/scan.sh`, `scripts/scan-preflight.sh`
+- the PR template and `scripts/check_pr_evidence.py`, so a missing review-rounds, defects or fail-first field fails CI; `scripts/report_verdict.py`
+- `scripts/put_secret.sh` (stores a secret in AWS Secrets Manager) and an `.env.example` of placeholders
+- a starter `.github/CODEOWNERS` for agent prompts, roles, settings and the gate, only if you have none; with one, suggested lines are printed instead
+
+The test command in `ci.yml` and the `Dockerfile` depend on your stack, so they are placeholders that fail until `/kickoff` asks and sets them. `docs.yml` is not shipped: it builds this repository's own MkDocs site. At the end the installer prints only the owner-only steps: the `ANTHROPIC_API_KEY` secret, the `AUTO_REVIEW_ENABLED` variable, GitHub App setup if you will use drive, and keeping `DRIVE_ENABLED` unset until one watched run.
 
 ### What `/kickoff` sets up, or asks you to add
 
@@ -90,17 +102,6 @@ Run after install. It interviews you, then writes and configures:
 - a ruleset on `main` (no force pushes or deletion, pull request and passing CI required) and GitHub secret scanning with push protection
 - `make setup`, `make test` and `make scan` run once, with failures fixed
 - where the project runs, recorded in the runbook and architecture; if it deploys anywhere, a budget alert and the teardown command
-
-The installer also writes the harness from `src/harness/`, and never overwrites a path you already have (a file it placed that you then edit is kept too):
-
-- CI: `ci.yml` (secret scan, PR evidence check), and with the Claude adapter `review.yml` (automatic review, off until `AUTO_REVIEW_ENABLED` is `true`) and `drive.yml` (off until `DRIVE_ENABLED` is `true`; unset on a fresh install)
-- `.gitleaks.toml`, `.pre-commit-config.yaml`, `scripts/scan.sh`, `scripts/scan-preflight.sh`
-- the PR template and `scripts/check_pr_evidence.py`, so a missing review-rounds, defects or fail-first field fails CI; `scripts/report_verdict.py`
-- `scripts/put_secret.sh` (stores a secret in AWS Secrets Manager) and an `.env.example` of placeholders
-- a starter `.github/CODEOWNERS` for agent prompts, roles, settings and the gate, only if you have none; with one, suggested lines are printed instead
-
-The test command in `ci.yml` and the `Dockerfile` depend on your stack, so they are placeholders that fail until `/kickoff` asks and sets them. `docs.yml` is not shipped: it builds this repository's own MkDocs site. At the end the installer prints only the owner-only steps: the `ANTHROPIC_API_KEY` secret, the `AUTO_REVIEW_ENABLED` variable, GitHub App setup if you will use drive, and keeping `DRIVE_ENABLED` unset until one watched run.
-
 
 ## Owner setup
 
@@ -114,7 +115,7 @@ and settings are yours; the installer never sets them.
 | `AUTO_REVIEW_ENABLED` variable | Automatic review runs only when it is `true`. Unset means off. |
 | `trazo-apps` environment | Holds the GitHub App keys. Limited to deployment branch `main`, so only a job running from `main` can read them. |
 | `BUILDER_APP_ID`, `BUILDER_APP_PRIVATE_KEY` | The builder App. The driver uses it to push a branch and open a pull request. |
-| `REVIEWER_APP_ID`, `REVIEWER_APP_PRIVATE_KEY` | The reviewer App. Created now; how the review path will use it is still undecided (#291). |
+| `REVIEWER_APP_ID`, `REVIEWER_APP_PRIVATE_KEY` | The reviewer App. The review path's `workflow_run` report job sets the `trazo/verdict` status as the reviewer App (#291, merged to `main`, so in the next release). Still yours to do: pin that status to the reviewer App in the branch ruleset (#212). |
 | `DRIVE_ENABLED` variable | Kill switch for `drive.yml`. Anything but `true` and it does nothing. |
 
 **Where the Apps script comes from.** `scripts/setup_github_apps.zsh` is not installed in a host.
