@@ -30,6 +30,7 @@ HARNESS = REPO_ROOT / "src" / "harness"
 SHIPPED = [
     ".github/workflows/ci.yml",
     ".github/workflows/review.yml",
+    ".github/workflows/report.yml",
     ".github/workflows/drive.yml",
     ".github/pull_request_template.md",
     ".github/CODEOWNERS",
@@ -71,6 +72,7 @@ def test_the_shared_files_are_the_ones_this_repo_runs():
     """One definition. A change to this repo's gate must reach hosts, so they may not drift."""
     for rel in (
         ".github/workflows/review.yml",
+        ".github/workflows/report.yml",
         ".github/workflows/drive.yml",
         ".github/pull_request_template.md",
         "scripts/scan.sh",

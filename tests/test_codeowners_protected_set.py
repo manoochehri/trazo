@@ -50,6 +50,7 @@ PROTECTED = {
     ".github/CODEOWNERS",
     # Kept until #212 lands (a PR that edits review.yml runs its own copy).
     ".github/workflows/review.yml",
+    ".github/workflows/report.yml",
     "scripts/install.sh",
     ".trazo/project/charter/charter.md",
 }

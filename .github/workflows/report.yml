@@ -1,0 +1,161 @@
+name: report
+# Sets trazo/verdict as the reviewer App (issue #291, ADR 0028; builds on ADR 0017, 0020, 0023).
+#
+# review.yml runs on pull_request with no App key, so the agent that reads untrusted PR content never
+# holds anything that can write a status. This workflow runs when `review` completes. A workflow_run
+# workflow runs the file on the default branch, with the default branch as GITHUB_REF, so the
+# `trazo-apps` environment (deployment branch: main only) accepts it:
+#   https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run
+#   https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments
+# It reads review data only. It never checks out, installs or runs pull request code, and it takes
+# the head SHA from the event payload, never from a title, branch name or artifact.
+# Fork pull requests are skipped: review.yml never reviews them (no API key), so there is no review
+# to report and no verdict is set; a person sets it through /check-pr.
+on:
+  workflow_run:
+    workflows: [review]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  report:
+    if: >-
+      vars.AUTO_REVIEW_ENABLED == 'true' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: trazo-apps
+    concurrency:
+      group: report-${{ github.event.workflow_run.head_sha }}
+      cancel-in-progress: false
+    permissions:
+      # The workflow token only reads. The status is written with the reviewer App's token.
+      contents: read
+      pull-requests: read
+      actions: read
+    steps:
+      # The default branch supplies scripts/report_verdict.py and .github/CODEOWNERS. No ref is given,
+      # so no pull request content is ever checked out.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: decide trazo/verdict from the bot review on this head
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          BOT_LOGIN: github-actions[bot]
+        run: |
+          # pipefail: a partial read fails the pipeline and so fails closed.
+          set -o pipefail
+          # Each path writes the output once. state=none means no verdict is set for this head.
+          finish() {
+            printf 'state=%s\nreason=%s\n' "$1" "$2" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          # The pull request for this exact head, from the API (not from the event's pull_requests list).
+          prs=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/pulls" \
+            -q "[.[] | select(.state == \"open\" and .head.sha == env.HEAD_SHA and .head.repo.full_name == \"${GITHUB_REPOSITORY}\")] | map(.number) | join(\" \")") \
+            || finish none "no verdict: could not list the pull requests for this head"
+          if [[ ! "$prs" =~ ^[0-9]+$ ]]; then
+            finish none "no verdict: this head has no single open same-repository pull request"
+          fi
+          PR_NUMBER="$prs"
+          pr_line=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            -q '(.head.sha // "") + " " + (.base.sha // "") + " " + (.changed_files | tostring)') \
+            || finish failure "could not read the pull request"
+          read -r current_head BASE_SHA CHANGED_FILES <<< "$pr_line"
+          if [[ "$current_head" != "$HEAD_SHA" ]]; then
+            finish none "no verdict: the head moved since the review; the new head gets its own review"
+          fi
+          jobs=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs" \
+            -q '[.jobs[] | select(.head_sha == env.HEAD_SHA)]') \
+            || finish failure "could not read the review run's jobs"
+          gate_result=$(jq -r '[.[] | select(.name == "gate")][0].conclusion // ""' <<< "$jobs")
+          REVIEW_RESULT=$(jq -r '[.[] | select(.name == "review")][0].conclusion // ""' <<< "$jobs")
+          if [[ "$gate_result" == "skipped" || -z "$gate_result" ]]; then
+            finish none "no verdict: the gate did not run for this head"
+          fi
+          if [[ "$gate_result" != "success" ]]; then
+            finish failure "automatic review did not start"
+          fi
+          if [[ "$REVIEW_RESULT" == "skipped" ]]; then
+            finish none "no verdict: this head already had a terminal verdict, so it was not reviewed again"
+          fi
+          if [[ "$REVIEW_RESULT" != "success" ]]; then
+            finish failure "automatic review did not finish"
+          fi
+          REVIEW_STARTED_AT=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs" \
+            -q '[.jobs[] | select(.name == "review" and .head_sha == env.HEAD_SHA)][0].started_at // ""') \
+            || finish failure "could not read the reviewer job start time"
+          if [[ -z "$REVIEW_STARTED_AT" ]]; then
+            finish failure "could not find the reviewer job start time for this head"
+          fi
+          # The diff of two fixed SHAs from the compare endpoint, not a checkout. The listing is capped
+          # at 300 files; a count that does not match changed_files fails closed as sensitive.
+          listing=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/compare/${BASE_SHA}...${HEAD_SHA}" \
+            -q '.files[] | .filename + "\t" + (.previous_filename // "")') \
+            || finish failure "could not classify the changed files"
+          sensitive_out=$(printf '%s\n' "$listing" | CHANGED_FILES="$CHANGED_FILES" \
+            python3 scripts/report_verdict.py --sensitive .github/CODEOWNERS) \
+            || finish failure "could not classify the changed files"
+          case "$sensitive_out" in
+            sensitive=true) sensitive=true ;;
+            sensitive=false) sensitive=false ;;
+            *) finish failure "the changed files could not be classified" ;;
+          esac
+          export REVIEW_STARTED_AT HEAD_SHA BOT_LOGIN SENSITIVE="$sensitive"
+          result=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
+            | python3 scripts/report_verdict.py) \
+            || result=$'state=failure\nreason=could not decide from reviews'
+          printf '%s\n' "$result" >> "$GITHUB_OUTPUT"
+      - name: mint the reviewer App token
+        id: app
+        if: steps.decide.outputs.state != 'none'
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          # TODO: `app-id` is deprecated in v3.4.0; move to `client-id` later (as in drive.yml).
+          app-id: ${{ secrets.REVIEWER_APP_ID }}
+          private-key: ${{ secrets.REVIEWER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-statuses: write
+      - name: set trazo/verdict
+        if: steps.decide.outputs.state != 'none'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          STATE: ${{ steps.decide.outputs.state }}
+          REASON: ${{ steps.decide.outputs.reason }}
+        run: |
+          # Another writer may have set a terminal state since this run started: a person's /check-pr.
+          # Never overwrite one. If the lookup fails, write failure, never success. A pending set by
+          # anyone but this App is a person's run in progress, so it is left alone too.
+          existing_line=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
+            -q '[.[] | select(.context == "trazo/verdict")][0] | ((.state // "") + " " + (.creator.login // ""))') || {
+            existing_line=""
+            STATE=failure
+            REASON="could not check the head's existing verdict"
+          }
+          existing=${existing_line%% *}
+          creator=${existing_line#* }
+          case "$existing" in
+            success|failure)
+              echo "trazo/verdict is already ${existing} on this head; leaving it."
+              exit 0
+              ;;
+            pending)
+              if [[ "$creator" != "${APP_SLUG}[bot]" ]]; then
+                echo "trazo/verdict is pending from another writer; leaving it."
+                exit 0
+              fi
+              ;;
+          esac
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+            -f state="$STATE" -f context=trazo/verdict \
+            -f description="$REASON" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/$GITHUB_RUN_ID"

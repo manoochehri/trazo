@@ -20,7 +20,8 @@
 /AGENTS.md               @manoochehri
 /CLAUDE.md               @manoochehri
 /.github/CODEOWNERS      @manoochehri
-# Kept until #212 lands (a PR that edits review.yml runs its own copy and can post trazo/verdict);
+# Kept until #212 lands (a PR that edits review.yml runs its own copy and can post a forged bot review;
+# report.yml runs from main and is the only path that sets trazo/verdict);
 # removing these is a follow-up.
 /.github/workflows/      @manoochehri
 /scripts/install.sh      @manoochehri
