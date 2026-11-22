@@ -8,8 +8,8 @@ copied from a template repository and nothing is fetched from a moving branch.
 From the root of your git repository:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.2.0/scripts/install.sh -o install.sh
-bash install.sh install v0.2.0
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.3.0/scripts/install.sh -o install.sh
+bash install.sh install v0.3.0
 ```
 
 Pin the script to the same tag you install, as above. The tag is required: with none, the
@@ -53,8 +53,8 @@ What it does:
 ## Upgrade
 
 ```sh
-bash install.sh upgrade v0.2.0 --dry-run   # show the diff of .trazo/ and stop
-bash install.sh upgrade v0.2.0             # show the diff, then apply
+bash install.sh upgrade v0.3.0 --dry-run   # show the diff of .trazo/ and stop
+bash install.sh upgrade v0.3.0             # show the diff, then apply
 ```
 
 Upgrade is install at a newer tag, with a unified diff of `.trazo/` printed before anything
@@ -77,8 +77,8 @@ are not touched.
 
 ## What the installer places
 
-Besides `.trazo/` and the adapter, a release that ships the harness (`src/harness/`; not
-`v0.2.0`) also places CI and helper files. A path you already have is never overwritten.
+Besides `.trazo/` and the adapter, a release that ships the harness (`src/harness/`; `v0.3.0`
+and later) also places CI and helper files. A path you already have is never overwritten.
 
 ### The harness
 
@@ -120,7 +120,7 @@ and settings are yours; the installer never sets them.
 
 **Where the Apps script comes from.** `scripts/setup_github_apps.zsh` is not installed in a host.
 Run it from a clone of Trazo with `--repo owner/name`, as someone with admin rights on that repo.
-The `v0.2.0` tag does not contain it, so until the next release use `main`.
+The `v0.3.0` tag contains it; check out the tag you installed.
 It creates the environment, then each App through GitHub's manifest flow, stores the id and key as
 environment secrets, checks the key works and that GitHub granted exactly the permissions asked
 for, and waits until the App is installed on the one repo. No key is printed or written to a file.

@@ -1,5 +1,77 @@
 # Trazo changelog
 
+## 0.3.0 (2026-11-22)
+Agents decide and ship. Read "Before you enable anything", "Known limits for hosts" and
+"Upgrading from 0.2.0" first.
+
+**Status of the driver, stated plainly.** The unattended driver (`drive.yml`) ships switched
+off (`DRIVE_ENABLED` unset) and has NOT been verified on a live run: #247 (the supervised first
+run) moved to v0.4.0. The GitHub App identity (#252) is partly in place: the setup script and the
+drive publish job's builder token exist, and the reviewer App path is the report job below; none
+of it has run live. Treat all of it as UNVERIFIED.
+
+Driver and guardrails
+- #246 Add the unattended drive workflow with gated auto-merge (ADR 0024); off by default
+- #249 Cap spend per drive run
+- #258 Runaway guardrails: merge cap, one PR in flight, drive-halt circuit breaker
+- #262 Liveness sweeper re-runs stalled reviews and flags stalled issues
+- #273 Auto-merge sensitive list covers the files the stop list protects
+- #252 (partial) Owner-run `scripts/setup_github_apps.zsh` creates the builder and reviewer Apps
+  and stores their keys in the `trazo-apps` environment; the drive publish job mints a builder
+  token from it
+- Refs #291 A `report` job sets `trazo/verdict` as the reviewer App from the default branch
+  (ADR 0028, PR #294); `review.yml` holds no key and sets no status
+
+Agent behavior
+- #266 Decide, then tell: agents stop waiting on reversible questions (ADR 0026, loosens a gate in `rules.md`)
+- #279 The PM cannot deploy, merge, push or set secrets: enforced by a hook and deny rules, not only by prompt
+
+Protections
+- #231 CODEOWNERS covers the review-gate role definitions
+- #281 CODEOWNERS narrowed per owner decision to what governs agents (rules, roles, skills,
+  adapters, agent instruction files, workflows, charter); everything else is agentic
+- #263 Release-tag creation is restricted by an owner-run script (`scripts/protect_release_tags.py`);
+  release tags are protected against forged `latest`
+
+Installer
+- #272 The installer resolves release tags, not a branch with the same name
+- #285 The installer ships the full harness to hosts: CI, review, report and drive workflows (Claude
+  adapter), PR template, secret scanning, `put_secret.sh`, evidence and verdict scripts,
+  `.env.example`, placeholder Dockerfile, and a CODEOWNERS starter
+
+Docs
+- The README now has how-tos for installing from scratch, upgrading, and setting up the GitHub Apps
+
+Before you enable anything (owner-only; the installer prints these and sets none of them)
+- `ANTHROPIC_API_KEY` secret, for automatic review and drive
+- `AUTO_REVIEW_ENABLED=true` variable to turn on automatic review (default off). Automatic review
+  also needs the reviewer App and the `trazo-apps` environment: `report.yml` sets `trazo/verdict`
+  as the reviewer App
+- the `trazo-apps` environment (deployment branches: `main` only) and the builder and reviewer
+  Apps, made with `scripts/setup_github_apps.zsh` from this tag (not installed in your repo)
+- `DRIVE_ENABLED=true` only when you can watch a run; unset it if anything looks wrong
+
+Known limits for hosts
+- The GitHub Apps setup script is not shipped to hosts yet (run it from a checkout of this tag)
+  and only supports a default branch named `main` (follow-up: #296).
+- The driver and the App identity have not run live (#247, v0.4.0).
+
+Upgrading from 0.2.0
+- Run `install.sh upgrade v0.3.0` (use `--dry-run` first). `.trazo/` is replaced from the tag, so
+  hand edits inside `.trazo/` (outside `.trazo/project/`) are lost; `.trazo/project/` is never touched.
+- Harness files are new to you: a path you already have (your own `ci.yml`, PR template,
+  Dockerfile and so on) is kept, not overwritten. Files Trazo placed and you edited are left with a diff.
+- `review.yml`, `report.yml` and `drive.yml` are placed with the Claude adapter. `review.yml` and
+  `drive.yml` do nothing until you set the variables above; `report.yml` sets `trazo/verdict` as
+  the reviewer App and needs that App and the `trazo-apps` environment. If you do not want them,
+  delete them.
+- An existing `.github/CODEOWNERS` or `.claude/settings.json` is never edited. A host with no
+  CODEOWNERS gets a starter on upgrade; otherwise add the suggested lines yourself. Merge the new
+  deny rules and the PreToolUse hook entry from `src/adapters/claude/settings.json` in the Trazo
+  repo at v0.3.0 yourself; without that merge you do not get the PM guard.
+- `rules.md` changes behavior: agents now decide reversible choices and record `Decided:` on the
+  issue instead of asking.
+
 ## 0.2.0 (2026-10-13)
 - #187 Attribute role-authored GitHub comments and issues
 - #192 Split the engineer role into eng (junior) and senior eng
