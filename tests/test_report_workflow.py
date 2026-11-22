@@ -186,3 +186,26 @@ def test_status_step_leaves_a_pending_verdict_from_another_writer():
     assert "creator.login" in step
     assert "APP_SLUG}[bot]" in step
     assert "pending from another writer" in step
+
+
+def test_only_pull_requests_against_the_default_branch_get_a_verdict():
+    # A commit status is shared by every PR with that head, so a verdict earned against another
+    # base would show green on a PR into the default branch (security review of #294).
+    t = text()
+    step = [s for s in report_job()["steps"] if s.get("id") == "decide"][0]
+    assert step["env"]["DEFAULT_BRANCH"] == "${{ github.event.repository.default_branch }}"
+    assert ".base.ref == env.DEFAULT_BRANCH" in t
+    assert '"$DEFAULT_BRANCH"' not in t.replace("select(", "")  # never spliced into jq text
+
+
+def test_no_claim_that_report_is_the_only_writer_until_212_is_pinned():
+    for path in (
+        REPO_ROOT / ".github" / "CODEOWNERS",
+        REPO_ROOT / ".trazo/project/adr/0028-report-job-sets-verdict-as-reviewer-app.md",
+    ):
+        assert "only path that sets trazo/verdict" not in path.read_text(), path.name
+    adr = (
+        REPO_ROOT / ".trazo/project/adr/0028-report-job-sets-verdict-as-reviewer-app.md"
+    ).read_text()
+    assert "integration_id" in adr and "BOT_LOGIN" in adr
+    assert "default branch" in adr and "gate" in adr.lower()

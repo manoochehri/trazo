@@ -23,6 +23,12 @@ session on 2026-11-22 ("lock it first", recorded on the issue). Amends where the
 - The report never checks out or runs pull request code. The head SHA, run id and attempt come from the
   event payload; the pull request is found from the head SHA through the API; titles, branch names and
   artifacts are never read. Changed paths come from the compare endpoint between two fixed SHAs.
+- **Only pull requests into the default branch are reported** (`.base.ref` equals the repository's default
+  branch, from the API and the event, never PR text; else no verdict). A commit status is shared by every PR
+  with that head, so a verdict earned against another base (a sensitive branch plus one benign commit) would
+  otherwise show green on a PR of the same head into the default branch. Because of this the `gate` in
+  `review.yml` needs no change: a terminal verdict on a head can only come from a default-base review run, or
+  from a person's `/check-pr`, which is a deliberate act.
 - Same decision rules as before: success only for a `github-actions[bot]` review that is on this head,
   names it in one `Reviewed-Head` line, says exactly `merge`, and was submitted after the `review` job
   started; sensitive paths never get success from the bot; a head that moved since the review gets no
@@ -40,12 +46,16 @@ A pull request that edits `review.yml` runs its own copy with `GITHUB_TOKEN` and
 review as `github-actions[bot]`, which the report trusts. Mitigations: the `Reviewed-Head` and
 after-job-start checks (a forged review must still name this head and post after the real job started),
 `.github/workflows/` is in CODEOWNERS (owner review) and every workflow change needs a separate security
-review. The App key itself is never reachable by a pull request. This does not close #212.
+review. The App key itself is never reachable by a pull request. This does not close #212: closing it needs both the `integration_id` pin on `trazo/verdict` (owner) and
+reviews posted by the reviewer App with `BOT_LOGIN` set to it, because the report trusts any
+`github-actions[bot]` review, which any workflow in the repo can post. Until then `report.yml` is not the only
+writer of `trazo/verdict`.
 
 ## Owner steps (owner-only, tracked in #212)
 
 Pin `integration_id` on `trazo/verdict` in the `protect main` ruleset to the reviewer App, and require
-`trazo/security`. Until then the status is set by the App but a person's account could still satisfy it.
+`trazo/security`. Until then the status is set by the App but a person's account could still satisfy it. The
+pin alone does not close #212 (see Residual risk).
 
 ## Consequences
 

@@ -47,6 +47,9 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
           BOT_LOGIN: github-actions[bot]
+          # A status is shared by every PR with this head, so only a PR into the default branch is
+          # reported: a verdict earned against another base must not show green on a PR into main.
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           # pipefail: a partial read fails the pipeline and so fails closed.
           set -o pipefail
@@ -57,10 +60,10 @@ jobs:
           }
           # The pull request for this exact head, from the API (not from the event's pull_requests list).
           prs=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/pulls" \
-            -q "[.[] | select(.state == \"open\" and .head.sha == env.HEAD_SHA and .head.repo.full_name == \"${GITHUB_REPOSITORY}\")] | map(.number) | join(\" \")") \
+            -q "[.[] | select(.state == \"open\" and .base.ref == env.DEFAULT_BRANCH and .head.sha == env.HEAD_SHA and .head.repo.full_name == \"${GITHUB_REPOSITORY}\")] | map(.number) | join(\" \")") \
             || finish none "no verdict: could not list the pull requests for this head"
           if [[ ! "$prs" =~ ^[0-9]+$ ]]; then
-            finish none "no verdict: this head has no single open same-repository pull request"
+            finish none "no verdict: this head has no single open same-repository pull request into the default branch"
           fi
           PR_NUMBER="$prs"
           pr_line=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \

@@ -21,7 +21,8 @@
 /CLAUDE.md               @manoochehri
 /.github/CODEOWNERS      @manoochehri
 # Kept until #212 lands (a PR that edits review.yml runs its own copy and can post a forged bot review;
-# report.yml runs from main and is the only path that sets trazo/verdict);
+# report.yml runs from main and sets trazo/verdict as the reviewer App, but until #212 is pinned (integration_id
+# AND reviews posted by the reviewer App) other writers can still set it);
 # removing these is a follow-up.
 /.github/workflows/      @manoochehri
 /scripts/install.sh      @manoochehri
