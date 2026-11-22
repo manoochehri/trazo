@@ -195,12 +195,31 @@ jobs:
     if: needs.work.outputs.has_change == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # #252: the builder App's key is an environment secret, readable only by a job that names the
+    # environment, and the environment allows only main. This workflow runs only from the default branch.
+    environment: trazo-apps
+    # The App token does the writing, so the job's own token needs nothing beyond reading the repo.
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
+      contents: read
     steps:
+      # Pull requests and pushes made with GITHUB_TOKEN start no workflows; the App's token does, so CI
+      # and the review run on drive pull requests, and the author is the builder App, not the reviewer.
+      - id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          # TODO: `app-id` is deprecated in v3.4.0; move to `client-id` (needs the App's client id) later.
+          app-id: ${{ secrets.BUILDER_APP_ID }}
+          private-key: ${{ secrets.BUILDER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # Not written into .git/config: the push below passes the token explicitly, and the patch
+          # step applies agent-produced content in a tree that then holds no credential.
+          persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: drive-out
@@ -208,7 +227,7 @@ jobs:
       - name: apply the patch, push the branch, open the pull request
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           ISSUE: ${{ needs.work.outputs.issue }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
@@ -232,7 +251,7 @@ jobs:
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -q -m "Closes #${ISSUE}: ${subject}"
           git log -1 --format=%B | head -5 | grep -iE '^(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' >/dev/null
-          git push origin "$branch"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
           # Agent text is untrusted: defuse @-mentions, mark it, and (for the comment) quote it. The merge job
           # finds the linked issue through the PR's closing references, so this workflow writes the keyword.
           # A zero-width space after @ and # stops mentions and cross-issue backlinks from the agent's text.

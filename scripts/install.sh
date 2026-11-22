@@ -498,8 +498,10 @@ print_owner_steps() {
     echo "     is off. Turn it on after the secret is set:"
     echo "       gh variable set AUTO_REVIEW_ENABLED --body true -R $slug"
     n=$((n + 1))
-    echo "  $n. If you will enable drive: create the builder and reviewer GitHub Apps with"
-    echo "     scripts/setup_github_apps.zsh from Trazo at $tag (it is not installed in your repo)."
+    echo "  $n. If you will enable drive: drive.yml's publish job declares the environment trazo-apps."
+    echo "     Create it with deployment branches limited to your default branch only, and create the"
+    echo "     builder and reviewer GitHub Apps with scripts/setup_github_apps.zsh from Trazo at $tag"
+    echo "     (it is not installed in your repo; it also creates the environment and stores the keys there)."
     n=$((n + 1))
     echo "  $n. DRIVE_ENABLED stays unset (drive does nothing) until you can watch one run. Then set it"
     echo "     to true, watch that one watched run, and unset it again if anything looks wrong."

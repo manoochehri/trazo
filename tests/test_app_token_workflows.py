@@ -21,6 +21,10 @@ def load(name):
     return yaml.safe_load((WORKFLOWS / name).read_text())
 
 
+def uses(step, prefix):
+    return str(step.get("uses", "")).startswith(prefix)
+
+
 def mints(job):
     return [
         s
@@ -44,11 +48,9 @@ def test_publish_mints_builder_token_and_uses_it():
     assert "REVIEWER" not in str(w)
     gh_tokens = [s["env"]["GH_TOKEN"] for s in publish["steps"] if "GH_TOKEN" in s.get("env", {})]
     assert gh_tokens and all(".outputs.token" in t for t in gh_tokens)
-    # the push must use the App token too, or the branch push would not start CI
-    checkout = [
-        s for s in publish["steps"] if str(s.get("uses", "")).startswith("actions/checkout")
-    ][0]
-    assert ".outputs.token" in str(checkout.get("with", {}).get("token", ""))
+    # checkout keeps no credential (persist-credentials false); the push passes the token
+    push = [ln for ln in (WORKFLOWS / "drive.yml").read_text().splitlines() if "git push" in ln]
+    assert len(push) == 1 and "x-access-token:${GH_TOKEN}@" in push[0]
 
 
 def test_every_token_minting_job_declares_the_environment():
@@ -94,3 +96,18 @@ def test_minted_token_is_narrow_and_scoped_to_this_repo():
     perms = {k for k in w if k.startswith("permission-")}
     assert perms == {"permission-contents", "permission-pull-requests", "permission-issues"}
     assert all(w[k] == "write" for k in perms)
+
+
+def test_app_token_checkout_does_not_persist_credentials():
+    publish = load("drive.yml")["jobs"]["publish"]
+    checkout = [s for s in publish["steps"] if uses(s, "actions/checkout")][0]
+    assert checkout["with"].get("persist-credentials") is False
+    # the push then needs the token passed explicitly, not read from .git/config
+    text = (WORKFLOWS / "drive.yml").read_text()
+    assert "git push" in text and "x-access-token" in text
+
+
+def test_host_copy_of_drive_is_in_sync():
+    root = WORKFLOWS.parents[1]
+    host = root / "src" / "harness" / ".github" / "workflows" / "drive.yml"
+    assert host.read_bytes() == (WORKFLOWS / "drive.yml").read_bytes()
