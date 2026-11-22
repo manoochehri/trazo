@@ -58,18 +58,14 @@ Your code, build and pipeline are not changed. Nothing in `.trazo/project/` is e
 
 ### 3. Owner-only setup (secrets, switches, GitHub Apps)
 
-Agents never do these; they are yours. The installer prints the same list, with your repo name filled in, when it finishes. This list needs a release that ships the review and drive workflows (the next one; `v0.2.0` does not). Replace `owner/name` with your repo.
+Agents never do these; they are yours. The installer prints the same list, with your repo name filled in, when it finishes. This list needs a release that ships the review and drive workflows (the next one; `v0.2.0` does not). Replace `owner/name` with your repo. For automatic review, do steps 1, 2 and 3 in that order: the key, then the `trazo-apps` environment and the Apps (step 2 creates both), then the switch. Steps 4 and 5 are for the driver and the code owner.
 
 1. **Give agents their key.** Needed for automatic review and drive:
    ```bash
    gh secret set ANTHROPIC_API_KEY -R owner/name
    ```
    `gh` asks you to paste the key. In a GitHub organization, set it once as an organization secret.
-2. **Turn on automatic review.** It is off until you do this:
-   ```bash
-   gh variable set AUTO_REVIEW_ENABLED --body true -R owner/name
-   ```
-3. **Create the two GitHub Apps** (only if you will use the driver). The script is not installed in your repo. Get it from a clone of Trazo, then point it at your repo. The `v0.2.0` tag does not contain it yet, so until the next release use `main`; then check out the tag you installed:
+2. **Create the two GitHub Apps.** The reviewer App is needed for automatic review to record its verdict; the builder App is needed for the driver. The script is not installed in your repo. Get it from a clone of Trazo, then point it at your repo. The `v0.2.0` tag does not contain it yet, so until the next release use `main`; then check out the tag you installed:
    ```bash
    git clone https://github.com/manoochehri/trazo.git
    cd trazo
@@ -78,6 +74,10 @@ Agents never do these; they are yours. The installer prints the same list, with 
    ```
    It needs `zsh`, `gh` (signed in as the repo owner with admin rights), `jq`, `openssl`, `curl` and `python3`. It creates the `trazo-apps` environment, opens your browser twice (click "Create GitHub App", then install it on this one repo only) and stores the keys itself. You never see or paste a key.
    The script only accepts a default branch named `main`: it limits `trazo-apps` to `main` and stops if that fails. If your default branch has another name, stop here and ask for a follow-up.
+3. **Turn on automatic review.** Last, once the key and the Apps exist. It is off until you do this:
+   ```bash
+   gh variable set AUTO_REVIEW_ENABLED --body true -R owner/name
+   ```
 4. **Turn on the driver, carefully.** The driver (`drive.yml`) works through open issues on a timer: it picks one, an agent edits a copy of the code, and a plain script opens the pull request, which is merged only after review and passing checks. It does nothing until you set:
    ```bash
    gh variable set DRIVE_ENABLED --body true -R owner/name

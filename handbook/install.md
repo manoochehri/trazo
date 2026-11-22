@@ -84,13 +84,13 @@ Besides `.trazo/` and the adapter, a release that ships the harness (`src/harnes
 
 The harness comes from `src/harness/`. The installer never overwrites a path you already have (a file it placed that you then edit is kept too):
 
-- CI: `ci.yml` (secret scan, PR evidence check), and with the Claude adapter `review.yml` (automatic review, off until `AUTO_REVIEW_ENABLED` is `true`) and `drive.yml` (off until `DRIVE_ENABLED` is `true`; unset on a fresh install)
+- CI: `ci.yml` (secret scan, PR evidence check), and with the Claude adapter `review.yml` (automatic review, off until `AUTO_REVIEW_ENABLED` is `true`), `report.yml` (sets `trazo/verdict` as the reviewer App, in the `trazo-apps` environment) and `drive.yml` (off until `DRIVE_ENABLED` is `true`; unset on a fresh install)
 - `.gitleaks.toml`, `.pre-commit-config.yaml`, `scripts/scan.sh`, `scripts/scan-preflight.sh`
-- the PR template and `scripts/check_pr_evidence.py`, so a missing review-rounds, defects or fail-first field fails CI; `scripts/report_verdict.py`
+- the PR template and `scripts/check_pr_evidence.py`, so a missing review-rounds, defects or fail-first field fails CI; `scripts/report_verdict.py`, `scripts/drive_guard.py` and `scripts/drive_sweep.py`
 - `scripts/put_secret.sh` (stores a secret in AWS Secrets Manager) and an `.env.example` of placeholders
 - a starter `.github/CODEOWNERS` for agent prompts, roles, settings and the gate, only if you have none; with one, suggested lines are printed instead
 
-The test command in `ci.yml` and the `Dockerfile` depend on your stack, so they are placeholders that fail until `/kickoff` asks and sets them. `docs.yml` is not shipped: it builds this repository's own MkDocs site. At the end the installer prints only the owner-only steps: the `ANTHROPIC_API_KEY` secret, the `AUTO_REVIEW_ENABLED` variable, GitHub App setup if you will use drive, and keeping `DRIVE_ENABLED` unset until one watched run.
+The test command in `ci.yml` and the `Dockerfile` depend on your stack, so they are placeholders that fail until `/kickoff` asks and sets them. `docs.yml` is not shipped: it builds this repository's own MkDocs site. At the end the installer prints only the owner-only steps: the `ANTHROPIC_API_KEY` secret, the `AUTO_REVIEW_ENABLED` variable, the `trazo-apps` environment and GitHub App setup (for automatic review and drive), and keeping `DRIVE_ENABLED` unset until one watched run.
 
 ### What `/kickoff` sets up, or asks you to add
 
