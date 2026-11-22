@@ -23,7 +23,7 @@
 #   .codex/agents/     project-scoped Codex role agents; names are prefixed with trazo-
 #   .agents/skills/    Codex workflow skills; names are prefixed with trazo-
 #   harness (src/harness/)
-#                      CI (ci.yml; review.yml and drive.yml with the Claude adapter), the PR
+#                      CI (ci.yml; review.yml, report.yml and drive.yml with the Claude adapter), the PR
 #                      template, gitleaks and pre-commit config, scripts/scan*.sh, put_secret.sh,
 #                      check_pr_evidence.py, report_verdict.py, .env.example (placeholders) and a
 #                      placeholder Dockerfile. A path the host already has is never overwritten;
@@ -170,7 +170,7 @@ drop_block() {
 
 MANIFEST=.trazo/INSTALLED
 P=.trazo/project
-HARNESS_RE='\.github/workflows/(ci|review|drive)\.yml|\.github/pull_request_template\.md|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.env\.example|Dockerfile|scripts/(scan\.sh|scan-preflight\.sh|put_secret\.sh|check_pr_evidence\.py|report_verdict\.py|drive_guard\.py|drive_sweep\.py)'
+HARNESS_RE='\.github/workflows/(ci|review|report|drive)\.yml|\.github/pull_request_template\.md|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.env\.example|Dockerfile|scripts/(scan\.sh|scan-preflight\.sh|put_secret\.sh|check_pr_evidence\.py|report_verdict\.py|drive_guard\.py|drive_sweep\.py)'
 PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.json|'"$HARNESS_RE"'|\.codex/agents/[A-Za-z0-9._-]+\.toml|\.agents/skills/[A-Za-z0-9._-]+/SKILL\.md)$'
 
 # check_manifest: the manifest is a committed file anyone can edit, and it decides what we
@@ -320,7 +320,7 @@ place_harness_all() {
   # Stored as env.example in src/ so no tool mistakes the source for a real .env file.
   place_harness "$h/env.example" .env.example "$placed"
   if [ "$adapter" = claude ] || [ "$adapter" = both ]; then
-    for f in .github/workflows/review.yml .github/workflows/drive.yml; do
+    for f in .github/workflows/review.yml .github/workflows/report.yml .github/workflows/drive.yml; do
       place_harness "$h/$f" "$f" "$placed"
     done
   fi
@@ -498,7 +498,7 @@ print_owner_steps() {
     echo "     is off. Turn it on after the secret is set:"
     echo "       gh variable set AUTO_REVIEW_ENABLED --body true -R $slug"
     n=$((n + 1))
-    echo "  $n. If you will enable drive: drive.yml's publish job declares the environment trazo-apps."
+    echo "  $n. report.yml (sets trazo/verdict) and drive.yml's publish job declare the environment trazo-apps."
     echo "     Create it with deployment branches limited to your default branch only, and create the"
     echo "     builder and reviewer GitHub Apps with scripts/setup_github_apps.zsh from Trazo at $tag"
     echo "     (it is not installed in your repo; it also creates the environment and stores the keys there)."

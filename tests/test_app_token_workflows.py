@@ -90,6 +90,16 @@ def test_review_path_never_exposes_the_key_to_pr_controlled_code():
     assert not any("environment" in job for job in wf["jobs"].values())
 
 
+def test_report_mints_the_reviewer_token_from_the_main_only_environment():
+    # workflow_run runs the default branch's file with the default branch as GITHUB_REF (#291).
+    wf = load("report.yml")
+    job = wf["jobs"]["report"]
+    assert "workflow_run" in (wf.get("on") or wf.get(True))
+    assert job["environment"] == "trazo-apps"
+    assert len(mints(job)) == 1
+    assert "REVIEWER_APP_PRIVATE_KEY" in yaml.safe_dump(mints(job)[0])
+
+
 def test_minted_token_is_narrow_and_scoped_to_this_repo():
     w = mints(load("drive.yml")["jobs"]["publish"])[0]["with"]
     assert w.get("repositories") == "${{ github.event.repository.name }}"
