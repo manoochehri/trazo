@@ -16,6 +16,82 @@ Engineer and PM are working roles (`/eng` and `/pm` in Claude Code, Codex agents
 
 ---
 
+## Set it up
+
+Run these from the root of your repo, in a terminal. You need `git`, `curl` and the [GitHub CLI](https://cli.github.com/) (`gh auth login`). `v0.2.0` is the newest release; check [the tags](https://github.com/manoochehri/trazo/tags) for a newer one and use it instead.
+
+### 1. Install Trazo into a repo
+
+1. Go to your repo and make sure it is committed and clean:
+   ```bash
+   cd path/to/your-repo
+   git status
+   ```
+2. Download the installer from the release you want:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.2.0/scripts/install.sh -o install.sh
+   ```
+3. Install. The default adds the Claude Code and `AGENTS.md` adapters; for OpenAI Codex add `--adapter codex`:
+   ```bash
+   bash install.sh install v0.2.0
+   ```
+4. Read what it printed, then commit the new files on a branch and open a pull request.
+5. In your agent, run `/kickoff` and answer the questions.
+
+Your code, build and pipeline are not changed. Nothing in `.trazo/project/` is ever overwritten. To remove Trazo: `bash install.sh uninstall`. All options (`--source`, `--sha`, `--adapter`): [Install, upgrade and uninstall](handbook/install.md).
+
+### 2. Upgrade an existing install
+
+1. Download the installer from the newer release (replace `v0.2.0` with it):
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.2.0/scripts/install.sh -o install.sh
+   ```
+2. Preview. This shows what would change and changes nothing:
+   ```bash
+   bash install.sh upgrade v0.2.0 --dry-run
+   ```
+3. Apply it:
+   ```bash
+   bash install.sh upgrade v0.2.0
+   ```
+4. Commit and open a pull request. Your own state in `.trazo/project/` is never touched, and a file you edited is skipped with a warning.
+
+### 3. Owner-only setup (secrets, switches, GitHub Apps)
+
+Agents never do these; they are yours. The installer prints the same list, with your repo name filled in, when it finishes. This list needs a release that ships the review and drive workflows (the next one; `v0.2.0` does not). Replace `owner/name` with your repo. For automatic review, do steps 1, 2 and 3 in that order: the key, then the `trazo-apps` environment and the Apps (step 2 creates both), then the switch. Steps 4 and 5 are for the driver and the code owner.
+
+1. **Give agents their key.** Needed for automatic review and drive:
+   ```bash
+   gh secret set ANTHROPIC_API_KEY -R owner/name
+   ```
+   `gh` asks you to paste the key. In a GitHub organization, set it once as an organization secret.
+2. **Create the two GitHub Apps.** The reviewer App is needed for automatic review to record its verdict; the builder App is needed for the driver. The script is not installed in your repo. Get it from a clone of Trazo, then point it at your repo. The `v0.2.0` tag does not contain it yet, so until the next release use `main`; then check out the tag you installed:
+   ```bash
+   git clone https://github.com/manoochehri/trazo.git
+   cd trazo
+   zsh scripts/setup_github_apps.zsh --dry-run --repo owner/name   # shows what it would do, changes nothing
+   zsh scripts/setup_github_apps.zsh --repo owner/name
+   ```
+   It needs `zsh`, `gh` (signed in as the repo owner with admin rights), `jq`, `openssl`, `curl` and `python3`. It creates the `trazo-apps` environment, opens your browser twice (click "Create GitHub App", then install it on this one repo only) and stores the keys itself. You never see or paste a key.
+   The script only accepts a default branch named `main`: it limits `trazo-apps` to `main` and stops if that fails. If your default branch has another name, stop here and ask for a follow-up.
+3. **Turn on automatic review.** Last, once the key and the Apps exist. It is off until you do this:
+   ```bash
+   gh variable set AUTO_REVIEW_ENABLED --body true -R owner/name
+   ```
+4. **Turn on the driver, carefully.** The driver (`drive.yml`) works through open issues on a timer: it picks one, an agent edits a copy of the code, and a plain script opens the pull request, which is merged only after review and passing checks. It does nothing until you set:
+   ```bash
+   gh variable set DRIVE_ENABLED --body true -R owner/name
+   ```
+   It has **not been verified on a live run** ([#247](https://github.com/manoochehri/trazo/issues/247), release v0.4.0). Watch the first run, and switch it off if anything looks wrong:
+   ```bash
+   gh variable delete DRIVE_ENABLED -R owner/name
+   ```
+5. **Check `.github/CODEOWNERS`.** The installer guesses your handle from `origin`. It must be a person or team that can review.
+
+More on what each step does and why: [Owner setup](handbook/install.md#owner-setup).
+
+---
+
 ## Why this exists
 
 Almost every serious repo already exists, with its own runtime, toolchain and pipeline. Point a coding agent at it and the same problems happen again and again:
@@ -49,26 +125,7 @@ Trazo's answer: **the repo is the memory, and the rails are mounted rather than 
 | **Commands and workflows** | Claude Code gets slash commands in `.claude/commands/`; Codex gets discoverable skills in `.agents/skills/`. The adapter maps each tool's entry points to Trazo's shared roles and project docs. |
 | **Secret-read denial** | If you use Claude Code, `.claude/settings.json` denies Claude Code reads of `.env`, `.env.*`, `secrets/`, `*.pem` and `*.key` (only if you have no `settings.json` of your own) |
 
-### What `/kickoff` sets up, or asks you to add
-
-Run after install. It interviews you, then writes and configures:
-
-- the charter (goal, budget, success criteria, stop rule) and `PLAN.md`, shown to you for approval before anything is built
-- a `SKEPTIC_BAR.md` specialised to what counts as a valid result in your domain
-- GitHub labels, milestones and first issues; a Project board if `gh` supports it
-- a ruleset on `main` (no force pushes or deletion, pull request and passing CI required) and GitHub secret scanning with push protection
-- `make setup`, `make test` and `make scan` run once, with failures fixed
-- where the project runs, recorded in the runbook and architecture; if it deploys anywhere, a budget alert and the teardown command
-
-The installer also writes the harness from `src/harness/`, and never overwrites a path you already have (a file it placed that you then edit is kept too):
-
-- CI: `ci.yml` (secret scan, PR evidence check), and with the Claude adapter `review.yml` (automatic review, off until `AUTO_REVIEW_ENABLED` is `true`) and `drive.yml` (off until `DRIVE_ENABLED` is `true`; unset on a fresh install)
-- `.gitleaks.toml`, `.pre-commit-config.yaml`, `scripts/scan.sh`, `scripts/scan-preflight.sh`
-- the PR template and `scripts/check_pr_evidence.py`, so a missing review-rounds, defects or fail-first field fails CI; `scripts/report_verdict.py`
-- `scripts/put_secret.sh` (stores a secret in AWS Secrets Manager) and an `.env.example` of placeholders
-- a starter `.github/CODEOWNERS` for agent prompts, roles, settings and the gate, only if you have none; with one, suggested lines are printed instead
-
-The test command in `ci.yml` and the `Dockerfile` depend on your stack, so they are placeholders that fail until `/kickoff` asks and sets them. `docs.yml` is not shipped: it builds this repository's own MkDocs site. At the end the installer prints only the owner-only steps: the `ANTHROPIC_API_KEY` secret, the `AUTO_REVIEW_ENABLED` variable, GitHub App setup if you will use drive, and keeping `DRIVE_ENABLED` unset until one watched run.
+`/kickoff` (run after install) interviews you and sets up the charter, plan, labels, branch rules and first issues. The installer also places CI, secret-scanning and PR-evidence files, and never overwrites a path you already have. What is placed, and what `/kickoff` does: [Install, upgrade and uninstall](handbook/install.md#what-the-installer-places).
 
 Beneath the files, the design has two layers. The second is the one that matters.
 
@@ -104,28 +161,13 @@ Trazo mounts onto a repo you already have, or onto a new empty one.
 
 ### Install
 
-From the root of your git repository (a new empty one, or the one you already have):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.2.0/scripts/install.sh -o install.sh
-bash install.sh install v0.2.0
-```
-
-For OpenAI Codex, select its adapter explicitly:
-
-```bash
-bash install.sh install v0.2.0 --adapter codex
-```
-
-Your repo keeps its runtime, its build system and its pipeline. The installer copies the framework into `.trazo/`, adds the adapter for your agent, and creates `.trazo/project/` from blank templates. The Codex adapter adds custom role agents under `.codex/agents/` and workflow skills under `.agents/skills/`; existing host files are preserved. Full options, upgrade and uninstall: [Install, upgrade and uninstall](https://manoochehri.github.io/trazo/install/).
+See [Set it up](#set-it-up) above. Your repo keeps its runtime, build system and pipeline; the installer adds `.trazo/` and the adapter for your agent. The layout: [What is `.trazo/`](https://manoochehri.github.io/trazo/overlay/).
 
 Then:
 
 1. **Declare the environment** — one command that runs your tests hermetically from a fresh worktree. If you don't have one, that's the only thing to build first.
 2. **Run `/kickoff`** and answer the interview. The stop rule is the part worth taking seriously: it is the only thing that decides whether to keep going, and it has to be written before the results exist.
 3. **Leave `docs/` and Trazo's own state alone.** A repo's Trazo state lives in `.trazo/project/`, created blank for you; never copy this repository's own `.trazo/project/` across, because it is about Trazo, not your project.
-
-The layout is documented in [What is `.trazo/`](https://manoochehri.github.io/trazo/overlay/).
 
 Kickoff asks about: the idea, measurable success criteria, budget and deadline, hard constraints, a stop rule, UI needs, and where it runs. It shows you the charter and plan and waits for your OK before building anything.
 
