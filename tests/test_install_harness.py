@@ -234,3 +234,11 @@ def test_review_and_drive_need_the_claude_adapter(host, source):
 def test_install_script_still_parses():
     r = subprocess.run(["bash", "-n", str(INSTALL)], capture_output=True, text=True, env=GIT_ENV)
     assert r.returncode == 0, r.stderr
+
+
+def test_printout_names_the_trazo_apps_environment(host, source):
+    # drive.yml publish declares environment trazo-apps (#252); a host without it cannot publish.
+    steps = run(host, "install", "v0.1.0", source=source).stdout.split("Owner-only steps", 1)[1]
+    assert "trazo-apps" in steps
+    assert "default branch" in steps
+    assert "setup_github_apps.zsh" in steps and "not installed in your repo" in steps
