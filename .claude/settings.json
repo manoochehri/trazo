@@ -6,7 +6,38 @@
       "Read(./**/.env.*)",
       "Read(./secrets/**)",
       "Read(./**/*.pem)",
-      "Read(./**/*.key)"
+      "Read(./**/*.key)",
+      "Bash(gh pr merge *)",
+      "Bash(fly *)",
+      "Bash(flyctl *)",
+      "Bash(clasp push *)",
+      "Bash(clasp deploy *)",
+      "Bash(scripts/deploy*)",
+      "Bash(./scripts/deploy*)",
+      "Bash(scripts/put_secret.sh *)",
+      "Bash(gh secret *)",
+      "Bash(gh variable set *)",
+      "Bash(gh workflow run *)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/**)",
+      "Read(~/.claude/**)",
+      "Read(~/.netrc)",
+      "Read(~/.docker/**)",
+      "Read(~/.gitconfig)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.trazo/hooks/pm_bash_guard.py\" --agent pm || exit 2"
+          }
+        ]
+      }
     ]
   }
 }
