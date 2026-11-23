@@ -61,12 +61,19 @@ For GitHub attribution, name the active model only when the role context identif
 
 For complete role definitions including purpose, permissions, and constraints, see the canonical files in `.trazo/roles/`.
 
+## Front door
+The main session is the front door (`.trazo/rules.md`, "Front door"). In Claude Code it starts the
+`pm`, `reviewer`, `security` and `skeptic` subagents with the Agent tool and switches roles with
+`/eng`, `/senior-eng`, `/architect`. The `pm` subagent has no Agent tool (ADR 0025): it records
+the dispatch on the issue and the main session starts the agent. Open ready to act, with no menu
+step, and answer briefly.
+
 ## Plain English → routine
 The owner shouldn't need to remember commands. Map requests to routines:
 | If the owner says something like… | Do |
 |---|---|
-| "catch me up", "where are we", "what's next" | `/start` routine (or `/pm` for strategy questions) |
-| "what can I do", "help", "menu" | `/trazo` |
+| "catch me up", "where are we", "what's next" | the front door acts: dispatch the `pm` subagent, or the `/start` routine for a quick catch-up |
+| "what can I do", "help", "menu" | the front door acts and reports what it is doing: `/trazo` |
 | "work on issue 12", "fix X" | `/work` routine; the commit message carries `Closes #12` |
 | "is this PR ok", "review #15", "can I merge" | `/check-pr` routine (or ask the **reviewer** subagent directly) |
 | "is this secure", "check permissions" | ask the **security** subagent |

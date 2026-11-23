@@ -1,5 +1,13 @@
 # Trazo changelog
 
+## 0.3.1 (2026-11-22)
+Fixes v0.3.0's main session stalling on a menu instead of acting.
+- #304 The main session is the front door: `rules.md` and both adapters define it, `/trazo` reports what it is doing and dispatches the PM instead of printing "You could say" (ADR 0029, extends 0025)
+
+Upgrading from 0.3.0
+- Run `install.sh upgrade v0.3.1` (use `--dry-run` first). `.trazo/` is replaced from the tag; `.trazo/project/` is never touched.
+- `rules.md` gains a "Front door" section: agents act on what's next instead of waiting to be told.
+
 ## 0.3.0 (2026-11-22)
 Agents decide and ship. Read "Before you enable anything", "Known limits for hosts" and
 "Upgrading from 0.2.0" first.
