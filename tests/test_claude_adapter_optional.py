@@ -128,10 +128,12 @@ def test_the_trazo_tree_itself_names_no_tool():
     to a mounted repo. Asserting those files are tool-free would be asserting a falsehood.
     """
     text = (REPO_ROOT / ".trazo" / "rules.md").read_text(encoding="utf-8")
+    # `.claude/` is allowed: the stop list names agent instruction paths for every adapter
+    # (v0.3.0 rules.md, "Ask before guessing"). Only the product name is a tool reference.
     offenders = [
         f".trazo/rules.md:{i}: {line.strip()[:70]}"
         for i, line in enumerate(text.splitlines(), 1)
-        if re.search(r"Claude Code|\.claude/", line)
+        if re.search(r"Claude Code", line)
     ]
     assert not offenders, (
         "the tool-neutral core names a specific tool, so it is no longer tool-neutral:\n"

@@ -1,0 +1,4 @@
+# Secret scanning (scripts/scan.sh, the pre-commit hook and CI read this). Add allowlist
+# entries below only for a reviewed false positive.
+[extend]
+useDefault = true
