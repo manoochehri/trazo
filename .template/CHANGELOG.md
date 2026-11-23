@@ -1,5 +1,15 @@
 # Trazo changelog
 
+## 0.3.1 (2026-11-22)
+Fixes two v0.3.0 problems: the main session stalling on a menu instead of acting, and agents unable to deploy.
+- #304 The main session is the front door: `rules.md` and both adapters define it, `/trazo` reports what it is doing and dispatches the PM instead of printing "You could say" (ADR 0029, extends 0025)
+- #306 The shipped `settings.json` no longer denies deploy commands (`fly`, `flyctl`, `clasp push/deploy`, `scripts/deploy*`) for every agent. A deny rule binds every session and cannot be overridden when the owner asks for a deploy; the PM is still kept off deploys by its Bash allowlist. Merge, secret, variable and workflow-dispatch denies stay.
+
+Upgrading from 0.3.0
+- Run `install.sh upgrade v0.3.1` (use `--dry-run` first). `.trazo/` is replaced from the tag; `.trazo/project/` is never touched.
+- If you merged v0.3.0's `.claude/settings.json` into yours, delete the `fly`, `flyctl`, `clasp push`, `clasp deploy` and `scripts/deploy` lines from `permissions.deny` yourself: the installer never edits that file.
+- `rules.md` gains a "Front door" section: agents act on what's next instead of waiting to be told.
+
 ## 0.3.0 (2026-11-22)
 Agents decide and ship. Read "Before you enable anything", "Known limits for hosts" and
 "Upgrading from 0.2.0" first.

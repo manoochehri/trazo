@@ -301,18 +301,23 @@ def test_shipped_deny_rules_cover_production_and_release_commands() -> None:
     deny = set(json.loads(SETTINGS.read_text(encoding="utf-8"))["permissions"]["deny"])
     required = {
         "Bash(gh pr merge *)",
-        "Bash(fly *)",
-        "Bash(flyctl *)",
-        "Bash(clasp push *)",
-        "Bash(clasp deploy *)",
-        "Bash(scripts/deploy*)",
-        "Bash(./scripts/deploy*)",
         "Bash(scripts/put_secret.sh *)",
         "Bash(gh secret *)",
         "Bash(gh variable set *)",
         "Bash(gh workflow run *)",
     }
     assert required <= deny, f"missing deny rules: {sorted(required - deny)}"
+    # Deploys are not denied project-wide (#306): a deny rule binds every agent and cannot be
+    # overridden when the owner asks for a deploy. The PM is kept off them by its Bash allowlist.
+    deploys = {
+        "Bash(fly *)",
+        "Bash(flyctl *)",
+        "Bash(clasp push *)",
+        "Bash(clasp deploy *)",
+        "Bash(scripts/deploy*)",
+        "Bash(./scripts/deploy*)",
+    }
+    assert not deploys & deny, f"deploys denied for every agent: {sorted(deploys & deny)}"
     # The secret-file Read denies stay.
     assert "Read(./secrets/**)" in deny
 

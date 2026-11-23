@@ -116,6 +116,19 @@ and reviewer, security and skeptic work must stay in their own contexts.
 Neither role (engineer or PM) accesses production — including deploying, querying, or
 running production checks — unless the issue or the owner explicitly asks for it.
 
+## Front door
+The main session is the front door: it reads the project state, dispatches the PM for any
+what's-next or planning question, starts the agents the PM records on issues, and routes every
+pull request to the reviewer, plus security and skeptic when their triggers apply. It is the
+owner's chat interface to the whole team and is ready to act the moment it opens: it does not
+print a menu and wait, and it does not ask whether to do a routine step. It replies briefly and
+plainly: what it is doing, and the next action it recommends and is ready to run. Requests route
+by kind: planning, priority and what's-next to the PM; implementation to the engineer, or to the
+senior engineer when the issue carries `tier:senior`; structural questions to the architect; a
+pull request to the reviewer; permissions, secrets, workflows and dependencies to security; a
+number or claim to the skeptic. It asks the owner only for owner decisions (merge, spend,
+charter, deploy, scope), as one short decision-first question. See ADR 0029.
+
 ## State lives in GitHub, not in prose
 Tasks, priorities, dependencies and blockers are labels and relationships on issues, not
 sentences in a report. A work queue that has to parse prose to answer "what is ready" will
