@@ -10,7 +10,7 @@ You bring a repo, or an idea. Trazo adds a pinned `.trazo/` overlay and the adap
 
 Engineer and PM are working roles (`/eng` and `/pm` in Claude Code, Codex agents for Codex). Reviewer, security, and skeptic are **subagent-only** review roles, kept separate from the agent that builds the change.
 
-> Status: early; distilled from one real project, so expect rough edges. The first release, [`v0.1.0`](https://github.com/manoochehri/trazo/tree/v0.1.0), is published; the current release is [`v0.3.0`](https://github.com/manoochehri/trazo/tree/v0.3.0), scoped in the [v0.3.0 milestone](https://github.com/manoochehri/trazo/milestone/6).
+> Status: early; distilled from one real project, so expect rough edges. The first release, [`v0.1.0`](https://github.com/manoochehri/trazo/tree/v0.1.0), is published; the current release is [`v0.3.1`](https://github.com/manoochehri/trazo/tree/v0.3.1), scoped in the [v0.3.1 milestone](https://github.com/manoochehri/trazo/milestone/8).
 
 [📖 Full documentation](https://manoochehri.github.io/trazo/) · new here? [the guide](handbook/guide.md) · already running a project? [the playbook](handbook/playbook.md)
 
@@ -18,7 +18,7 @@ Engineer and PM are working roles (`/eng` and `/pm` in Claude Code, Codex agents
 
 ## Set it up
 
-Run these from the root of your repo, in a terminal. You need `git`, `curl` and the [GitHub CLI](https://cli.github.com/) (`gh auth login`). `v0.3.0` is the newest release; check [the tags](https://github.com/manoochehri/trazo/tags) for a newer one and use it instead.
+Run these from the root of your repo, in a terminal. You need `git`, `curl` and the [GitHub CLI](https://cli.github.com/) (`gh auth login`). `v0.3.1` is the newest release; check [the tags](https://github.com/manoochehri/trazo/tags) for a newer one and use it instead.
 
 ### 1. Install Trazo into a repo
 
@@ -29,11 +29,11 @@ Run these from the root of your repo, in a terminal. You need `git`, `curl` and 
    ```
 2. Download the installer from the release you want:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.3.0/scripts/install.sh -o install.sh
+   curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.3.1/scripts/install.sh -o install.sh
    ```
 3. Install. The default adds the Claude Code and `AGENTS.md` adapters; for OpenAI Codex add `--adapter codex`:
    ```bash
-   bash install.sh install v0.3.0
+   bash install.sh install v0.3.1
    ```
 4. Read what it printed, then commit the new files on a branch and open a pull request.
 5. In your agent, run `/kickoff` and answer the questions.
@@ -42,19 +42,32 @@ Your code, build and pipeline are not changed. Nothing in `.trazo/project/` is e
 
 ### 2. Upgrade an existing install
 
-1. Download the installer from the newer release (replace `v0.3.0` with it):
+1. Download the installer from the newer release (replace `v0.3.1` with it):
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.3.0/scripts/install.sh -o install.sh
+   curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.3.1/scripts/install.sh -o install.sh
    ```
 2. Preview. This shows what would change and changes nothing:
    ```bash
-   bash install.sh upgrade v0.3.0 --dry-run
+   bash install.sh upgrade v0.3.1 --dry-run
    ```
 3. Apply it:
    ```bash
-   bash install.sh upgrade v0.3.0
+   bash install.sh upgrade v0.3.1
    ```
 4. Commit and open a pull request. Your own state in `.trazo/project/` is never touched, and a file you edited is skipped with a warning.
+
+### Or hand it to your LLM
+
+Paste one of these into your coding agent, from the root of the repo. Replace nothing: it works out the repo itself.
+
+**Install:**
+> Install Trazo v0.3.1 into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.3.1/scripts/install.sh`, run `bash install.sh install v0.3.1`, then delete `install.sh`. Tell me what it placed and the owner-only steps it printed. Do not set secrets or variables.
+
+**Upgrade:**
+> Upgrade Trazo to v0.3.1 in this repo. Download the installer from the v0.3.1 tag, run `bash install.sh upgrade v0.3.1 --dry-run`, show me the diff, then run it without `--dry-run` and delete `install.sh`. If you see `.claude/settings.json` deny rules for `fly`, `flyctl`, `clasp push`, `clasp deploy` or `scripts/deploy`, remove those lines: the installer never edits that file. Do not touch `.trazo/project/`.
+
+**Uninstall:**
+> Remove Trazo from this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.3.1/scripts/install.sh`, run `bash install.sh uninstall` (keeps `.trazo/project/`), then delete `install.sh`. Do not use `--purge` unless I say so.
 
 ### 3. Owner-only setup (secrets, switches, GitHub Apps)
 
@@ -65,7 +78,7 @@ Agents never do these; they are yours. The installer prints the same list, with 
    gh secret set ANTHROPIC_API_KEY -R owner/name
    ```
    `gh` asks you to paste the key. In a GitHub organization, set it once as an organization secret.
-2. **Create the two GitHub Apps.** The reviewer App is needed for automatic review to record its verdict; the builder App is needed for the driver. The script is not installed in your repo. Get it from a clone of Trazo, then point it at your repo. It ships in the Trazo repo at `v0.3.0`; check out the tag you installed:
+2. **Create the two GitHub Apps.** The reviewer App is needed for automatic review to record its verdict; the builder App is needed for the driver. The script is not installed in your repo. Get it from a clone of Trazo, then point it at your repo. It ships in the Trazo repo at `v0.3.1`; check out the tag you installed:
    ```bash
    git clone https://github.com/manoochehri/trazo.git
    cd trazo

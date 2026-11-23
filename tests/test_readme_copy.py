@@ -137,6 +137,6 @@ def test_readme_does_not_present_template_version_as_the_current_release() -> No
     assert status, "README has no status line"
     assert "VERSION" not in status, "the status line must not cite .template/VERSION"
     assert "v0.1.0" in status, "the status line must name the first release, v0.1.0"
-    assert "v0.3.0" in status and "v0.2.0" not in status, (
-        "the status line must name v0.3.0 as current"
+    assert "v0.3.1" in status and "v0.2.0" not in status, (
+        "the status line must name v0.3.1 as current"
     )

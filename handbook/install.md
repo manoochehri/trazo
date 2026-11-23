@@ -8,8 +8,8 @@ copied from a template repository and nothing is fetched from a moving branch.
 From the root of your git repository:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.3.0/scripts/install.sh -o install.sh
-bash install.sh install v0.3.0
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.3.1/scripts/install.sh -o install.sh
+bash install.sh install v0.3.1
 ```
 
 Pin the script to the same tag you install, as above. The tag is required: with none, the
@@ -53,8 +53,8 @@ What it does:
 ## Upgrade
 
 ```sh
-bash install.sh upgrade v0.3.0 --dry-run   # show the diff of .trazo/ and stop
-bash install.sh upgrade v0.3.0             # show the diff, then apply
+bash install.sh upgrade v0.3.1 --dry-run   # show the diff of .trazo/ and stop
+bash install.sh upgrade v0.3.1             # show the diff, then apply
 ```
 
 Upgrade is install at a newer tag, with a unified diff of `.trazo/` printed before anything
