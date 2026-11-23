@@ -51,6 +51,7 @@ EXTRA_SENSITIVE_PREFIXES = (
     # stay out so routine pull requests can update them.
     ".trazo/skills/",
     ".trazo/templates/",
+    ".trazo/hooks/",
     ".trazo/ADVISOR.md",
     ".trazo/ARCHITECTURE.md",
     ".trazo/project/SKEPTIC_BAR.md",
