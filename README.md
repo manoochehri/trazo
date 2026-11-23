@@ -67,7 +67,7 @@ Paste one of these into your coding agent, from the root of the repo. Replace no
 > Upgrade Trazo to v0.3.1 in this repo. Download the installer from the v0.3.1 tag, run `bash install.sh upgrade v0.3.1 --dry-run`, show me the diff, then run it without `--dry-run` and delete `install.sh`. If you see `.claude/settings.json` deny rules for `fly`, `flyctl`, `clasp push`, `clasp deploy` or `scripts/deploy`, remove those lines: the installer never edits that file. Do not touch `.trazo/project/`.
 
 **Uninstall:**
-> Remove Trazo from this repo with `bash install.sh uninstall` (keeps `.trazo/project/`). Do not use `--purge` unless I say so.
+> Remove Trazo from this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.3.1/scripts/install.sh`, run `bash install.sh uninstall` (keeps `.trazo/project/`), then delete `install.sh`. Do not use `--purge` unless I say so.
 
 ### 3. Owner-only setup (secrets, switches, GitHub Apps)
 
