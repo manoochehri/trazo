@@ -102,7 +102,8 @@ def test_adr_0029_defines_the_front_door_and_extends_0025():
     assert statement in _text(RULES), "the ADR's Rule sentence is not in src/overlay/rules.md"
 
 
-def test_the_release_is_0_3_1_with_a_changelog_entry():
-    assert (REPO_ROOT / ".template" / "VERSION").read_text(encoding="utf-8").strip() == "0.3.1"
+def test_the_0_3_1_release_has_a_changelog_entry_and_the_version_is_not_older():
+    version = (REPO_ROOT / ".template" / "VERSION").read_text(encoding="utf-8").strip()
+    assert tuple(int(part) for part in version.split(".")) >= (0, 3, 1)
     changelog = (REPO_ROOT / ".template" / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "## 0.3.1" in changelog and "#304" in changelog
