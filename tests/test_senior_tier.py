@@ -14,6 +14,7 @@ ROLE = REPO_ROOT / "src/overlay/roles/senior-engineer.md"
 ROLES_README = REPO_ROOT / "src/overlay/roles/README.md"
 REVIEWER = REPO_ROOT / "src/overlay/roles/reviewer.md"
 CLAUDE_COMMAND = REPO_ROOT / "src/adapters/claude/commands/senior-eng.md"
+CLAUDE_AGENT = REPO_ROOT / "src/adapters/claude/agents/senior-engineer.md"
 CODEX_AGENT = REPO_ROOT / "src/adapters/codex/agents/senior-engineer.toml"
 
 
@@ -44,11 +45,17 @@ def test_senior_role_escalates_on_the_issue_and_never_through_the_owner() -> Non
     assert "`needs-pm`" in role and "`needs-decision`" in role
 
 
-def test_claude_senior_command_runs_sonnet_on_the_canonical_role() -> None:
-    text = CLAUDE_COMMAND.read_text(encoding="utf-8")
+def test_claude_senior_command_dispatches_a_sonnet_subagent_on_the_canonical_role() -> None:
+    """#326: the command is a thin dispatcher; the pinned subagent holds the model and the role."""
+    command = CLAUDE_COMMAND.read_text(encoding="utf-8")
+    assert "`senior-engineer` subagent" in command
+    assert ".trazo/roles/senior-engineer.md" in command
+    text = CLAUDE_AGENT.read_text(encoding="utf-8")
     frontmatter = text.split("---", 2)[1]
     assert re.search(r"^model: sonnet$", frontmatter, re.MULTILINE)
     assert ".trazo/roles/senior-engineer.md" in text
+    tools = next(line for line in frontmatter.splitlines() if line.startswith("tools:"))
+    assert "Agent" not in tools and "Task" not in tools
 
 
 def test_codex_senior_agent_runs_sol_on_the_canonical_role() -> None:
