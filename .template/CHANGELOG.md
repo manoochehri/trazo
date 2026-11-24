@@ -1,5 +1,11 @@
 # Trazo changelog
 
+## 0.3.2 (2026-11-24)
+Fixes three v0.3.1 problems: Drive leaving empty placeholder files, the evidence check rejecting headings, and the `/trazo` front door replying at length.
+- #315 Drive no longer leaves empty placeholder files; `Decide:` issues are handled as decisions (see the issue for the exact rule)
+- #322 The evidence check accepts headings as evidence, and the "Review rounds" error message is clearer
+- #323 The `/trazo` front door replies in at most 8 plain lines and reports auto-merge state and a stale STATUS first; `rules.md` front-door line updated to match
+
 ## 0.3.1 (2026-11-22)
 Fixes two v0.3.0 problems: the main session stalling on a menu instead of acting, and agents unable to deploy.
 - #304 The main session is the front door: `rules.md` and both adapters define it, `/trazo` reports what it is doing and dispatches the PM instead of printing "You could say" (ADR 0029, extends 0025)
