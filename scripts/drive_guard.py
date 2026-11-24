@@ -117,7 +117,7 @@ def untracked_placeholders(root):
         capture_output=True,
         check=True,
     ).stdout
-    paths = [p for p in out.decode().split("\0") if p]
+    paths = [p for p in os.fsdecode(out).split("\0") if p]
 
     def size_of(p):
         full = os.path.join(root, p)
