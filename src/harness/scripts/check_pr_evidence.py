@@ -11,7 +11,15 @@ def validate(body: str) -> list[str]:
     errors: list[str] = []
     rounds = re.search(r"(?im)^Review rounds:\s*(\d+)\s*$", body)
     if rounds is None:
-        errors.append("Add 'Review rounds: <number>'.")
+        bad = re.search(r"(?im)^Review rounds:.*$", body)
+        if bad is None:
+            errors.append("Add 'Review rounds: <number>' on its own line.")
+        else:
+            errors.append(
+                f"Could not read '{bad.group(0).strip()}'. Expected 'Review rounds: <number>' "
+                "on its own line, digits only (for example 'Review rounds: 1'); "
+                "put any explanation on another line."
+            )
 
     defects = re.search(r"(?im)^Defects found and fixed:\s*(.+?)\s*$", body)
     if defects is None or re.search(r"<[^>]+>", defects.group(1)):
@@ -25,7 +33,7 @@ def validate(body: str) -> list[str]:
     ):
         return errors
 
-    output = re.search(r"(?im)^Fail-first output:\s*\n(.*)", body, re.DOTALL)
+    output = re.search(r"(?im)^(?:#{2,3}\s*)?Fail-first output:?[ \t]*\n(.*)", body, re.DOTALL)
     if output is None or re.search(r"<[^>]+>", output.group(1)):
         errors.append("Add failing test output or a specific Fail-first exemption.")
     elif not re.search(r"(?im)^.*\b(FAILED|ERROR)\b|AssertionError|Traceback", output.group(1)):

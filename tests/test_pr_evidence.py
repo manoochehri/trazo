@@ -77,3 +77,47 @@ The test passed.
 
     assert result.returncode != 0
     assert "failing test output" in result.stderr.lower()
+
+
+FAIL_OUTPUT = (
+    "=========================== short test summary info ============================\n"
+    "FAILED tests/test_example.py::test_regression - AssertionError: expected 2\n"
+)
+
+
+def test_accepts_heading_form_of_fail_first_output(tmp_path: Path):
+    for heading in ("## Fail-first output", "### Fail-first output", "## Fail-first output:"):
+        result = _run_checker(
+            tmp_path,
+            f"Review rounds: 0\nDefects found and fixed: none\n\n{heading}\n\n{FAIL_OUTPUT}",
+        )
+        assert result.returncode == 0, (heading, result.stderr)
+
+
+def test_heading_form_still_requires_failure_marker(tmp_path: Path):
+    result = _run_checker(
+        tmp_path,
+        "Review rounds: 0\nDefects found and fixed: none\n\n## Fail-first output\n\nAll passed.\n",
+    )
+
+    assert result.returncode != 0
+    assert "failing test output" in result.stderr.lower()
+
+
+def test_malformed_review_rounds_message_states_expected_format(tmp_path: Path):
+    result = _run_checker(
+        tmp_path,
+        f"Review rounds: 1 (one round, no findings)\nDefects found and fixed: none\n"
+        f"Fail-first output:\n{FAIL_OUTPUT}",
+    )
+
+    assert result.returncode != 0
+    assert "'Review rounds: 1 (one round, no findings)'" in result.stderr
+    assert "on its own line" in result.stderr
+    assert "digits only" in result.stderr
+
+
+def test_ci_workflows_rerun_evidence_check_when_body_is_edited():
+    for rel in (".github/workflows/ci.yml", "src/harness/.github/workflows/ci.yml"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert "types: [opened, synchronize, reopened, edited]" in text, rel
