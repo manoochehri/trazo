@@ -101,12 +101,12 @@ jobs:
             exit 0
           fi
           # Priority first (P0, P1, P2, then unlabeled), then oldest. Skipped: issues waiting on a decision or PM,
-          # epics, issues with an open pull request on an issue-<n> branch, issues with an open blocker, and
+          # epics, issues titled "Decide:" (they ask the owner, not an engineer), issues with an open pull request on an issue-<n> branch, issues with an open blocker, and
           # issues not written by the owner, a member or a collaborator (the repo is public; issue text is data).
           open_branches=$(gh pr list --state open --limit 200 --json headRefName -q '.[].headRefName')
           candidates=$(gh issue list --milestone "$milestone" --state open --limit 200 \
-            --json number,labels,createdAt \
-            -q '[.[] | select(all(.labels[].name; . != "needs-decision" and . != "needs-pm" and . != "epic"))
+            --json number,labels,createdAt,title \
+            -q '[.[] | select(all(.labels[].name; . != "needs-decision" and . != "needs-pm" and . != "epic") and (.title | startswith("Decide:") | not))
                  | . as $i
                  | {number: $i.number, rank: ([$i.labels[].name | select(test("^P[0-9]$"))] | sort | .[0] // "P9"), created: $i.createdAt}]
                  | sort_by(.rank, .created) | .[].number')
@@ -125,6 +125,13 @@ jobs:
             mkdir -p drive-in drive-out
             gh issue view "$issue" --json title,body -q '"# " + .title + "\n\n" + (.body // "")' > drive-in/issue.md
           fi
+      - name: keep a trusted copy of the guard script
+        if: steps.pick.outputs.issue != ''
+        shell: bash
+        run: |
+          # The collect step runs after the agent has edited the workspace, so it must not run the workspace's
+          # copy. The agent cannot write under the runner's temp directory (see the deny list below).
+          cp scripts/drive_guard.py "$RUNNER_TEMP/drive_guard.py"
       - name: work the issue (work routine, unattended)
         if: steps.pick.outputs.issue != ''
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc
@@ -174,6 +181,9 @@ jobs:
           # so that .git is never trusted. Copy the agent's files, not its .git, into the fresh clone and make the
           # patch there. A nested .git the agent made becomes a gitlink, which publish refuses.
           rsync -a --delete --exclude='/.git' --exclude='/clean' --exclude='/drive-in' --exclude='/drive-out' ./ clean/
+          # Drop the empty package-manager and submodule config files the first live run added (#315), from the
+          # trusted copy of the guard script. A real edit to one of them is not empty and stays in the patch.
+          python3 "$RUNNER_TEMP/drive_guard.py" placeholders clean | xargs -0 -r -I{} rm -f -- 'clean/{}'
           # No hooks, no file monitor, no external diff, no attributes file, whatever else is configured.
           safe_git() { git -c core.fsmonitor=false -c core.hooksPath=/dev/null -c core.attributesFile=/dev/null -c diff.external= -C clean "$@"; }
           safe_git add -A

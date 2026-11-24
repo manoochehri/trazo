@@ -416,3 +416,29 @@ def test_unset_sensitive_flag_fails_closed_in_the_script():
         check=True,
     )
     assert "state=failure" in result.stdout
+
+
+JS_AND_SUBMODULE_CONFIG_PATHS = (
+    ".gitmodules",
+    ".npmrc",
+    ".yarnrc",
+    ".yarnrc.yml",
+    "bunfig.toml",
+    "package-lock.json",
+    "package.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "pkg/package.json",
+    "pkg/.npmrc",
+)
+
+
+def test_package_manager_and_submodule_config_is_sensitive():
+    """Dependency and registry config never auto-merges (#315: the drive's first PR added these)."""
+    patterns = report_verdict.codeowners_patterns(CODEOWNERS)
+    missed = [
+        p
+        for p in JS_AND_SUBMODULE_CONFIG_PATHS
+        if not report_verdict.is_sensitive_path(p, patterns)
+    ]
+    assert not missed, missed

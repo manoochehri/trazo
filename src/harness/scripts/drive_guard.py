@@ -12,6 +12,8 @@ The workflow gathers facts with `gh`; the decisions live here so they can be tes
                       prints trip=true when the latest two are both failures; unreadable input trips
   digest [--halted]   reads a JSON list of merged pull requests ({number, title, url}) on stdin and
                       prints the daily digest comment
+  placeholders DIR    prints, NUL-separated, the new (untracked) files in the git checkout DIR that
+                      are empty and named like a package-manager or submodule config file (#315)
 """
 
 import json
@@ -70,6 +72,58 @@ def breaker(events, since=""):
     except Exception:
         return True
     return len(known) >= 2 and known[-1]["kind"] == "fail" and known[-2]["kind"] == "fail"
+
+
+# The first live run (PR #312, issue #315) added these nine files, all 0 bytes, to a change that
+# the agent called "no code change". UNVERIFIED: that the agent runtime creates them; the cause
+# is not known.
+PLACEHOLDER_NAMES = frozenset(
+    {
+        ".gitmodules",
+        ".npmrc",
+        ".yarnrc",
+        ".yarnrc.yml",
+        "bunfig.toml",
+        "package-lock.json",
+        "package.json",
+        "pnpm-lock.yaml",
+        "yarn.lock",
+    }
+)
+
+
+def placeholder_files(paths, size_of):
+    """Return the paths that are empty files named like a package-manager or submodule config file.
+
+    Only emptiness plus the name qualifies: a real edit to one of these is not empty and is left for
+    the reviewer, and an empty file with any other name (an `__init__.py`) is a legitimate change.
+    """
+    return [p for p in paths if p.rsplit("/", 1)[-1] in PLACEHOLDER_NAMES and size_of(p) == 0]
+
+
+def untracked_placeholders(root):
+    out = subprocess.run(  # noqa: S603
+        [  # noqa: S607
+            "git",
+            "-c",
+            "core.fsmonitor=false",
+            "-C",
+            root,
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ],
+        capture_output=True,
+        check=True,
+    ).stdout
+    paths = [p for p in os.fsdecode(out).split("\0") if p]
+
+    def size_of(p):
+        full = os.path.join(root, p)
+        return os.path.getsize(full) if os.path.isfile(full) and not os.path.islink(full) else -1
+
+    return placeholder_files(paths, size_of)
 
 
 def _plain(s):
@@ -162,6 +216,9 @@ def main(argv):
         return 0
     if cmd == "digest":
         print(digest(json.load(sys.stdin), "--halted" in argv))
+        return 0
+    if cmd == "placeholders" and len(argv) == 3:
+        sys.stdout.write("".join(p + "\0" for p in untracked_placeholders(argv[2])))
         return 0
     print(__doc__, file=sys.stderr)
     return 2

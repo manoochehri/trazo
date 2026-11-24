@@ -264,3 +264,74 @@ def test_digest_reports_halt_through_the_owner_closed_check():
     d = job("digest")
     assert "scripts/drive_guard.py halt" in d
     assert "--label drive-halt" not in d
+
+
+# --- first live run: placeholder files and decision issues (issue #315, PR #312) ------------
+
+# PR #312 added exactly these nine files, all 0 bytes, to a change called "no code change".
+PLACEHOLDERS = [
+    ".gitmodules",
+    ".npmrc",
+    ".yarnrc",
+    ".yarnrc.yml",
+    "bunfig.toml",
+    "package-lock.json",
+    "package.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+]
+
+
+def test_placeholder_files_are_empty_manifests_only():
+    g = guard()
+    sizes = {name: 0 for name in PLACEHOLDERS}
+    sizes["sub/package.json"] = 0  # nested ones count too
+    sizes["tests/__init__.py"] = 0  # an empty Python package marker is legitimate
+    sizes["notes.md"] = 0
+    sizes["bunfig.toml"] = 12  # not empty: a real edit, left for the reviewer
+    got = set(g.placeholder_files(list(sizes), lambda p: sizes[p]))
+    expected = (set(PLACEHOLDERS) | {"sub/package.json"}) - {"bunfig.toml"}
+    assert got == expected
+
+
+def test_cli_placeholders_lists_only_untracked_empty_manifests(tmp_path):
+    def git(*args):
+        subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True)  # noqa: S603, S607
+
+    git("init", "-q")
+    for name in PLACEHOLDERS[:3] + ["tests/__init__.py", "sub/yarn.lock"]:
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text("")
+    (tmp_path / "bunfig.toml").write_text("real = 1\n")
+    git("add", ".gitmodules")  # tracked already: not the agent's addition, never listed
+    r = subprocess.run(  # noqa: S603
+        [sys.executable, str(SCRIPT), "placeholders", str(tmp_path)], capture_output=True
+    )
+    assert r.returncode == 0
+    assert set(r.stdout.decode().split("\0")) - {""} == {".npmrc", ".yarnrc", "sub/yarn.lock"}
+
+
+def test_collect_step_drops_placeholders_before_staging_the_patch():
+    collect = job("work").split("name: collect the change as a patch", 1)[1]
+    call = '"$RUNNER_TEMP/drive_guard.py" placeholders clean'
+    assert call in collect
+    assert collect.index(call) < collect.index("safe_git add -A")
+
+
+def test_collect_runs_a_trusted_copy_of_the_script_not_the_agents_workspace_copy():
+    work = job("work")
+    # After the agent has edited the workspace, scripts/drive_guard.py is the agent's file.
+    after_agent = work.split("name: work the issue", 1)[1]
+    assert "scripts/drive_guard.py" not in after_agent.split("--allowedTools", 1)[1]
+    copy = 'cp scripts/drive_guard.py "$RUNNER_TEMP/drive_guard.py"'
+    assert copy in work
+    assert work.index(copy) < work.index("name: work the issue")
+    # The agent may not write where the trusted copy lives.
+    for tool in ("Edit", "Write"):
+        assert f"{tool}(//home/runner/work/_temp/**)" in work
+
+
+def test_picker_skips_issues_titled_decide():
+    pick = job("work").split("candidates=$(", 1)[1].split('issue=""', 1)[0]
+    assert "title" in pick.split("-q", 1)[0]  # the title is fetched
+    assert re.search(r"Decide", pick)  # and a "Decide:" title is filtered out
