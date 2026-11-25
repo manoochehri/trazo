@@ -407,7 +407,7 @@ def test_settings_hook_fails_closed_when_the_guard_is_missing(tmp_path: Path) ->
 
 def test_pm_has_no_agent_tool() -> None:
     """Owner decision on #279: the PM cannot start agents; a spawned agent would not carry
-    the PM's Bash allowlist. Dispatch belongs to the front door / main session (ADR 0025)."""
+    the PM's Bash allowlist. Dispatch belongs to the Coordinator / main session (ADR 0025)."""
     text = PM_AGENT.read_text(encoding="utf-8")
     tools = next(line for line in text.splitlines() if line.startswith("tools:"))
     names = [t.strip() for t in tools.split(":", 1)[1].split(",")]

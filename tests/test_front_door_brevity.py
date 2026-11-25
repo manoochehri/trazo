@@ -1,4 +1,4 @@
-"""The front door's chat reply is at most 3 short lines (issue #278).
+"""The Coordinator's chat reply is at most 3 short lines (issue #278).
 
 Evidence and reasoning belong on the issue or pull request, not in chat. The rule lives once in
 the tool-neutral rules, and the skill and adapters must not restate a longer budget.
@@ -35,7 +35,7 @@ def _reply_is_brief(reply: str) -> bool:
 
 
 def test_rules_cap_chat_replies_at_three_short_lines():
-    section = _section(RULES, "Front door")
+    section = _section(RULES, "Coordinator")
     assert "at most 3 short lines" in section
     assert "a decision, an answer to the owner's question, or a single command" in section
     assert "evidence, status and reasoning go on the issue or pull request" in section
@@ -67,7 +67,7 @@ def test_adapters_defer_to_the_rule_instead_of_a_longer_budget():
         assert not re.search(r"\b([4-9]|1\d) (short )?lines", text), path.name
 
 
-def test_front_door_owns_routing_labels_and_tells_after():
+def test_coordinator_owns_routing_labels_and_tells_after():
     section = _section(RULES, "Ask before guessing")
-    assert "the `tier:*` labels are the front door's own call" in section
+    assert "the `tier:*` labels are the coordinator's own call" in section
     assert "priority (p0-p2), `needs-pm` and `needs-decision` stay with the pm" in section
