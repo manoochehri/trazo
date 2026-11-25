@@ -40,19 +40,13 @@ conversation and to subagents, and they win over any hook's `allow`.
 
 | Rule | Why |
 |---|---|
+| `Bash(gh workflow run ...)` | Not a prefix rule: `engineer_bash_guard.py` allows only exactly `gh workflow run owner-merge.yml -f pr=<digits>` (or `--field`), no `--ref` or other flag, no other workflow; it also denies `gh api` to `dispatches` and `actions/workflows` endpoints (#333) |
 | `Bash(gh pr merge *)` | Merging goes through the gated workflows (`drive.yml`, `owner-merge.yml`), not a direct session merge |
 | `Bash(fly *)`, `Bash(flyctl *)` | Production hosting |
 | `Bash(clasp push *)`, `Bash(clasp deploy *)` | Apps Script deploys |
 | `Bash(scripts/deploy*)`, `Bash(./scripts/deploy*)` | A host's deploy scripts |
 | `Bash(scripts/put_secret.sh *)` | Secrets are entered by the human |
 | `Bash(gh secret *)`, `Bash(gh variable set *)` | Repository secrets and variables |
-| `Bash(gh workflow run drive.yml*)` | Dispatch can deploy or start the driver; only `gh workflow run owner-merge.yml -f pr=<n>` is open to agents (#333) |
-| `Bash(gh workflow run ci.yml*)` | Dispatch can deploy or start the driver; only `gh workflow run owner-merge.yml -f pr=<n>` is open to agents (#333) |
-| `Bash(gh workflow run review.yml*)` | Dispatch can deploy or start the driver; only `gh workflow run owner-merge.yml -f pr=<n>` is open to agents (#333) |
-| `Bash(gh workflow run report.yml*)` | Dispatch can deploy or start the driver; only `gh workflow run owner-merge.yml -f pr=<n>` is open to agents (#333) |
-| `Bash(gh workflow run docs.yml*)` | Dispatch can deploy or start the driver; only `gh workflow run owner-merge.yml -f pr=<n>` is open to agents (#333) |
-| `Bash(gh workflow run release*)` | Dispatch can deploy or start the driver; only `gh workflow run owner-merge.yml -f pr=<n>` is open to agents (#333) |
-| `Bash(gh workflow run deploy*)` | Dispatch can deploy or start the driver; only `gh workflow run owner-merge.yml -f pr=<n>` is open to agents (#333) |
 
 A deny rule matches the command text as written. It is not a security boundary: `git -C . push`,
 `bash scripts/deploy.sh` or a wrapper such as `env` can slip past a prefix rule (Claude Code
