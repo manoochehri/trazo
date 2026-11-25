@@ -495,6 +495,8 @@ def test_shipped_settings_keep_deny_rules_and_engineer_default():
     bash_entry, agent_entry = perms["hooks"]["PreToolUse"]
     assert bash_entry["matcher"] == "Bash"
     assert "pm_bash_guard.py" in bash_entry["hooks"][0]["command"]
+    # #330: the engineer Bash guard rides the same matcher, for every caller but pm.
+    assert "engineer_bash_guard.py" in bash_entry["hooks"][1]["command"]
     assert agent_entry["matcher"] == "Agent|Task"
     assert "agent_role_guard.py" in agent_entry["hooks"][0]["command"]
 
