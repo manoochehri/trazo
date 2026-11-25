@@ -361,7 +361,7 @@ def refuse(why):
 
 
 try:
-    with open(host_p) as f:
+    with open(host_p, encoding="utf-8") as f:
         host = json.load(f)
 except ValueError:
     refuse("is not valid JSON")
@@ -404,8 +404,8 @@ if mode == "apply":
     shutil.copyfile(host_p, host_p + ".bak")
     host.setdefault("permissions", {})["deny"] = deny
     host.setdefault("hooks", {})["PreToolUse"] = pre
-    with open(host_p, "w") as f:
-        json.dump(host, f, indent=2)
+    with open(host_p, "w", encoding="utf-8") as f:
+        json.dump(host, f, indent=2, ensure_ascii=False)
         f.write("\n")
 print(".claude/settings.json: " + ("would add" if mode == "dry" else "added")
       + " (yours kept; backup .claude/settings.json.bak):")

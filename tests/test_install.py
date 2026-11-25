@@ -701,3 +701,20 @@ def test_upgrade_merge_skips_hook_whose_script_is_absent(tmp_path, host):
     cmds = [h["command"] for e in _settings(host)["hooks"]["PreToolUse"] for h in e["hooks"]]
     assert any("pm_bash_guard.py" in c for c in cmds)
     assert not any("agent_role_guard.py" in c for c in cmds)
+
+
+def test_upgrade_merge_keeps_host_unicode_literal(host, source):
+    text = '{"note": "café ✓", "permissions": {"deny": ["Bash(./büild *)"]}}'
+    _installed_then_host_settings(host, source, text)
+    run(host, "upgrade", "v0.1.0", "--adapter", "claude", source=source)
+    raw = (host / ".claude/settings.json").read_text(encoding="utf-8")
+    assert "café ✓" in raw and "büild" in raw
+    assert "\\u" not in raw
+
+
+def test_uninstall_keeps_an_edited_settings_json(host, source):
+    _installed_then_host_settings(host, source)
+    run(host, "upgrade", "v0.1.0", "--adapter", "claude", source=source)
+    mine = (host / ".claude/settings.json").read_text()
+    run(host, "uninstall")
+    assert (host / ".claude/settings.json").read_text() == mine
