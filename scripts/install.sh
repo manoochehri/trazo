@@ -491,9 +491,10 @@ for rule in deny:
             kept.append(json.dumps(rule, ensure_ascii=False))
 deny[:] = new_deny
 
-# --- the record: what we added, cumulatively, minus what is gone or no longer shipped
+# --- the record: what we added, cumulatively, minus what is gone. A dropped rule that remains
+# because its replacement guard is unavailable stays recorded for a later safe upgrade.
 added_deny = [a.split(": ", 1)[1] for a in added if a.startswith("permissions.deny: ")]
-new_rec_deny = [r for r in rec_deny if r in ship_deny and r in deny]
+new_rec_deny = [r for r in rec_deny if r in deny]
 new_rec_deny += [r for r in added_deny if r not in new_rec_deny]
 new_rec_keys = [k for k in rec_keys if k in ship_keys and k in have]
 new_rec_keys += [k for k in added_keys if k not in new_rec_keys]

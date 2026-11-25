@@ -5,6 +5,7 @@ and a tag, so nothing touches the network. The host is a throwaway git repo.
 """
 
 # ruff: noqa: S603, S607
+import json
 import os
 import shutil
 import subprocess
@@ -885,3 +886,12 @@ def test_upgrade_keeps_recorded_rule_when_guard_hook_is_not_installed(tmp_path, 
     assert OLD_RULE in _settings(host)["permissions"]["deny"]
     assert "kept" in r.stdout and OLD_RULE in r.stdout
     assert "removed permissions.deny: " + OLD_RULE not in r.stdout
+
+
+def test_upgrade_keeps_recorded_rule_in_manifest_when_guard_is_unavailable(tmp_path, host):
+    src = _without_guard_script(tmp_path)
+    _installed_v1_with_host_rule(host, src)
+    run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src)
+
+    # The rule remains eligible for removal on a later upgrade after the guard is available.
+    assert OLD_RULE in json.loads((host / REC).read_text())["deny"]
