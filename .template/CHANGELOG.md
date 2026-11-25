@@ -1,5 +1,14 @@
 # Trazo changelog
 
+## 0.4.1 (2026-11-25)
+Follow-up fixes for the gated workflow, installer upgrades, and front-door brevity. This patch release hardens the Coordinator's merge guard and makes installer settings-record updates safe against redirected or partial writes.
+- #343 Harden workflow-dispatch and rerun guards against shell-segment and substitution bypasses
+- #340 Fix the PR evidence template and engineer guidance
+- #344 Upgrade this repository's own install to Trazo v0.4.0
+- #346 Make installer settings-record upgrades safe, including non-regular-file rejection and atomic writes
+- #347 Let reviewer and security roles post their own commit status
+- #351 Enforce concise three-line Coordinator replies with mechanical tests
+
 ## 0.4.0 (2026-11-25)
 Agents are pinned and guarded: engineers run as pinned subagents behind new guard hooks, the front door can merge a reviewed PR through a gated workflow, upgrades merge settings for you, and a halted driver can clear itself.
 - #315 Fix the unattended driver's first live PR, which committed empty dependency files and used a wrong `Closes` keyword
