@@ -86,6 +86,18 @@ DENIED = [
     "gh api repos/o/r/actions/workflows/12/dispatches",
     "gh api repos/o/r/actions/workflows/12",
     "bash -c 'gh workflow run drive.yml'",
+    "GH_REPO=other/repo gh workflow run owner-merge.yml -f pr=1",  # another repo's workflow
+    "GH_HOST=example.com gh workflow run owner-merge.yml -f pr=1",
+    "env GH_REPO=other/repo gh workflow run owner-merge.yml -f pr=1",
+    "env -i gh workflow run owner-merge.yml -f pr=1",
+    "GH_REPO=other/repo; gh workflow run owner-merge.yml -f pr=1",
+    "export GH_HOST=example.com; gh workflow run owner-merge.yml -f pr=1",
+    "GH_TOKEN=token; gh workflow run owner-merge.yml -f pr=1",
+    "export GH_ENTERPRISE_TOKEN=token; gh workflow run owner-merge.yml -f pr=1",
+    "gh $(echo workflow) run owner-merge.yml -f pr=1",
+    "gh `echo workflow` run owner-merge.yml -f pr=1",
+    "gh run rerun 123",  # reruns a workflow run
+    "gh run rerun 123 --failed",
 ]
 
 

@@ -58,7 +58,7 @@ GH_FIELD_FLAGS = {"-f", "-F", "--field", "--raw-field", "--input"}  # imply POST
 GH_ALWAYS = {
     ("alias",), ("auth", "token"), ("release", "create"), ("release", "upload"),
     ("release", "edit"), ("release", "delete"), ("repo", "delete"), ("repo", "edit"),
-    ("repo", "archive"), ("repo", "rename"),
+    ("repo", "archive"), ("repo", "rename"), ("run", "rerun"),
 }  # fmt: skip
 KEYWORDS = {"{", "}", "!", "if", "then", "else", "elif", "fi", "do", "done", "while", "until"}
 DEFAULT_BRANCHES = {"main", "master"}
@@ -72,6 +72,8 @@ WRAPPER_VALUE_FLAGS = {
     "stdbuf": {"-i", "-o", "-e"},
     "timeout": {"-s", "--signal", "-k", "--kill-after"},
 }  # fmt: skip
+PROTECTED_GH_ENV = {"GH_REPO", "GH_HOST", "GH_TOKEN", "GH_ENTERPRISE_TOKEN"}
+ASSIGNMENT = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=.*")
 # Flag values that are free text, not paths or commands.
 TEXT_FLAGS = {
     "-m", "--message", "--body", "-b", "--title", "-t", "--jq", "-q", "--search", "-S", "--notes",
@@ -266,6 +268,41 @@ def check_gh_api(args: list[str]) -> None:
         raise Deny(f"`gh api` is read-only for the engineer ({effective} is a write)")
 
 
+def sets_protected_gh_env(argv: list[str]) -> bool:
+    """Return whether a simple command sets a GitHub environment variable for later commands."""
+    i = 0
+    while i < len(argv):
+        word = argv[i]
+        match = ASSIGNMENT.fullmatch(word)
+        if match:
+            if match[1] in PROTECTED_GH_ENV:
+                return True
+            i += 1
+            continue
+        if word == "export":
+            return any(
+                ASSIGNMENT.fullmatch(value or "").group(1) in PROTECTED_GH_ENV
+                if ASSIGNMENT.fullmatch(value or "")
+                else value in PROTECTED_GH_ENV
+                for value in argv[i + 1 :]
+                if not value.startswith("-")
+            )
+        if word == "env":
+            i += 1
+            continue
+        break
+    return False
+
+
+def has_gh_substitution(command: str) -> bool:
+    """Substitution before a `gh` subcommand prevents static allowlist inspection."""
+    for segment in re.split(r"&&|\|\||[;&|]", command):
+        match = re.search(r"(?<![A-Za-z0-9_./-])gh(?=\s|$)", segment)
+        if match and re.search(r"\$\(|`", segment[match.end() :]):
+            return True
+    return False
+
+
 def check_shell(head: str, argv: list[str], prefixes, paths) -> None:
     """`bash -c "<script>"` (also `-lc`, `-xc`), `eval <words>`, `bash script.sh`. A shell that
     reads its script from stdin, a pipe or a here-string cannot be checked: deny it."""
@@ -314,6 +351,7 @@ def check_git(argv: list[str]) -> None:
 
 
 def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Pattern[str]]) -> None:
+    original = argv
     argv = strip_wrappers(argv)
     if not argv:
         return
@@ -335,6 +373,8 @@ def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Patter
         if args[:1] == ["api"]:
             check_gh_api(args)
         if words[:1] == ["workflow"]:
+            if len(original) != len(argv):  # `GH_REPO=o/r gh ...`, `env GH_HOST=h gh ...`
+                raise Deny("`gh workflow` may not run behind env assignments or wrappers")
             check_gh_workflow(argv, words)
         # `gh pr --repo o/r merge`, `gh pr merge --squash 5`: the group first, the verb anywhere
         for prefix in prefixes:
@@ -372,13 +412,24 @@ def substitutions(word: str) -> list[str]:
 
 
 def check(command: str, prefixes: list[list[str]], paths: list[re.Pattern[str]]) -> None:
+    if has_gh_substitution(command):
+        raise Deny("`gh` commands may not use substitution before the subcommand")
+    protected_env = False
     for inner in re.findall(r"`([^`]*)`", command):  # before segments() splits on backticks
         check(inner, prefixes, paths)
     for argv in segments(command):
         for word in argv:
             for inner in substitutions(word):
                 check(inner, prefixes, paths)
+        normalized = strip_wrappers(argv)
+        if protected_env and normalized and os.path.basename(normalized[0]) == "gh":
+            args = gh_args(normalized)
+            if bare_words(args)[:1] == ["workflow"]:
+                raise Deny(
+                    "`gh workflow` may not follow an earlier protected environment assignment"
+                )
         check_argv(argv, prefixes, paths)
+        protected_env = protected_env or sets_protected_gh_env(argv)
 
 
 STATUS_CONTEXT = {"reviewer": "trazo/verdict", "security": "trazo/security"}
