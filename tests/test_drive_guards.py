@@ -185,10 +185,13 @@ def test_no_action_is_unpinned_and_no_new_secret():
     t = text()
     for use in re.findall(r"^\s*(?:- )?uses: (\S+)", t, re.M):
         assert re.search(r"@[0-9a-f]{40}$", use), use
-    # ANTHROPIC_API_KEY, plus the builder App id and key read only by the token-minting step (#252)
+    # ANTHROPIC_API_KEY, plus the builder App id and key read only by the token-minting steps
+    # (publish #252, autoclear #332)
     assert sorted(re.findall(r"\$\{\{ secrets\.(\w+) \}\}", t)) == [
         "ANTHROPIC_API_KEY",
         "BUILDER_APP_ID",
+        "BUILDER_APP_ID",
+        "BUILDER_APP_PRIVATE_KEY",
         "BUILDER_APP_PRIVATE_KEY",
     ]
 

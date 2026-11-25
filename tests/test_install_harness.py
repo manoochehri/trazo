@@ -97,7 +97,16 @@ def test_drive_ships_with_its_kill_switch(host, source):
     jobs_text = text.split("\njobs:\n", 1)[1]
     blocks = re.split(r"^  (\w+):\n", jobs_text, flags=re.M)
     jobs = dict(zip(blocks[1::2], blocks[2::2], strict=True))
-    assert set(jobs) == {"work", "publish", "stuck", "merge", "breaker", "digest", "sweep"}
+    assert set(jobs) == {
+        "work",
+        "publish",
+        "stuck",
+        "merge",
+        "breaker",
+        "autoclear",
+        "digest",
+        "sweep",
+    }
     conds = {}
     gated = {}
     for name, body in jobs.items():
