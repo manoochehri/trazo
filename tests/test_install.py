@@ -911,3 +911,36 @@ def test_upgrade_refuses_symlinked_settings_record_without_overwriting_target(tm
     assert r.returncode != 0
     assert "symlink" in r.stdout + r.stderr
     assert target.read_text() == original
+
+
+@pytest.mark.parametrize("kind", ["hardlink", "directory"])
+def test_upgrade_refuses_non_regular_settings_record(tmp_path, host, kind):
+    src = _two_releases(tmp_path)
+    _installed_v1_with_host_rule(host, src)
+    original = (host / REC).read_text()
+    target = tmp_path / "outside-record"
+    target.write_text(original)
+    (host / REC).unlink()
+    if kind == "hardlink":
+        (host / REC).hardlink_to(target)
+    else:
+        (host / REC).mkdir()
+
+    r = run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src, check=False)
+
+    assert r.returncode != 0
+    assert any(text in r.stdout + r.stderr for text in ("regular file", "hard link"))
+    if kind == "hardlink":
+        assert target.read_text() == original
+
+
+def test_settings_record_update_is_atomic(tmp_path, host):
+    src = _two_releases(tmp_path)
+    _installed_v1_with_host_rule(host, src)
+    record = host / REC
+    old_inode = record.stat().st_ino
+
+    run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src)
+
+    assert record.stat().st_ino != old_inode
+    assert OLD_RULE not in json.loads(record.read_text())["deny"]

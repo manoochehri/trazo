@@ -171,6 +171,7 @@ drop_block() {
 # ---------------------------------------------------------------- manifest
 
 MANIFEST=.trazo/INSTALLED
+SETTINGS_REC=.trazo/INSTALLED-settings
 P=.trazo/project
 HARNESS_RE='\.github/workflows/(ci|review|report|drive|owner-merge|status)\.yml|\.github/pull_request_template\.md|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.env\.example|Dockerfile|scripts/(scan\.sh|scan-preflight\.sh|put_secret\.sh|check_pr_evidence\.py|report_verdict\.py|drive_guard\.py|drive_sweep\.py|gen_status\.py)'
 PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.json|'"$HARNESS_RE"'|\.codex/agents/[A-Za-z0-9._-]+\.toml|\.agents/skills/[A-Za-z0-9._-]+/SKILL\.md)$'
@@ -180,7 +181,7 @@ PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.jso
 check_manifest() {
   local line h f
   [ ! -L "$MANIFEST" ] || die "$MANIFEST must not be a symlink; refusing"
-  [ ! -L "$SETTINGS_REC" ] || die "$SETTINGS_REC must not be a symlink; refusing"
+  check_settings_record
   [ -f "$MANIFEST" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
     h="${line%%  *}"
@@ -189,6 +190,21 @@ check_manifest() {
       ! [[ "$f" =~ (^|/)\.\.(/|$) ]] && [ "$line" = "$h  $f" ] ||
       die "$MANIFEST has an invalid adapter entry ($line); refusing"
   done <"$MANIFEST"
+}
+
+check_settings_record() {
+  local links
+  [ -e "$SETTINGS_REC" ] || [ -L "$SETTINGS_REC" ] || return 0
+  [ ! -L "$SETTINGS_REC" ] || die "$SETTINGS_REC must not be a symlink; refusing"
+  [ -f "$SETTINGS_REC" ] || die "$SETTINGS_REC must be a regular file; refusing"
+  links="$(python3 - "$SETTINGS_REC" <<'PY'
+import os
+import sys
+
+print(os.lstat(sys.argv[1]).st_nlink)
+PY
+)" || die "could not inspect $SETTINGS_REC; refusing"
+  [ "$links" = 1 ] || die "$SETTINGS_REC must not be a hard link; refusing"
 }
 
 recorded_hash() { [ -f "$MANIFEST" ] && awk -v p="$1" '{ h = $1; $1 = ""; sub(/^ +/, ""); if ($0 == p) print h }' "$MANIFEST" || true; }
@@ -354,11 +370,10 @@ place_harness_all() {
 # with the exact line to delete.
 # Modes: check (validate only), dry (print what would change), apply (back up to .bak, write,
 # print what changed, update the record), record (fresh install: record everything shipped).
-SETTINGS_REC=.trazo/INSTALLED-settings
 merge_settings() {
   local mode="$1" shipped="$2" hooks_dir="$3"
   python3 - "$mode" "$shipped" ".claude/settings.json" "$hooks_dir" "$SETTINGS_REC" <<'PY'
-import json, os, re, shutil, sys
+import json, os, re, shutil, stat, sys, tempfile
 
 mode, shipped_p, host_p, hooks_dir, rec_p = sys.argv[1:6]
 
@@ -383,6 +398,23 @@ def refuse(why):
     sys.exit(1)
 
 
+def validate_record(path):
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        print("error: " + path + " could not be inspected: " + str(exc) + "; refusing",
+              file=sys.stderr)
+        sys.exit(1)
+    if not stat.S_ISREG(info.st_mode):
+        print("error: " + path + " must be a regular file; refusing", file=sys.stderr)
+        sys.exit(1)
+    if info.st_nlink != 1:
+        print("error: " + path + " must not be a hard link; refusing", file=sys.stderr)
+        sys.exit(1)
+
+
 with open(shipped_p) as f:
     ship = json.load(f)
 ship_deny = ship.get("permissions", {}).get("deny", [])
@@ -392,9 +424,26 @@ ship_keys = [(e.get("matcher"), h.get("command"))
 
 def save_rec(deny, keys):
     data = {"deny": deny, "hooks": [list(k) for k in keys]}
-    with open(rec_p, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+    validate_record(rec_p)
+    parent = os.path.dirname(rec_p) or "."
+    fd, tmp = tempfile.mkstemp(prefix="." + os.path.basename(rec_p) + ".tmp-", dir=parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, rec_p)
+        dir_fd = os.open(parent, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    finally:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
 
 
 if mode == "record":
@@ -418,6 +467,7 @@ if not all(isinstance(e, dict) and isinstance(e.get("hooks", []), list) for e in
     refuse("has a hooks.PreToolUse entry of an unexpected shape")
 
 rec_deny, rec_keys = [], []
+validate_record(rec_p)
 if os.path.isfile(rec_p):
     try:
         with open(rec_p, encoding="utf-8") as f:
