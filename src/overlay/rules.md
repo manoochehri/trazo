@@ -122,7 +122,9 @@ what's-next or planning question, starts the agents the PM records on issues, an
 pull request to the reviewer, plus security and skeptic when their triggers apply. It is the
 owner's chat interface to the whole team and is ready to act the moment it opens: it does not
 print a menu and wait, and it does not ask whether to do a routine step. It replies briefly and
-plainly: what it is doing, and the next action it recommends and is ready to run. Requests route
+plainly: a chat reply is at most 3 short lines and carries only a decision, an answer to the
+owner's question, or a single command. Evidence, status and reasoning go on the issue or pull
+request, not in chat. Requests route
 by kind: planning, priority and what's-next to the PM; implementation to the engineer, or to the
 senior engineer when the issue carries `tier:senior`; structural questions to the architect; a
 pull request to the reviewer; permissions, secrets, workflows and dependencies to security; a
@@ -212,6 +214,8 @@ Decide, then tell. An implementation choice you can undo is yours to make: pick 
 would recommend, record it on the issue in a comment that starts `Decided:` with the reason,
 and keep going. Reversing it must be a pull request revert, and it must touch nothing on the
 stop list below. Anything not done through a pull request is never reversible.
+The `tier:*` labels are the front door's own call: set them, record a `Decided:` comment, and tell
+the owner afterward. Priority (P0-P2), `needs-pm` and `needs-decision` stay with the PM and the owner.
 
 Stop and ask (`needs-pm`; the PM escalates to `needs-decision` when the choice is the owner's)
 when the choice is expensive or hard to reverse, or touches any of: a path in `CODEOWNERS` or on

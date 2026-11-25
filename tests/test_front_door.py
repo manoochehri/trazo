@@ -48,7 +48,7 @@ def test_front_door_is_ready_to_act_and_asks_only_owner_decisions():
         "ready to act",  # no menu step before it works
         "does not print a menu and wait",
         "briefly",  # succinct
-        "ready to run",  # suggests an action it can run, not homework
+        "single command",  # at most one command, not homework
         "owner decisions",  # the only things it asks the owner
     ):
         assert needle in section, f"front door section lacks: {needle}"
