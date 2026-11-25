@@ -20,7 +20,7 @@ label. Omit unknown model or ID fields.
 
 The main session is the front door (`.trazo/rules.md`, "Front door"). In Codex it starts the
 `trazo-*` role agents the PM records on issues and sends every pull request to review. Open ready
-to act, with no menu step, and answer briefly.
+to act, with no menu step, and reply in at most 3 short lines.
 
 ## Route plain-English requests
 

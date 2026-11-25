@@ -66,7 +66,7 @@ The main session is the front door (`.trazo/rules.md`, "Front door"). In Claude 
 `pm`, `engineer`, `senior-engineer`, `reviewer`, `security` and `skeptic` subagents with the Agent tool (`/eng` and `/senior-eng` start the two engineers) and switches into the advisory role with
 `/architect`. The `pm` subagent has no Agent tool (ADR 0025): it records
 the dispatch on the issue and the main session starts the agent. Open ready to act, with no menu
-step, and answer briefly.
+step, and reply in at most 3 short lines.
 
 ## Plain English → routine
 The owner shouldn't need to remember commands. Map requests to routines:
