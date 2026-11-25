@@ -10,16 +10,17 @@ Agents are pinned and guarded: engineers run as pinned subagents behind new guar
 - #330 Add an engineer Bash guard hook that denies `gh api` writes, merges, status setting and secret reads through routes the deny rules missed
 - #332 A drive halt clears itself once after the fix merges and CI is green
 - #333 The front door merges a reviewed PR by dispatching `owner-merge.yml`, which re-checks the review, CI and security at the exact head. `gh pr merge` stays denied and the engineer Bash guard allows only that one dispatch command. This loosens a safety limit on the owner's instruction, and the engineer-facing wording in `rules.md` changes with it. The shared owner login can still forge statuses until the restricted agent token (#320) lands, planned for 0.4.1.
+- #328 (first step, #334) Add a read-only STATUS generator (`scripts/gen_status.py`) and a manually dispatched status workflow (`status.yml`) that print the status block from live GitHub data; scheduled updates are not in yet
 - #337 `install.sh upgrade` merges the new hooks and deny rules into an existing `.claude/settings.json`
 
 Upgrading from 0.3.1
 - Run `install.sh upgrade v0.4.0` (use `--dry-run` first). `.trazo/` is replaced from the tag; `.trazo/project/` is never touched.
 - The upgrade now merges the new hooks and deny rules into an existing `.claude/settings.json` itself, with a backup in `.claude/settings.json.bak` (#337).
-- New files shipped: the `owner-merge.yml` workflow, the agent role guard and engineer Bash guard hooks, and pinned engineer and senior-engineer agents. `/eng` and `/senior-eng` now start those agents.
+- New files shipped: the `owner-merge.yml` and `status.yml` workflows, `scripts/gen_status.py`, the agent role guard and engineer Bash guard hooks, and pinned engineer and senior-engineer agents. `/eng` and `/senior-eng` now start those agents.
 - Set the repository variable `DRIVE_BUILDER_APP_LOGIN` to the builder App's login (for example `trazo-builder[bot]`). Without it the halt auto-clear (#332) does nothing.
 - UNVERIFIED: the new hooks' input shape has not been checked on a live run. They fail closed, so a mismatch blocks the action rather than allowing it.
 - The engineer Bash guard is a speed bump, not a security boundary. A restricted agent token (#320) is the real fix, planned for 0.4.1.
-- Not in 0.4.0 (moved to 0.4.1): the STATUS generator (#334), faster tests (#341), and the restricted agent token (#320).
+- Not in 0.4.0 (moved to 0.4.1): faster tests (#341) and the restricted agent token (#320). The scheduled STATUS PR and its merge path also remain in 0.4.1, under #328.
 
 ## 0.3.1 (2026-11-22)
 Fixes two v0.3.0 problems: the main session stalling on a menu instead of acting, and agents unable to deploy.
