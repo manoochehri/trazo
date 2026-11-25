@@ -157,3 +157,10 @@ def test_the_hook_is_documented_with_its_limits():
     assert "agent_role_guard.py" in text
     assert "UNVERIFIED" in text
     assert "existing" in text and "settings.json" in text
+
+
+def test_the_denial_message_names_every_allowed_role(project):
+    """The message a denied agent reads must not hide a role it is allowed to start."""
+    r = _run(project, _agent_call("general-purpose"))
+    for role in ("pm", "engineer", "senior-engineer", "reviewer", "security", "skeptic"):
+        assert role in r.stderr, role

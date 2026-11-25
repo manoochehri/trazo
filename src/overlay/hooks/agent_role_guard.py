@@ -15,9 +15,10 @@ UNVERIFIED live: the input shape above comes from the Claude Code hooks document
 recorded payload. The tests pin the contract this hook assumes; a payload of another shape is
 denied, not allowed.
 
-Allowed: `pm`, `reviewer`, `security`, `skeptic`, and the installer's prefixed copies
-(`trazo-pm` and so on). Engineering is `/eng`, `/senior-eng` or `/work`; architecture is
-`/architect`. Every other tool is not this hook's business and is allowed through.
+Allowed: `pm`, `engineer`, `senior-engineer`, `reviewer`, `security`, `skeptic`, and the
+installer's prefixed copies (`trazo-pm` and so on). `/eng` and `/senior-eng` start the two
+engineers; architecture is `/architect` (no pinned architect, ADR 0021). Every other tool is not
+this hook's business and is allowed through.
 """
 
 import json
@@ -29,8 +30,8 @@ AGENT_TOOLS = {"Agent", "Task"}  # the tool was named Task in earlier Claude Cod
 
 REASON = (
     "agent role guard: {why}. Only the pinned roles may be started as subagents: "
-    "pm, reviewer, security, skeptic. Engineering is /eng, /senior-eng or /work; architecture "
-    "is /architect (issue #326)."
+    "pm, engineer, senior-engineer, reviewer, security, skeptic. Engineering is /eng or "
+    "/senior-eng (or /work); architecture is /architect (issue #326)."
 )
 
 
