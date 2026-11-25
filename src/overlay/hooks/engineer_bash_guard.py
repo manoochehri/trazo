@@ -37,13 +37,41 @@ REASON = (
     "read-only `gh api` call, and edit config through the Edit tool; the owner merges."
 )
 
-WRAPPERS = {"env", "command", "sudo", "nohup", "time", "exec", "builtin", "nice", "xargs", "stdbuf"}
+WRAPPERS = {
+    "timeout",
+    "env",
+    "command",
+    "sudo",
+    "nohup",
+    "time",
+    "exec",
+    "builtin",
+    "nice",
+    "xargs",
+    "stdbuf",
+}
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 GH_VALUE_FLAGS = {"-R", "--repo", "--hostname"}  # gh global flags that take a value
 GH_METHOD_FLAGS = {"-X", "--method"}
 GH_FIELD_FLAGS = {"-f", "-F", "--field", "--raw-field", "--input"}  # imply POST without -X
 # Always denied under `gh`, whatever the arguments: not expressible as a settings.json rule.
-GH_ALWAYS = {("alias",), ("auth", "token"), ("api", "graphql")}
+GH_ALWAYS = {
+    ("alias",), ("auth", "token"), ("release", "create"), ("release", "upload"),
+    ("release", "edit"), ("release", "delete"), ("repo", "delete"), ("repo", "edit"),
+    ("repo", "archive"), ("repo", "rename"),
+}  # fmt: skip
+KEYWORDS = {"{", "}", "!", "if", "then", "else", "elif", "fi", "do", "done", "while", "until"}
+DEFAULT_BRANCHES = {"main", "master"}
+GIT_VALUE_FLAGS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
+# Wrapper flags that take a value (a value left unlisted is read as the command: see the README).
+WRAPPER_VALUE_FLAGS = {
+    "env": {"-u", "--unset", "-C", "--chdir"},
+    "sudo": {"-u", "-g", "-h", "-p", "-C", "-D", "-r", "-t", "-U", "-T", "-R"},
+    "nice": {"-n", "--adjustment"},
+    "xargs": {"-n", "-I", "-d", "-P", "-L", "-E", "-s", "-a"},
+    "stdbuf": {"-i", "-o", "-e"},
+    "timeout": {"-s", "--signal", "-k", "--kill-after"},
+}  # fmt: skip
 # Flag values that are free text, not paths or commands.
 TEXT_FLAGS = {
     "-m", "--message", "--body", "-b", "--title", "-t", "--jq", "-q", "--search", "-S", "--notes",
@@ -137,27 +165,53 @@ def segments(command: str) -> list[list[str]]:
 def strip_wrappers(argv: list[str]) -> list[str]:
     while argv:
         word = argv[0]
-        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", word):
+        name = os.path.basename(word)
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", word) or word in KEYWORDS:
             argv = argv[1:]
-        elif os.path.basename(word) in WRAPPERS:
+        elif name in WRAPPERS:
             argv = argv[1:]
+            valued = WRAPPER_VALUE_FLAGS.get(name, set())
             while argv and (argv[0].startswith("-") or re.fullmatch(r"[A-Za-z_]\w*=.*", argv[0])):
-                argv = argv[1:]
+                flag = argv[0]
+                if name == "env" and (flag == "-S" or flag.startswith("--split-string")):
+                    # env -S 'cmd args': the string is the command line
+                    rest = flag.partition("=")[2] if "=" in flag else (argv[1] if argv[1:] else "")
+                    skip = 1 if "=" in flag else 2
+                    return strip_wrappers([*shlex.split(rest), *argv[skip:]])
+                argv = argv[2:] if flag in valued else argv[1:]
+            if name == "timeout" and argv:
+                argv = argv[1:]  # the duration
         else:
             break
     return argv
 
 
 def gh_args(argv: list[str]) -> list[str]:
-    """argv after `gh` with global flags removed."""
-    rest = argv[1:]
-    while rest and rest[0].startswith("-"):
-        name = rest[0].partition("=")[0]
-        rest = rest[2:] if name in GH_VALUE_FLAGS and "=" not in rest[0] else rest[1:]
-    return rest
+    """argv after `gh` with the global value flags (`--repo` ...) removed wherever they stand."""
+    rest, out, i = argv[1:], [], 0
+    while i < len(rest):
+        name = rest[i].partition("=")[0]
+        if name in GH_VALUE_FLAGS:
+            i += 1 if "=" in rest[i] else 2
+        else:
+            out.append(rest[i])
+            i += 1
+    return out
+
+
+def bare_words(args: list[str]) -> list[str]:
+    """Words that are not flags and not the free-text value of a text flag."""
+    out, previous = [], ""
+    for a in args:
+        if not a.startswith("-") and previous not in TEXT_FLAGS:
+            out.append(a)
+        previous = a
+    return out
 
 
 def check_gh_api(args: list[str]) -> None:
+    if any(w.lower().strip("/") == "graphql" for w in args[1:]):
+        raise Deny("`gh api graphql` can mutate; use `gh pr` or `gh issue`")
     method = None
     implied = False
     i = 1
@@ -180,6 +234,53 @@ def check_gh_api(args: list[str]) -> None:
         raise Deny(f"`gh api` is read-only for the engineer ({effective} is a write)")
 
 
+def check_shell(head: str, argv: list[str], prefixes, paths) -> None:
+    """`bash -c "<script>"` (also `-lc`, `-xc`), `eval <words>`, `bash script.sh`. A shell that
+    reads its script from stdin, a pipe or a here-string cannot be checked: deny it."""
+    if head == "eval":
+        check(" ".join(argv[1:]), prefixes, paths)
+        return
+    if any(a in {"<<<", "<<", "<"} for a in argv[1:]):
+        raise Deny("a shell fed from a here-string, heredoc or file cannot be checked")
+    flagged = [i for i, a in enumerate(argv[1:], 1) if re.fullmatch(r"-[A-Za-z]*c[A-Za-z]*", a)]
+    if flagged:
+        inner = flagged[0] + 1
+        if inner >= len(argv):
+            raise Deny("`-c` without a script")
+        check(argv[inner], prefixes, paths)
+        return
+    rest = [a for a in argv[1:] if not a.startswith("-")]
+    if not rest:
+        raise Deny("a shell reading its script from stdin cannot be checked")
+    check_argv(rest, prefixes, paths)
+
+
+def check_git(argv: list[str]) -> None:
+    """`git push` may not name the default branch (or push everything); no alias settings."""
+    args, i, sub = argv[1:], 0, None
+    if any(a.lower().startswith("alias.") or ".alias." in a.lower() for a in args):
+        raise Deny("git aliases can hide any command")
+    while i < len(args):
+        if args[i] in GIT_VALUE_FLAGS:
+            i += 2
+        elif args[i].startswith("-"):
+            i += 1
+        else:
+            sub = args[i]
+            break
+    if sub != "push":
+        return
+    rest = args[i + 1 :]
+    if any(a in {"--all", "--mirror", "--tags-all"} for a in rest):
+        raise Deny("`git push --all/--mirror` would push the default branch")
+    words = [a for a in rest if not a.startswith("-")]
+    for ref in words[1:]:  # words[0] is the remote
+        dest = ref.rpartition(":")[2] if ":" in ref else ref
+        dest = dest.removeprefix("refs/heads/").lstrip("+")
+        if dest in DEFAULT_BRANCHES:
+            raise Deny("the engineer never pushes to the default branch; open a pull request")
+
+
 def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Pattern[str]]) -> None:
     argv = strip_wrappers(argv)
     if not argv:
@@ -188,26 +289,24 @@ def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Patter
     if argv[0].startswith("$"):
         raise Deny("a command named by a variable cannot be checked")
     if head in SHELLS or head == "eval":
-        # `bash -c "<script>"`, `eval <words>`, `bash script.sh`: check what it will run.
-        if head == "eval":
-            check(" ".join(argv[1:]), prefixes, paths)
-        elif "-c" in argv:
-            inner = argv.index("-c") + 1
-            if inner < len(argv):
-                check(argv[inner], prefixes, paths)
-        else:
-            rest = [a for a in argv[1:] if not a.startswith("-")]
-            if rest:
-                check_argv(rest, prefixes, paths)
+        check_shell(head, argv, prefixes, paths)
+    if head == "git":
+        check_git(argv)
     candidates = [argv]
     if head == "gh":
         args = gh_args(argv)
         candidates = [["gh", *args]]
+        words = bare_words(args)
         for banned in GH_ALWAYS:
-            if tuple(args[: len(banned)]) == banned:
+            if tuple(words[: len(banned)]) == banned:
                 raise Deny(f"`gh {' '.join(banned)}` is not the engineer's")
         if args[:1] == ["api"]:
             check_gh_api(args)
+        # `gh pr --repo o/r merge`, `gh pr merge --squash 5`: the group first, the verb anywhere
+        for prefix in prefixes:
+            if prefix[0] == "gh" and len(prefix) > 1 and words[:1] == prefix[1:2]:
+                if all(w in words[1:] for w in prefix[2:]):
+                    raise Deny(f"`{' '.join(prefix)}` is denied by settings.json")
     for cand in candidates:
         for prefix in prefixes:
             n = len(prefix)
@@ -224,8 +323,27 @@ def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Patter
         previous = word
 
 
+def substitutions(word: str) -> list[str]:
+    """The text of each `$(...)` and backtick substitution left inside a (quoted) word."""
+    found, i = [], 0
+    while (i := word.find("$(", i)) != -1:
+        depth, j = 1, i + 2
+        while j < len(word) and depth:
+            depth += {"(": 1, ")": -1}.get(word[j], 0)
+            j += 1
+        found.append(word[i + 2 : j - 1])
+        i = j
+    found += re.findall(r"`([^`]*)`", word)
+    return found
+
+
 def check(command: str, prefixes: list[list[str]], paths: list[re.Pattern[str]]) -> None:
+    for inner in re.findall(r"`([^`]*)`", command):  # before segments() splits on backticks
+        check(inner, prefixes, paths)
     for argv in segments(command):
+        for word in argv:
+            for inner in substitutions(word):
+                check(inner, prefixes, paths)
         check_argv(argv, prefixes, paths)
 
 
