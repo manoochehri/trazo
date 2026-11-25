@@ -6,6 +6,18 @@ import re
 import sys
 from pathlib import Path
 
+EXPECTED_LAYOUT = """\
+Expected layout, each line alone on its own line (no bullet, checkbox or bold):
+  Review rounds: 1
+  Defects found and fixed: none
+  ## Fail-first output
+  ```
+  FAILED tests/test_x.py::test_y - AssertionError: expected 2
+  ```
+or, instead of the Fail-first section:
+  Fail-first exemption: docs-only change, no behavior to test
+See .github/pull_request_template.md."""
+
 
 def validate(body: str) -> list[str]:
     errors: list[str] = []
@@ -63,6 +75,7 @@ def main() -> int:
         print("Pull request evidence is incomplete:", file=sys.stderr)
         for error in errors:
             print(f"- {error}", file=sys.stderr)
+        print(EXPECTED_LAYOUT, file=sys.stderr)
         return 1
     print("Pull request evidence fields are present.")
     return 0

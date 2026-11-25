@@ -121,3 +121,56 @@ def test_ci_workflows_rerun_evidence_check_when_body_is_edited():
     for rel in (".github/workflows/ci.yml", "src/harness/.github/workflows/ci.yml"):
         text = (ROOT / rel).read_text(encoding="utf-8")
         assert "types: [opened, synchronize, reopened, edited]" in text, rel
+
+
+def _load_validate():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("check_pr_evidence", CHECKER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.validate
+
+
+def _render_template(text: str, *, exemption: bool) -> str:
+    text = text.replace("<number>", "1").replace("<summary or none>", "none")
+    if exemption:
+        head, _, rest = text.partition("## Fail-first output")
+        tail = rest.partition("Fail-first exemption:")[2]
+        return (
+            head
+            + "Fail-first exemption:"
+            + tail.replace("<reason, at least 20 characters>", "docs-only change, nothing to test")
+        )
+    start = text.index("<paste the failing")
+    end = text.index("\n", start)
+    text = text[:start] + "FAILED tests/test_x.py::test_y - AssertionError" + text[end:]
+    return text.partition("No fail-first output")[0]
+
+
+def test_template_renders_to_a_body_that_passes():
+    validate = _load_validate()
+    template = (ROOT / ".github" / "pull_request_template.md").read_text(encoding="utf-8")
+    assert validate(_render_template(template, exemption=False)) == []
+    assert validate(_render_template(template, exemption=True)) == []
+
+
+def test_old_bullet_layout_fails():
+    validate = _load_validate()
+    old = (
+        "- [ ] Review rounds: 1\n- [ ] defects found and fixed: none\n"
+        "- Fail-first output:\n  FAILED tests/test_x.py\n"
+    )
+    assert validate(old) != []
+
+
+def test_failure_message_prints_expected_layout(tmp_path: Path):
+    result = _run_checker(tmp_path, "nothing useful")
+    assert result.returncode == 1
+    assert "Expected layout" in result.stderr
+    assert "## Fail-first output" in result.stderr
+
+
+def test_template_and_checker_copies_identical():
+    for rel in (".github/pull_request_template.md", "scripts/check_pr_evidence.py"):
+        assert (ROOT / rel).read_bytes() == (ROOT / "src" / "harness" / rel).read_bytes()
