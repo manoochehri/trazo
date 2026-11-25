@@ -12,6 +12,16 @@ Closes #<issue-number> as the **first line of the commit message** (`Closes #<n>
 - [ ] Numbers reported with sample sizes and measured against external reality
 - [ ] Learned something reusable? Recorded it in `.trazo/rules.md` or a new ADR
 
+## Design references
+Architecture: <repository-relative link to the relevant section>
+Architecture contract: <repository-relative link to the relevant section>
+ADR(s): <repository-relative link(s), or `none` with reason>
+Out of scope / follow-up: <explicit exclusions>
+
+## Acceptance evidence
+Commands: <commands run>
+Results: <pass/fail result and relevant output>
+
 ## Evidence
 CI (`scripts/check_pr_evidence.py`) reads the lines below literally. Each stands alone on its own line: no bullet, no checkbox, no bold. Replace every `<...>` placeholder; a leftover one fails the check.
 
