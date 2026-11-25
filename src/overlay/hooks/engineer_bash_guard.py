@@ -58,7 +58,7 @@ GH_FIELD_FLAGS = {"-f", "-F", "--field", "--raw-field", "--input"}  # imply POST
 GH_ALWAYS = {
     ("alias",), ("auth", "token"), ("release", "create"), ("release", "upload"),
     ("release", "edit"), ("release", "delete"), ("repo", "delete"), ("repo", "edit"),
-    ("repo", "archive"), ("repo", "rename"),
+    ("repo", "archive"), ("repo", "rename"), ("run", "rerun"),
 }  # fmt: skip
 KEYWORDS = {"{", "}", "!", "if", "then", "else", "elif", "fi", "do", "done", "while", "until"}
 DEFAULT_BRANCHES = {"main", "master"}
@@ -314,6 +314,7 @@ def check_git(argv: list[str]) -> None:
 
 
 def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Pattern[str]]) -> None:
+    original = argv
     argv = strip_wrappers(argv)
     if not argv:
         return
@@ -335,6 +336,8 @@ def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Patter
         if args[:1] == ["api"]:
             check_gh_api(args)
         if words[:1] == ["workflow"]:
+            if len(original) != len(argv):  # `GH_REPO=o/r gh ...`, `env GH_HOST=h gh ...`
+                raise Deny("`gh workflow` may not run behind env assignments or wrappers")
             check_gh_workflow(argv, words)
         # `gh pr --repo o/r merge`, `gh pr merge --squash 5`: the group first, the verb anywhere
         for prefix in prefixes:
