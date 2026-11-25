@@ -47,5 +47,5 @@ def test_adapters_defer_to_the_rule_instead_of_a_longer_budget():
 
 def test_front_door_owns_routing_labels_and_tells_after():
     section = _section(RULES, "Ask before guessing")
-    assert "routing labels, tier assignments and milestone-neutral issue bookkeeping" in section
-    assert "front door's own call" in section
+    assert "the `tier:*` labels are the front door's own call" in section
+    assert "priority (p0-p2), `needs-pm` and `needs-decision` stay with the pm" in section

@@ -214,8 +214,8 @@ Decide, then tell. An implementation choice you can undo is yours to make: pick 
 would recommend, record it on the issue in a comment that starts `Decided:` with the reason,
 and keep going. Reversing it must be a pull request revert, and it must touch nothing on the
 stop list below. Anything not done through a pull request is never reversible.
-Routing labels, tier assignments and milestone-neutral issue bookkeeping are the front door's own
-call: make them, record a `Decided:` comment, and tell the owner afterward.
+The `tier:*` labels are the front door's own call: set them, record a `Decided:` comment, and tell
+the owner afterward. Priority (P0-P2), `needs-pm` and `needs-decision` stay with the PM and the owner.
 
 Stop and ask (`needs-pm`; the PM escalates to `needs-decision` when the choice is the owner's)
 when the choice is expensive or hard to reverse, or touches any of: a path in `CODEOWNERS` or on
