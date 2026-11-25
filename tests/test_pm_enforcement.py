@@ -304,7 +304,7 @@ def test_shipped_deny_rules_cover_production_and_release_commands() -> None:
         "Bash(scripts/put_secret.sh *)",
         "Bash(gh secret *)",
         "Bash(gh variable set *)",
-        "Bash(gh workflow run *)",
+        "Bash(gh workflow run drive.yml*)",
     }
     assert required <= deny, f"missing deny rules: {sorted(required - deny)}"
     # Deploys are not denied project-wide (#306): a deny rule binds every agent and cannot be

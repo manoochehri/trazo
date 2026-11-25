@@ -3,7 +3,8 @@ name: owner-merge
 #
 # Why: an agent session may not run `gh pr merge` (the shipped settings.json denies it), and drive.yml
 # merges only issue-* branches that touch no owner-protected path. This is the one path for everything
-# else: the OWNER starts it, and it still refuses unless this exact head has passed every gate.
+# else: the owner or the front door starts it (agents may dispatch it; settings.json denies every other
+# workflow dispatch), and it still refuses unless this exact head has passed every gate.
 #
 #   gh workflow run owner-merge.yml -f pr=123        (or "Run workflow" on the Actions tab)
 #
