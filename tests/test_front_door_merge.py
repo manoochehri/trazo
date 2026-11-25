@@ -1,4 +1,4 @@
-"""Issue #333: the front door merges by dispatching the gated owner-merge workflow.
+"""Issue #333: the Coordinator merges by dispatching the gated owner-merge workflow.
 
 `gh pr merge` stays denied. `gh workflow run` is not a settings.json prefix deny (a prefix list is
 bypassed by flags before the name, a workflow ID, a path or a display name, and by a workflow added
@@ -121,9 +121,9 @@ def test_settings_keep_the_gh_pr_merge_deny_and_drop_the_broad_workflow_deny():
     assert not [r for r in deny if "gh workflow" in r], "the guard allowlist replaces the prefixes"
 
 
-def test_rules_front_door_says_it_merges_through_owner_merge():
+def test_rules_coordinator_says_it_merges_through_owner_merge():
     text = (ROOT / "src/overlay/rules.md").read_text(encoding="utf-8")
-    front = text.split("## Front door", 1)[1].split("\n## ", 1)[0]
+    front = text.split("## Coordinator", 1)[1].split("\n## ", 1)[0]
     flat = " ".join(front.split())
     assert "owner-merge.yml" in flat
     assert "engineer and PM never merge" in flat

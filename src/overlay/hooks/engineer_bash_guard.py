@@ -34,7 +34,8 @@ from pathlib import Path
 REASON = (
     "engineer guard: {why}. Merging, setting commit statuses, writing through `gh api` and "
     "reading secrets are not the engineer's to do (issue #330). Use `gh pr`, `gh issue` or a "
-    "read-only `gh api` call, and edit config through the Edit tool; the owner merges."
+    "read-only `gh api` call, and edit config through the Edit tool; the Coordinator merges "
+    "through the gated workflow."
 )
 
 WRAPPERS = {

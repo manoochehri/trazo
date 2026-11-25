@@ -7,7 +7,7 @@ and the prompts only explain it.
 ## 1. The PM has no `Agent` tool (ADR 0025)
 
 A subagent the PM started would not carry the PM's Bash allowlist, so the tool is removed from
-`tools:` in `agents/pm.md`. The front door (the main session) dispatches work the PM records on
+`tools:` in `agents/pm.md`. The Coordinator (the main session) dispatches work the PM records on
 an issue. A test fails if `Agent` returns.
 
 ## 2. The PM's Bash allowlist (`pm_bash_guard.py`)

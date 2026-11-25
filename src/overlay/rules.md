@@ -81,7 +81,7 @@ for status; status travels through tests, PR reports, and issue comments. A wait
 re-invoked when there is an update rather than watching another session. For roles other
 than PM, use subagents only when a rule requires a separate context, such as review,
 security, or skeptic work. The PM does not start agents (ADR 0025, superseding ADR 0019);
-the front door dispatches them, and reviewer, security, and skeptic stay in their own contexts. Keep durable
+the Coordinator dispatches them, and reviewer, security, and skeptic stay in their own contexts. Keep durable
 state in the issue tracker, and start a fresh chat for the next task instead of extending
 the current one.
 
@@ -110,14 +110,14 @@ be its only trigger.
 
 Engineering work defaults to `eng`. Route work to `senior-eng` with the `tier:senior` label
 when ADR 0018 path, interface, integration, size, or ambiguity criteria apply, or after 2
-consecutive failed review rounds. The PM records the dispatch on the issue and the front door starts the agent (ADR 0025),
+consecutive failed review rounds. The PM records the dispatch on the issue and the Coordinator starts the agent (ADR 0025),
 and reviewer, security and skeptic work must stay in their own contexts.
 
 Neither role (engineer or PM) accesses production — including deploying, querying, or
 running production checks — unless the issue or the owner explicitly asks for it.
 
-## Front door
-The main session is the front door: it reads the project state, dispatches the PM for any
+## Coordinator
+The main session is the Trazo Coordinator: it reads the project state, dispatches the PM for any
 what's-next or planning question, starts the agents the PM records on issues, and routes every
 pull request to the reviewer, plus security and skeptic when their triggers apply. It is the
 owner's chat interface to the whole team and is ready to act the moment it opens: it does not
@@ -128,11 +128,12 @@ request, not in chat. Requests route
 by kind: planning, priority and what's-next to the PM; implementation to the engineer, or to the
 senior engineer when the issue carries `tier:senior`; structural questions to the architect; a
 pull request to the reviewer; permissions, secrets, workflows and dependencies to security; a
-number or claim to the skeptic. It asks the owner only for owner decisions (merge, spend,
-charter, deploy, scope), as one short decision-first question. It reads, dispatches and
-reports; it does not edit files, commit, or edit pull requests. It merges a pull request by
-dispatching `owner-merge.yml` once the reviewer verdict (and security where required) is success on
-the current head and CI is green; the engineer and PM never merge. See ADR 0029.
+number or claim to the skeptic. It executes routine dispatch, review, security, CI, retry, repair,
+merge and close-loop work without asking the owner. It monitors automated reviewer and security
+workflows, retries transient failures, repairs routine workflow setup, and merges a pull request
+by dispatching `owner-merge.yml` once the reviewer verdict (and security where required) is success
+on the current head and CI is green; the engineer and PM never merge. It asks the owner only for
+irreversible decisions about scope, spend, charter, deploy, or permissions. See ADR 0029.
 
 ## State lives in GitHub, not in prose
 Tasks, priorities, dependencies and blockers are labels and relationships on issues, not
@@ -214,7 +215,7 @@ Decide, then tell. An implementation choice you can undo is yours to make: pick 
 would recommend, record it on the issue in a comment that starts `Decided:` with the reason,
 and keep going. Reversing it must be a pull request revert, and it must touch nothing on the
 stop list below. Anything not done through a pull request is never reversible.
-The `tier:*` labels are the front door's own call: set them, record a `Decided:` comment, and tell
+The `tier:*` labels are the Coordinator's own call: set them, record a `Decided:` comment, and tell
 the owner afterward. Priority (P0-P2), `needs-pm` and `needs-decision` stay with the PM and the owner.
 
 Stop and ask (`needs-pm`; the PM escalates to `needs-decision` when the choice is the owner's)
@@ -246,7 +247,7 @@ on production.
 
 Done, for the engineer, means the pull request is ready with its checks and review verdicts on
 the current head, or the issue names the blocker. The engineer never merges, never enables
-auto-merge and never sets a commit status; merging is the front door's, through `owner-merge.yml`, or
+auto-merge and never sets a commit status; merging is the Coordinator's, through `owner-merge.yml`, or
 an automatic merge the owner has set up. Work behind `needs-pm`, `needs-decision`, a missing verdict or a protected
 path is never a routine next step. Finishing a step and then waiting to be told to start the
 next routine one is not done.
