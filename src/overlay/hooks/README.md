@@ -60,7 +60,12 @@ under `permissions.deny`, for example `Bash(./bin/ship *)` or `Bash(terraform ap
 installer writes `settings.json` only when absent; on `upgrade` it merges this release's missing
 deny rules and hook entries into your existing file (additive and idempotent, backup at
 `.claude/settings.json.bak`), so your additions survive and you do not add the hook entries by
-hand.
+hand. It also removes a rule or hook entry the installer added earlier (recorded in
+`.trazo/INSTALLED-settings`) that this release no longer ships, and prints it; a rule you
+wrote is never removed. An older rule that predates the record is kept and reported as
+`kept (not recorded as installer-added): ...` with the exact line to delete. The blanket workflow
+dispatch deny and the deploy-command denies from v0.3.0 are removed on upgrade only when every
+deny entry in your file is shipped now or was in the v0.3.0 list.
 
 ## 4. The engineer's Bash guard (`engineer_bash_guard.py`, issue #330)
 

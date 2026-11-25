@@ -720,3 +720,142 @@ def test_uninstall_keeps_an_edited_settings_json(host, source):
     mine = (host / ".claude/settings.json").read_text()
     run(host, "uninstall")
     assert (host / ".claude/settings.json").read_text() == mine
+
+
+# ------------------------------------------------ settings: drop rules a release dropped (#346)
+
+OLD_RULE = "Bash(./bin/old-ship *)"
+OLD_HOOK = 'python3 "${CLAUDE_PROJECT_DIR:-.}/.trazo/hooks/pm_bash_guard.py" --old || exit 2'
+HIST_BLANKET = "Bash(gh " + "workflow run *)"
+HIST_DEPLOY = "Bash(fly *)"
+REC = ".trazo/INSTALLED-settings"
+SETTINGS = ".claude/settings.json"
+
+
+def _two_releases(tmp_path):
+    """v0.1.0 ships an extra deny rule and hook; v0.2.0 drops both."""
+    import json
+
+    def mutate(src, tag):
+        p = src / "adapters/claude/settings.json"
+        s = json.loads(p.read_text())
+        if tag == "v0.1.0":
+            s["permissions"]["deny"].append(OLD_RULE)
+            s["hooks"]["PreToolUse"].append(
+                {"matcher": "Bash", "hooks": [{"type": "command", "command": OLD_HOOK}]}
+            )
+        p.write_text(json.dumps(s, indent=2))
+
+    return make_source(tmp_path, tags=("v0.1.0", "v0.2.0"), mutate=mutate)
+
+
+def _write_settings(host, data):
+    import json
+
+    (host / SETTINGS).write_text(json.dumps(data))
+    (host / (SETTINGS + ".bak")).unlink(missing_ok=True)
+
+
+def _hook_cmds(s):
+    return [h["command"] for e in s["hooks"]["PreToolUse"] for h in e["hooks"]]
+
+
+def _installed_v1_with_host_rule(host, src, rule="Bash(./bin/mine *)"):
+    run(host, "install", "v0.1.0", "--adapter", "claude", source=src)
+    s = _settings(host)
+    s["permissions"]["deny"].append(rule)  # an edit: forces the merge path on upgrade
+    _write_settings(host, s)
+
+
+def test_upgrade_removes_a_recorded_rule_the_release_dropped(tmp_path, host):
+    src = _two_releases(tmp_path)
+    run(host, "install", "v0.1.0", "--adapter", "claude", source=src)
+    assert OLD_RULE in _settings(host)["permissions"]["deny"]
+    _installed_v1_with_host_rule(host, src)
+    r = run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src)
+    s = _settings(host)
+    assert OLD_RULE not in s["permissions"]["deny"]
+    assert OLD_HOOK not in _hook_cmds(s)
+    assert "Bash(./bin/mine *)" in s["permissions"]["deny"]
+    assert "Read(./**/.env)" in s["permissions"]["deny"]
+    assert OLD_RULE in r.stdout and "removed" in r.stdout
+    assert (host / (SETTINGS + ".bak")).is_file()
+    assert OLD_RULE not in (host / REC).read_text()
+
+
+def test_upgrade_keeps_host_written_rules(tmp_path, host):
+    src = _two_releases(tmp_path)
+    _installed_v1_with_host_rule(host, src)
+    s = _settings(host)
+    s["permissions"]["deny"].append("Bash(terraform apply *)")
+    _write_settings(host, s)
+    run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src)
+    deny = _settings(host)["permissions"]["deny"]
+    assert "Bash(./bin/mine *)" in deny and "Bash(terraform apply *)" in deny
+
+
+def test_upgrade_keeps_an_unrecorded_historic_rule_and_reports_it(host, source):
+    # A file with a host rule mixed in is not the v0.3.0 form, and there is no record.
+    _installed_then_host_settings(
+        host,
+        source,
+        '{"permissions": {"deny": ["Bash(./bin/ship *)", "' + HIST_DEPLOY + '"]}}',
+    )
+    r = run(host, "upgrade", "v0.1.0", "--adapter", "claude", source=source)
+    assert HIST_DEPLOY in _settings(host)["permissions"]["deny"]
+    assert "kept (not recorded as installer-added): " + '"' + HIST_DEPLOY + '"' in r.stdout
+
+
+def test_upgrade_removes_historic_rules_when_file_matches_v030_form(host, source):
+    import json
+
+    v030 = [
+        "Read(./**/.env)", "Read(./**/.env.*)", "Read(./secrets/**)", "Read(./**/*.pem)",
+        "Read(./**/*.key)", "Bash(gh pr merge *)", HIST_DEPLOY, "Bash(flyctl *)",
+        "Bash(clasp push *)", "Bash(clasp deploy *)", "Bash(scripts/deploy*)",
+        "Bash(./scripts/deploy*)", "Bash(scripts/put_secret.sh *)", "Bash(gh secret *)",
+        "Bash(gh variable set *)", HIST_BLANKET, "Read(~/.ssh/**)", "Read(~/.aws/**)",
+        "Read(~/.config/**)", "Read(~/.claude/**)", "Read(~/.netrc)", "Read(~/.docker/**)",
+        "Read(~/.gitconfig)",
+    ]  # fmt: skip
+    _installed_then_host_settings(host, source, json.dumps({"permissions": {"deny": v030}}))
+    (host / REC).unlink(missing_ok=True)  # predates the record
+    r = run(host, "upgrade", "v0.1.0", "--adapter", "claude", source=source)
+    deny = _settings(host)["permissions"]["deny"]
+    assert HIST_BLANKET not in deny and HIST_DEPLOY not in deny
+    assert "Bash(gh pr merge *)" in deny
+    assert HIST_BLANKET in r.stdout
+    assert "kept (not recorded" not in r.stdout
+
+
+def test_second_upgrade_after_removal_is_a_noop(tmp_path, host):
+    src = _two_releases(tmp_path)
+    _installed_v1_with_host_rule(host, src)
+    run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src)
+    settings, rec = (host / SETTINGS).read_text(), (host / REC).read_text()
+    (host / (SETTINGS + ".bak")).unlink()
+    run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src)
+    assert (host / SETTINGS).read_text() == settings
+    assert (host / REC).read_text() == rec
+    assert not (host / (SETTINGS + ".bak")).exists()
+
+
+def test_removal_dry_run_writes_nothing(tmp_path, host):
+    src = _two_releases(tmp_path)
+    _installed_v1_with_host_rule(host, src)
+    before = snapshot(host)
+    r = run(host, "upgrade", "v0.2.0", "--adapter", "claude", "--dry-run", source=src)
+    assert OLD_RULE in r.stdout
+    assert snapshot(host) == before
+
+
+def test_removal_refuses_invalid_json_and_uninstall_removes_the_record(tmp_path, host):
+    src = _two_releases(tmp_path)
+    run(host, "install", "v0.1.0", "--adapter", "claude", source=src)
+    assert (host / REC).is_file()
+    (host / SETTINGS).write_text("{not json")
+    r = run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src, check=False)
+    assert r.returncode != 0 and "not valid JSON" in r.stdout + r.stderr
+    assert (host / SETTINGS).read_text() == "{not json"
+    run(host, "uninstall")
+    assert not (host / REC).exists()
