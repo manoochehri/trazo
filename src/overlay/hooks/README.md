@@ -63,9 +63,9 @@ deny rules and hook entries into your existing file (additive and idempotent, ba
 hand. It also removes a rule or hook entry the installer added earlier (recorded in
 `.trazo/INSTALLED-settings`) that this release no longer ships, and prints it; a rule you
 wrote is never removed. An older rule that predates the record is kept and reported as
-`kept (not recorded as installer-added): ...` with the exact line to delete. The blanket workflow
-dispatch deny and the deploy-command denies from v0.3.0 are removed on upgrade only when every
-deny entry in your file is shipped now or was in the v0.3.0 list.
+`kept (not recorded as installer-added): ...` with the exact line to delete. A recorded
+deny rule is removed only while the engineer Bash guard hook is installed and registered.
+Keep `.trazo/INSTALLED-settings` in `CODEOWNERS`: it decides what upgrade removes.
 
 ## 4. The engineer's Bash guard (`engineer_bash_guard.py`, issue #330)
 

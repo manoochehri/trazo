@@ -346,9 +346,10 @@ place_harness_all() {
 # permissions.deny entries and missing hooks.PreToolUse entries (matched by matcher + command);
 # a hook is added only if its .trazo/hooks/ script exists in <hooks_dir>. It never reorders or
 # edits a host entry and never touches `model`. It removes only what THIS INSTALLER added
-# earlier (recorded in $SETTINGS_REC) and the new release no longer ships, plus the historic
-# rules in HISTORIC below, and only when the file matches the v0.3.0 form (see there). Anything
-# else that looks like a dropped Trazo rule is kept and reported with the exact line to delete.
+# earlier (recorded in $SETTINGS_REC) and the new release no longer ships, and only while the
+# replacement guard hook is installed and registered. A historic rule from before the record
+# existed is never removed (the installer cannot prove it wrote it): it is kept and reported
+# with the exact line to delete.
 # Modes: check (validate only), dry (print what would change), apply (back up to .bak, write,
 # print what changed, update the record), record (fresh install: record everything shipped).
 SETTINGS_REC=.trazo/INSTALLED-settings
@@ -359,13 +360,10 @@ import json, os, re, shutil, sys
 
 mode, shipped_p, host_p, hooks_dir, rec_p = sys.argv[1:6]
 
-# Deny rules shipped in v0.3.0 (the last form some hosts hold untouched). Of these, the ones
-# the current release does not ship were dropped in later releases: the blanket workflow
-# dispatch deny (v0.3.0, replaced by the engineer Bash guard allowlist in v0.4.0) and the
-# deploy-command denies (v0.3.0, dropped in v0.3.1). A host that predates the record cannot
-# prove it did not write one of these itself, so such a rule is removed ONLY when every deny
-# entry in the host's file is either shipped now or was in this v0.3.0 list (nothing the host
-# clearly wrote is mixed in); otherwise it is kept and reported.
+# Deny rules shipped in v0.3.0, before the record existed. Of these, the ones the current
+# release does not ship were dropped later (the blanket workflow dispatch deny, replaced by the
+# engineer Bash guard allowlist; the deploy-command denies). They are kept and reported, never
+# removed: a host cannot prove it did not write one itself.
 HISTORIC = [
     "Read(./**/.env)", "Read(./**/.env.*)", "Read(./secrets/**)", "Read(./**/*.pem)",
     "Read(./**/*.key)", "Bash(gh pr merge *)", "Bash(fly *)", "Bash(flyctl *)",
@@ -434,21 +432,6 @@ if mode == "check":
 removed, kept, added = [], [], []
 
 # --- removals: recorded as installer-added and no longer shipped
-hist_ok = all(d in ship_deny or d in HISTORIC for d in deny if isinstance(d, str))
-dropped_hist = [d for d in HISTORIC if d not in ship_deny]
-new_deny = []
-for rule in deny:
-    if rule in rec_deny and rule not in ship_deny:
-        removed.append("permissions.deny: " + rule + "  (recorded as installer-added)")
-    elif rule in dropped_hist and rule not in rec_deny and hist_ok:
-        removed.append("permissions.deny: " + rule
-                       + "  (historic v0.3.0 rule, file matches v0.3.0 form)")
-    else:
-        new_deny.append(rule)
-        if rule in dropped_hist and rule not in rec_deny:
-            kept.append(json.dumps(rule, ensure_ascii=False))
-deny[:] = new_deny
-
 new_pre = []
 for e in pre:
     hs = e.get("hooks", [])
@@ -483,6 +466,30 @@ for e in ship.get("hooks", {}).get("PreToolUse", []):
         have.add(key)
         added_keys.append(key)
         added.append("hooks.PreToolUse [" + str(e.get("matcher")) + "]: " + h.get("command", ""))
+
+# --- deny removals (#346): a dropped deny rule goes only when its replacement, the shipped
+# engineer Bash guard hook, is installed (script present) and registered in the merged result.
+# Otherwise the rule stays and is reported, so a host never ends with neither the deny nor the guard.
+guard_keys = [k for k in ship_keys if "engineer_bash_guard.py" in str(k[1])]
+guard_ok = bool(guard_keys)
+for k in guard_keys:
+    m = re.search(r"\.trazo/hooks/([A-Za-z0-9._-]+)", str(k[1]))
+    if k not in have or not (m and os.path.isfile(os.path.join(hooks_dir, m.group(1)))):
+        guard_ok = False
+dropped_hist = [d for d in HISTORIC if d not in ship_deny]
+new_deny = []
+for rule in deny:
+    droppable = rule in rec_deny and rule not in ship_deny
+    if droppable and guard_ok:
+        removed.append("permissions.deny: " + rule + "  (recorded as installer-added)")
+    else:
+        new_deny.append(rule)
+        if droppable:
+            kept.append(json.dumps(rule, ensure_ascii=False) + "  (the replacement guard hook "
+                        "is not installed and registered, so the rule stays)")
+        elif rule in dropped_hist and rule not in rec_deny:
+            kept.append(json.dumps(rule, ensure_ascii=False))
+deny[:] = new_deny
 
 # --- the record: what we added, cumulatively, minus what is gone or no longer shipped
 added_deny = [a.split(": ", 1)[1] for a in added if a.startswith("permissions.deny: ")]
@@ -707,6 +714,7 @@ print_owner_steps() {
     echo "  $n. Your .github/CODEOWNERS was not edited. Add these lines (replace @owner):"
     echo "       /.trazo/project/charter/   @owner"
     echo "       /.claude/settings.json     @owner"
+    echo "       /.trazo/INSTALLED-settings @owner"
     echo "       /.github/workflows/        @owner"
     echo "       /.github/CODEOWNERS        @owner"
   fi

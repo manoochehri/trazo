@@ -175,6 +175,7 @@ def test_codeowners_starter_covers_prompts_roles_and_settings(host, source):
         "/.trazo/roles/",
         "/.trazo/project/charter/",
         "/.trazo/hooks/",
+        "/.trazo/INSTALLED-settings",
         "/.trazo/templates/",
         "/.trazo/ADVISOR.md",
         "/.trazo/ARCHITECTURE.md",

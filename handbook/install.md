@@ -42,10 +42,10 @@ What it does:
   no longer ships. What it added is recorded in `.trazo/INSTALLED-settings` (installer-owned,
   removed by uninstall); a rule you wrote is never removed. A rule that predates that record is
   kept and reported as `kept (not recorded as installer-added): "<rule>"`, with the line you can
-  delete. The one exception is a table of rules dropped in past releases (the blanket workflow
-  dispatch deny and the deploy-command denies of v0.3.0): they are removed only when every deny
-  entry in your file is shipped now or was in the v0.3.0 list. This loosens limits you hold, so
-  read the printed `- removed` lines; the `.bak` has the old file.
+  delete. A recorded rule is removed only while the shipped engineer Bash guard hook is installed
+  and registered; otherwise it is kept and reported. Because the record decides what is
+  removed, `.trazo/INSTALLED-settings` belongs in `CODEOWNERS` (the installer's starter and its
+  printed lines include it). Read the printed `- removed` lines; the `.bak` has the old file.
 - For Codex, inserts the `AGENTS.md` adapter block and installs project-scoped role agents
   under `.codex/agents/` and workflow skills under `.agents/skills/`. Both point to the
   canonical roles and rules in `.trazo/`. Existing host files are preserved; on a name

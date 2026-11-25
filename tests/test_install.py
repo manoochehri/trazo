@@ -806,26 +806,19 @@ def test_upgrade_keeps_an_unrecorded_historic_rule_and_reports_it(host, source):
     assert "kept (not recorded as installer-added): " + '"' + HIST_DEPLOY + '"' in r.stdout
 
 
-def test_upgrade_removes_historic_rules_when_file_matches_v030_form(host, source):
+def test_upgrade_never_removes_historic_rules_even_in_v030_form(host, source):
     import json
 
     v030 = [
-        "Read(./**/.env)", "Read(./**/.env.*)", "Read(./secrets/**)", "Read(./**/*.pem)",
-        "Read(./**/*.key)", "Bash(gh pr merge *)", HIST_DEPLOY, "Bash(flyctl *)",
-        "Bash(clasp push *)", "Bash(clasp deploy *)", "Bash(scripts/deploy*)",
-        "Bash(./scripts/deploy*)", "Bash(scripts/put_secret.sh *)", "Bash(gh secret *)",
-        "Bash(gh variable set *)", HIST_BLANKET, "Read(~/.ssh/**)", "Read(~/.aws/**)",
-        "Read(~/.config/**)", "Read(~/.claude/**)", "Read(~/.netrc)", "Read(~/.docker/**)",
-        "Read(~/.gitconfig)",
+        "Read(./**/.env)", "Bash(gh pr merge *)", HIST_DEPLOY, HIST_BLANKET, "Read(~/.ssh/**)",
     ]  # fmt: skip
     _installed_then_host_settings(host, source, json.dumps({"permissions": {"deny": v030}}))
     (host / REC).unlink(missing_ok=True)  # predates the record
     r = run(host, "upgrade", "v0.1.0", "--adapter", "claude", source=source)
     deny = _settings(host)["permissions"]["deny"]
-    assert HIST_BLANKET not in deny and HIST_DEPLOY not in deny
-    assert "Bash(gh pr merge *)" in deny
-    assert HIST_BLANKET in r.stdout
-    assert "kept (not recorded" not in r.stdout
+    assert HIST_BLANKET in deny and HIST_DEPLOY in deny
+    assert "kept (not recorded as installer-added): " + '"' + HIST_BLANKET + '"' in r.stdout
+    assert "removed permissions.deny" not in r.stdout
 
 
 def test_second_upgrade_after_removal_is_a_noop(tmp_path, host):
@@ -859,3 +852,36 @@ def test_removal_refuses_invalid_json_and_uninstall_removes_the_record(tmp_path,
     assert (host / SETTINGS).read_text() == "{not json"
     run(host, "uninstall")
     assert not (host / REC).exists()
+
+
+def test_printed_codeowners_lines_cover_the_settings_record(host, source):
+    # An existing CODEOWNERS is not edited; the printed lines must name the record (#346).
+    (host / ".github").mkdir()
+    (host / ".github/CODEOWNERS").write_text("/docs/ @me\n")
+    r = run(host, "install", "v0.1.0", "--adapter", "claude", source=source)
+    assert "/.trazo/INSTALLED-settings" in r.stdout
+
+
+def _without_guard_script(tmp_path):
+    """A release that ships the deny list but not the engineer guard script, so the hook is
+    never registered (the installer adds a hook only when its script exists)."""
+    import json
+
+    def mutate(src, tag):
+        (src / "overlay/hooks/engineer_bash_guard.py").unlink()
+        if tag == "v0.1.0":
+            p = src / "adapters/claude/settings.json"
+            s = json.loads(p.read_text())
+            s["permissions"]["deny"].append(OLD_RULE)
+            p.write_text(json.dumps(s, indent=2))
+
+    return make_source(tmp_path, tags=("v0.1.0", "v0.2.0"), mutate=mutate)
+
+
+def test_upgrade_keeps_recorded_rule_when_guard_hook_is_not_installed(tmp_path, host):
+    src = _without_guard_script(tmp_path)
+    _installed_v1_with_host_rule(host, src)
+    r = run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src)
+    assert OLD_RULE in _settings(host)["permissions"]["deny"]
+    assert "kept" in r.stdout and OLD_RULE in r.stdout
+    assert "removed permissions.deny: " + OLD_RULE not in r.stdout
