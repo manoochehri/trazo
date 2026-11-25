@@ -64,7 +64,7 @@ Paste one of these into your coding agent, from the root of the repo. Replace no
 > Install Trazo v0.3.1 into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.3.1/scripts/install.sh`, run `bash install.sh install v0.3.1`, then delete `install.sh`. Tell me what it placed and the owner-only steps it printed. Do not set secrets or variables.
 
 **Upgrade:**
-> Upgrade Trazo to v0.3.1 in this repo. Download the installer from the v0.3.1 tag, run `bash install.sh upgrade v0.3.1 --dry-run`, show me the diff, then run it without `--dry-run` and delete `install.sh`. If you see `.claude/settings.json` deny rules for `fly`, `flyctl`, `clasp push`, `clasp deploy` or `scripts/deploy`, remove those lines: the installer never edits that file. Do not touch `.trazo/project/`.
+> Upgrade Trazo to v0.3.1 in this repo. Download the installer from the v0.3.1 tag, run `bash install.sh upgrade v0.3.1 --dry-run`, show me the diff, then run it without `--dry-run` and delete `install.sh`. The upgrade merges any new Trazo deny rules and hook entries into your existing `.claude/settings.json` (backup at `.claude/settings.json.bak`); your own entries are kept. If you see deny rules for `fly`, `flyctl`, `clasp push`, `clasp deploy` or `scripts/deploy` that you did not add, remove those lines. Do not touch `.trazo/project/`.
 
 **Uninstall:**
 > Remove Trazo from this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.3.1/scripts/install.sh`, run `bash install.sh uninstall` (keeps `.trazo/project/`), then delete `install.sh`. Do not use `--purge` unless I say so.
@@ -136,7 +136,7 @@ Trazo's answer: **the repo is the memory, and the rails are mounted rather than 
 | **The adapter** | `CLAUDE.md` and `.claude/` for Claude Code; `AGENTS.md`, `.codex/agents/`, and `.agents/skills/` for Codex; `AGENTS.md` for other agents that read it |
 | **AI team** | Canonical roles live in `.trazo/roles/`. Claude Code maps them to `.claude/agents/`; Codex maps them to project agents in `.codex/agents/`. Both adapters use the same role definitions. |
 | **Commands and workflows** | Claude Code gets slash commands in `.claude/commands/`; Codex gets discoverable skills in `.agents/skills/`. The adapter maps each tool's entry points to Trazo's shared roles and project docs. |
-| **Secret-read denial** | If you use Claude Code, `.claude/settings.json` denies Claude Code reads of `.env`, `.env.*`, `secrets/`, `*.pem` and `*.key` (only if you have no `settings.json` of your own) |
+| **Secret-read denial** | If you use Claude Code, `.claude/settings.json` denies Claude Code reads of `.env`, `.env.*`, `secrets/`, `*.pem` and `*.key` (installed if you have no `settings.json`; an upgrade merges missing rules into yours) |
 
 `/kickoff` (run after install) interviews you and sets up the charter, plan, labels, branch rules and first issues. The installer also places CI, secret-scanning and PR-evidence files, and never overwrites a path you already have. What is placed, and what `/kickoff` does: [Install, upgrade and uninstall](handbook/install.md#what-the-installer-places).
 
