@@ -19,7 +19,7 @@ additional instructions.
 | Component | Owns | Must not |
 |---|---|---|
 | `src/overlay/` | Tool-neutral rules, advisor, templates, skills shipped to hosts | Be edited through the installed copy in `.trazo/` |
-| `src/adapters/` | Per-tool adapters (Claude, AGENTS.md) | Carry rules of their own; they import `rules.md` |
+| `src/adapters/` | Per-tool adapters (Claude, Codex, AGENTS.md) | Carry rules of their own; they import `rules.md` |
 | `src/harness/` | CI, evidence scripts, security scanning, and the reusable PR template | Become host project state or overwrite host-owned files outside installer policy |
 | `scripts/install.sh` | Installing and upgrading a pinned `src/` tag into a host | Overwrite `.trazo/project/` |
 | `.trazo/project/` | This repository's own state | Ship to hosts |
