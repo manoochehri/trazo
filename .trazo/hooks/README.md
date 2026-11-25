@@ -60,7 +60,12 @@ under `permissions.deny`, for example `Bash(./bin/ship *)` or `Bash(terraform ap
 installer writes `settings.json` only when absent; on `upgrade` it merges this release's missing
 deny rules and hook entries into your existing file (additive and idempotent, backup at
 `.claude/settings.json.bak`), so your additions survive and you do not add the hook entries by
-hand.
+hand. It also removes a rule or hook entry the installer added earlier (recorded in
+`.trazo/INSTALLED-settings`) that this release no longer ships, and prints it; a rule you
+wrote is never removed. An older rule that predates the record is kept and reported as
+`kept (not recorded as installer-added): ...` with the exact line to delete. A recorded
+deny rule is removed only while the engineer Bash guard hook is installed and registered.
+Keep `.trazo/INSTALLED-settings` in `CODEOWNERS`: it decides what upgrade removes.
 
 ## 4. The engineer's Bash guard (`engineer_bash_guard.py`, issue #330)
 
@@ -105,6 +110,12 @@ command the parser never sees. These are known to get through:
 - Wrappers and flags not listed above. A flag with a value that the parser does not know is read as
   a bare flag, so the value is mistaken for the command.
 - Anything the Read, Edit and Write tools do: this hook binds Bash only.
+
+One carve-out (#347): the `reviewer` subagent may post `trazo/verdict` and the `security`
+subagent `trazo/security`, each only as one plain `gh api [-X POST] repos/<o>/<r>/statuses/<40-hex sha>`
+call carrying `state` (success, failure, pending, error), `context`, `description` and an optional
+`target_url`, with no shell syntax. Every other caller, context, endpoint or field stays denied,
+the skeptic included.
 
 The real fix is an agent token that cannot merge or set statuses (#320), plus branch protection.
 Until then, treat a green result from this guard as "the obvious routes are closed", never as

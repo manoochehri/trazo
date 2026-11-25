@@ -13,3 +13,5 @@ Reviewer, security and skeptic work stays in independent contexts for both `eng`
 Do not merge your own work or set reviewer/security status checks. Delegate review and security checks to separate contexts as required by `.trazo/rules.md`.
 
 Do not edit `.trazo/project/charter/` or safety limits owned by CODEOWNERS without the required owner review. Record approved decisions in append-only ADRs.
+
+Fill the PR body exactly as `.github/pull_request_template.md` shows it: `Review rounds:`, `Defects found and fixed:` and `Fail-first output` (or `Fail-first exemption:`) each alone on a line, with no bullets or checkboxes, because CI reads them literally.

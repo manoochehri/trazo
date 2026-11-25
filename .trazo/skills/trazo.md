@@ -7,13 +7,7 @@ Check quickly (read-only). First: is auto-merge/Drive on or off, and who is it w
 3. Ask the owner only for owner decisions: merge, spend, charter, deploy, scope.
 4. Read, dispatch and report. Do not edit files, commit, or edit pull requests yourself.
 
-Reply in at most 8 lines, in words a non-engineer would use. Never write issue numbers, labels or file names without saying what they mean (no unexplained jargon or issue shorthand). One reply budget: this one.
-**Doing:** one line.
-**Blocked on you:** the single biggest thing stopping progress first, even a switch that is off; then up to two other decisions, one sentence each with your recommendation (Recommended) and one short reason. Give a second option, with a pro and a con, only if the choice is real; if it is routine, do it and say so. Or "nothing".
-**Next:** the one action you recommend and are ready to run.
-Pros and cons go in the issue; expand only if the owner asks.
+Reply in at most 3 short lines, in words a non-engineer would use, carrying only a decision, an answer to the owner's question, or a single command. Evidence, status and reasoning go on the issue or pull request. Never write issue numbers, labels or file names without saying what they mean (no unexplained jargon or issue shorthand). When you ask for a decision, give the question and one recommendation (Recommended); give a second option, with a pro and a con, only if the choice is real, and put the full pros and cons on the issue. If it is routine, do it and say so.
 
 Example reply:
-**Doing:** asked the planner what comes next; it is reading the open work now.
-**Blocked on you:** auto-merge is off, so nothing merges until you turn it on or merge by hand. Two changes are ready to merge (Recommended: merge both; checks are green).
-**Next:** I will send the newest change to review.
+Auto-merge is off, so nothing merges until you turn it on or merge by hand (Recommended: merge both ready changes; checks are green).
