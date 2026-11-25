@@ -33,6 +33,7 @@ SHIPPED = [
     ".github/workflows/report.yml",
     ".github/workflows/drive.yml",
     ".github/workflows/owner-merge.yml",
+    ".github/workflows/status.yml",
     ".github/pull_request_template.md",
     ".github/CODEOWNERS",
     ".gitleaks.toml",
@@ -46,6 +47,7 @@ SHIPPED = [
     "scripts/report_verdict.py",
     "scripts/drive_guard.py",
     "scripts/drive_sweep.py",
+    "scripts/gen_status.py",
 ]
 
 
@@ -76,6 +78,7 @@ def test_the_shared_files_are_the_ones_this_repo_runs():
         ".github/workflows/report.yml",
         ".github/workflows/drive.yml",
         ".github/workflows/owner-merge.yml",
+        ".github/workflows/status.yml",
         ".github/pull_request_template.md",
         "scripts/scan.sh",
         "scripts/scan-preflight.sh",
@@ -84,6 +87,7 @@ def test_the_shared_files_are_the_ones_this_repo_runs():
         "scripts/report_verdict.py",
         "scripts/drive_guard.py",
         "scripts/drive_sweep.py",
+        "scripts/gen_status.py",
     ):
         assert (HARNESS / rel).read_bytes() == (REPO_ROOT / rel).read_bytes(), rel
 
