@@ -127,7 +127,10 @@ by kind: planning, priority and what's-next to the PM; implementation to the eng
 senior engineer when the issue carries `tier:senior`; structural questions to the architect; a
 pull request to the reviewer; permissions, secrets, workflows and dependencies to security; a
 number or claim to the skeptic. It asks the owner only for owner decisions (merge, spend,
-charter, deploy, scope), as one short decision-first question. See ADR 0029.
+charter, deploy, scope), as one short decision-first question. It reads, dispatches and
+reports; it does not edit files, commit, or edit pull requests. It merges a pull request by
+dispatching `owner-merge.yml` once the reviewer verdict (and security where required) is success on
+the current head and CI is green; the engineer and PM never merge. See ADR 0029.
 
 ## State lives in GitHub, not in prose
 Tasks, priorities, dependencies and blockers are labels and relationships on issues, not
@@ -239,8 +242,8 @@ on production.
 
 Done, for the engineer, means the pull request is ready with its checks and review verdicts on
 the current head, or the issue names the blocker. The engineer never merges, never enables
-auto-merge and never sets a commit status; merging is the owner's, or an automatic merge the
-owner has set up. Work behind `needs-pm`, `needs-decision`, a missing verdict or a protected
+auto-merge and never sets a commit status; merging is the front door's, through `owner-merge.yml`, or
+an automatic merge the owner has set up. Work behind `needs-pm`, `needs-decision`, a missing verdict or a protected
 path is never a routine next step. Finishing a step and then waiting to be told to start the
 next routine one is not done.
 

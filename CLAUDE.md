@@ -44,19 +44,19 @@ file that supersedes them. An upgrade never overwrites this state. Everything el
 `.trazo/` is the installed framework and is not hand-edited.
 
 ## The team (subagents in `.claude/agents/`, role commands in `.claude/commands/`)
-Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Role commands (`/pm`, `/eng`) set the role prompt for that command turn; the model override does not persist to the next turn. `/work` runs in a forked Haiku context. `pm`, `reviewer`, `security`, and `skeptic` are pinned subagents; reviewer/security checks are delegated automatically in `/work` and `/check-pr` or invoked ad hoc.
+Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Role commands (`/pm`, `/eng`, `/senior-eng`) are thin dispatchers: each starts its pinned subagent, so the main session never builds. `/architect` sets the role prompt for that command turn; the model override does not persist to the next turn. `/work` runs in a forked Haiku context. `pm`, `engineer`, `senior-engineer`, `reviewer`, `security`, and `skeptic` are pinned subagents; a hook (`.trazo/hooks/agent_role_guard.py`) blocks any other subagent type. Reviewer/security checks are delegated automatically in `/work` and `/check-pr` or invoked ad hoc.
 
 | Canonical Role | Claude Implementation | Model | Edits code? |
 |---|---|---|---|
-| **Engineer** (`.trazo/roles/engineer.md`) | `/eng` command (main session) | Haiku for the `/eng` turn; Haiku recommended for engineering | Yes |
-| **Senior engineer** (`.trazo/roles/senior-engineer.md`) | `/senior-eng` command (main session) | Sonnet for the `/senior-eng` turn; `tier:senior` issues only (ADR 0016, 0018) | Yes |
+| **Engineer** (`.trazo/roles/engineer.md`) | `engineer` subagent, started by `/eng` or `/work` | Haiku (pinned) | Yes, in its own context |
+| **Senior engineer** (`.trazo/roles/senior-engineer.md`) | `senior-engineer` subagent, started by `/senior-eng` | Sonnet (pinned); `tier:senior` issues only (ADR 0016, 0018) | Yes, in its own context |
 | **PM / Advisor** (`.trazo/roles/pm.md`) | `/pm` command and `pm` subagent | Sonnet for the `/pm` turn and pinned `pm` subagent | No |
 | **Reviewer** (`.trazo/roles/reviewer.md`) | `reviewer` subagent | Sonnet (pinned) | No |
 | **Security** (`.trazo/roles/security.md`) | `security` subagent | Sonnet (pinned) | No |
 | **Skeptic** (`.trazo/roles/skeptic.md`) | `skeptic` subagent | Sonnet (pinned) | No |
 | **Architect** (`.trazo/roles/architect.md`) | `/architect` command (main session, advisory) | Opus for the `/architect` turn; no pinned subagent yet (ADR 0021) | No |
 
-Claude Code restores the session's previous model after a role command's turn. Use the pinned subagents for PM, reviewer, security, and skeptic work that must run on Sonnet. `/eng` sets Haiku for its turn; a fresh host install uses Haiku as the default when the host has no existing `.claude/settings.json`.
+Claude Code restores the session's previous model after a role command's turn. Use the pinned subagents for PM, reviewer, security, and skeptic work that must run on Sonnet. The `engineer` subagent runs on Haiku; a fresh host install uses Haiku as the default when the host has no existing `.claude/settings.json`.
 
 For GitHub attribution, name the active model only when the role context identifies it; a role's configured model is not proof of a user override or one-turn fallback. Claude Code hook input includes `session_id` and includes `agent_id` inside subagent tool calls. Headless JSON output and Agent SDK messages also include `session_id` values. Add an ID only when that metadata is actually provided to the role context; do not read transcript files or invent an ID.
 
@@ -64,8 +64,8 @@ For complete role definitions including purpose, permissions, and constraints, s
 
 ## Front door
 The main session is the front door (`.trazo/rules.md`, "Front door"). In Claude Code it starts the
-`pm`, `reviewer`, `security` and `skeptic` subagents with the Agent tool and switches roles with
-`/eng`, `/senior-eng`, `/architect`. The `pm` subagent has no Agent tool (ADR 0025): it records
+`pm`, `engineer`, `senior-engineer`, `reviewer`, `security` and `skeptic` subagents with the Agent tool (`/eng` and `/senior-eng` start the two engineers) and switches into the advisory role with
+`/architect`. The `pm` subagent has no Agent tool (ADR 0025): it records
 the dispatch on the issue and the main session starts the agent. Open ready to act, with no menu
 step, and answer briefly.
 
