@@ -21,7 +21,8 @@ name: drive
 #   DRIVE_MAX_USD_PER_RUN      default 2   --max-budget-usd for one agent run (whole dollars)
 #   an open issue labeled drive-halt stops work and merge; the breaker job opens one after two failures in a row
 #   at most one open drive PR (branch issue-<n>-drive-<run>) at a time; the digest job comments once a day
-# Nothing here loosens a limit: CODEOWNERS, secrets and workflow changes still need owner review.
+#   autoclear: a halt clears itself once after the fix merges and CI is green (#332, ADR 0030); the one loosening
+# Everything else only tightens a limit: CODEOWNERS, secrets and workflow changes still need owner review.
 on:
   schedule:
     - cron: "*/30 * * * *"
@@ -29,6 +30,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  # The builder App's login (for example `name[bot]`). scripts/drive_guard.py halt trusts a halt closed by this
+  # login only with the auto-cleared label and its comment (#332). Unset: the auto-clear is never recognised.
+  DRIVE_BUILDER_APP_LOGIN: ${{ vars.DRIVE_BUILDER_APP_LOGIN }}
 concurrency:
   group: drive
   cancel-in-progress: false
@@ -447,6 +452,73 @@ jobs:
               "" "🛠️ Posted by eng via Claude Code (drive workflow)" > halt.md
             gh issue create --title "Drive halted: two failures in a row" --label drive-halt --body-file halt.md
           fi
+  autoclear:
+    # A halt clears itself once (#332, ADR 0030, amends 0027): a pull request merged after the halt issue was
+    # opened, CI green on the default branch head, and no auto-clear in the last 24 hours. The builder App
+    # closes it, with the auto-cleared label and a comment; scripts/drive_guard.py recognises exactly that.
+    # Every lookup error leaves the halt in place. No LLM.
+    needs: [breaker]
+    if: >-
+      always() && vars.DRIVE_ENABLED == 'true' && vars.DRIVE_BUILDER_APP_LOGIN != '' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: trazo-apps
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      actions: read
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ secrets.BUILDER_APP_ID }}
+          private-key: ${{ secrets.BUILDER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-issues: write
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: clear the halt if the fix merged and CI is green
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_TOKEN: ${{ steps.app.outputs.token }}
+          APP_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          # The App must be the one the guard trusts; a mismatch means the variable is wrong, so do nothing.
+          if [[ "$APP_LOGIN" != "$DRIVE_BUILDER_APP_LOGIN" ]]; then echo "Builder App login mismatch; leaving the halt."; exit 0; fi
+          halts=$(gh issue list --state open --label drive-halt --author app/github-actions --json number,title,createdAt)
+          if [[ "$(jq 'length' <<<"$halts")" != "1" ]]; then echo "Not exactly one open halt issue; nothing to clear."; exit 0; fi
+          jq -e '.[0].title | startswith("Drive halted:")' <<<"$halts" >/dev/null || { echo "Not a breaker halt; leaving it."; exit 0; }
+          number=$(jq -r '.[0].number' <<<"$halts")
+          head=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${DEFAULT_BRANCH}" -q .sha)
+          gh api --method GET "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs" -f head_sha="$head" -f event=push -f per_page=1 \
+            -q '{sha: (.workflow_runs[0].head_sha // ""), status: (.workflow_runs[0].status // ""), conclusion: (.workflow_runs[0].conclusion // ""), url: (.workflow_runs[0].html_url // "")}' > ci.json
+          gh pr list --state merged --base "$DEFAULT_BRANCH" --limit 30 --json number,mergedAt \
+            -q '[.[] | {number, merged_at: .mergedAt}]' > merged.json
+          gh issue list --state closed --label auto-cleared --limit 30 --json closedAt -q '[.[] | {closed_at: .closedAt}]' > prior.json
+          jq -n --argjson h "$halts" --slurpfile ci ci.json --slurpfile m merged.json --slurpfile p prior.json --arg head "$head" --arg now "$(date -u +%FT%TZ)" \
+            '{halt: {number: $h[0].number, created_at: $h[0].createdAt}, merged: $m[0], ci: $ci[0], prior: $p[0], head: $head, now: $now}' > facts.json
+          out=$(python3 scripts/drive_guard.py autoclear < facts.json)
+          echo "$out"
+          if ! grep -qx 'clear=true' <<<"$out"; then exit 0; fi
+          pr=$(sed -n 's/^pr=//p' <<<"$out")
+          run_url=$(jq -r '.url' ci.json)
+          printf '%s\n' "Auto-cleared: pull request #${pr} merged after this halt was opened and CI on ${DEFAULT_BRANCH} (${head}) is green: ${run_url}" \
+            "" "This halt clears itself once; a second halt within 24 hours stays until the owner closes it." \
+            "" "🛠️ Posted by eng via Claude Code (drive workflow)" > clear.md
+          # The comment, the label and the close are all made as the builder App: that is what the guard checks.
+          export GH_TOKEN="$APP_TOKEN"
+          gh label create auto-cleared --color 0e8a16 --description "Drive halt cleared automatically" 2>/dev/null || true
+          gh issue comment "$number" --body-file clear.md
+          gh issue edit "$number" --add-label auto-cleared
+          gh issue close "$number"
   digest:
     # Daily comment on the open drive-digest issue listing what merged, so a halt is never the first sign
     # of trouble (#258). No LLM.

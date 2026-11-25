@@ -6,7 +6,10 @@ The workflow gathers facts with `gh`; the decisions live here so they can be tes
                       the default
   halt                prints halted=true|false and since=<time>; halted until the repository owner
                       closes every halt issue (open, or closed by anyone else); any error is halted
-  limit RAW DEFAULT   prints RAW if it is a whole number, else DEFAULT (a bad repo variable never
+  autoclear           reads {halt, merged, ci, prior, head, now} as JSON on stdin; prints clear=,
+                      pr= and reason=: a halt may clear itself once (#332, ADR 0030); bad input
+                      prints clear=false
+  limit RAW DEFAULT  prints RAW if it is a whole number, else DEFAULT (a bad repo variable never
                       loosens a limit into something unbounded)
   breaker [--since T] reads a JSON list of {"time", "kind"} events on stdin ("ok" or "fail"), and
                       prints trip=true when the latest two are both failures; unreadable input trips
@@ -21,6 +24,7 @@ import os
 import re
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 
 # Hard ceilings: a repository variable can lower a limit or raise it up to here, never past it.
 DEFAULTS = {"merges": 5, "runs": 4, "usd": 2}
@@ -38,21 +42,71 @@ def cap(name, raw):
     return max(value, 1) if name == "usd" else value
 
 
-def halt_status(issues, owner):
+AUTO_LABEL = "auto-cleared"
+AUTO_MARK = "Auto-cleared"
+
+
+def _is_auto_clear(issue, app):
+    """True only for the automatic clear: closed by the builder App, labeled, with its comment."""
+    if not app or issue.get("closed_by") != app:
+        return False
+    if AUTO_LABEL not in (issue.get("labels") or []):
+        return False
+    return any(
+        isinstance(c, dict)
+        and c.get("author") == app
+        and str(c.get("body", "")).startswith(AUTO_MARK)
+        for c in issue.get("comments") or []
+    )
+
+
+def halt_status(issues, owner, app=""):
     """Return (halted, since). Halted until the repository owner closes every halt issue.
 
-    since is the latest owner close time: failures at or before it no longer count.
+    since is the latest owner close time: failures at or before it no longer count. A halt closed
+    by the builder App `app` counts as cleared only with the auto-cleared label and the App's own
+    Auto-cleared comment (#332); a close by anyone else stays a halt.
     """
     if not isinstance(issues, list) or not owner:
         return True, ""
     since = ""
     for i in issues:
-        if not isinstance(i, dict) or i.get("state") != "closed":
+        if not isinstance(i, dict) or i.get("state") != "closed" or not i.get("closed_at"):
             return True, ""
-        if i.get("closed_by") != owner or not i.get("closed_at"):
+        if i.get("closed_by") != owner and not _is_auto_clear(i, app):
             return True, ""
         since = max(since, str(i["closed_at"]))
     return False, since
+
+
+def _time(raw):
+    return datetime.strptime(raw, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+
+
+def auto_clear(halt, merged, ci, prior, head, now):
+    """Decide whether the open halt issue may clear itself: (clear, pr_number, reason).
+
+    All must hold: a pull request merged after the halt issue was opened; the latest CI run is
+    completed with success and is for `head`, the default branch head; no halt was auto-cleared in
+    the last 24 hours. Anything malformed refuses.
+    """
+    try:
+        opened = _time(halt["created_at"])
+        current = _time(now)
+        fixes = [(_time(m["merged_at"]), int(m["number"])) for m in merged if m.get("merged_at")]
+        recent = [_time(p["closed_at"]) for p in prior]
+        if not head or not isinstance(ci, dict) or ci.get("sha") != head:
+            return False, None, "no CI run for the default branch head"
+        if ci.get("status") != "completed" or ci.get("conclusion") != "success":
+            return False, None, "CI on the default branch head is not green"
+        if any(current - t < timedelta(hours=24) for t in recent):
+            return False, None, "a halt was auto-cleared in the last 24 hours"
+        after = sorted(f for f in fixes if f[0] > opened)
+        if not after:
+            return False, None, "no pull request merged after the halt was opened"
+        return True, after[-1][1], "fix merged and CI green"
+    except Exception:
+        return False, None, "unreadable input"
 
 
 def breaker(events, since=""):
@@ -164,6 +218,7 @@ def gather_halt():
     """
     repo = os.environ["GITHUB_REPOSITORY"]
     owner = _gh("api", f"repos/{repo}", "-q", ".owner.login").strip()
+    app = os.environ.get("DRIVE_BUILDER_APP_LOGIN", "")
     labeled = json.loads(
         _gh("issue", "list", "--state", "open", "--label", "drive-halt", "--json", "number")
     )
@@ -172,7 +227,7 @@ def gather_halt():
         _gh(
             "issue", "list", "--state", "all", "--author", "app/github-actions",
             "--search", "Drive halted in:title", "--limit", "100",
-            "--json", "number,title,state,closedAt",
+            "--json", "number,title,state,closedAt,labels",
         )
     )  # fmt: skip
     for i in listed:
@@ -186,8 +241,16 @@ def gather_halt():
         )
         closed = [e for page in pages for e in page if e.get("event") == "closed"]
         who = closed[-1].get("actor", {}).get("login") if closed else None
-        issues.append({"state": "closed", "closed_by": who, "closed_at": i.get("closedAt")})
-    return halt_status(issues, owner)
+        row = {"state": "closed", "closed_by": who, "closed_at": i.get("closedAt")}
+        if app and who == app:
+            row["labels"] = [x.get("name") for x in i.get("labels", [])]
+            comments = json.loads(_gh("api", f"repos/{repo}/issues/{i['number']}/comments"))
+            row["comments"] = [
+                {"author": c.get("user", {}).get("login"), "body": c.get("body", "")}
+                for c in comments
+            ]
+        issues.append(row)
+    return halt_status(issues, owner, app)
 
 
 def main(argv):
@@ -205,6 +268,18 @@ def main(argv):
             halted, since = True, ""  # fail closed
         print("halted=" + ("true" if halted else "false"))
         print("since=" + since)
+        return 0
+    if cmd == "autoclear":
+        try:
+            d = json.load(sys.stdin)
+            ok, pr, why = auto_clear(
+                d["halt"], d["merged"], d["ci"], d["prior"], d["head"], d["now"]
+            )
+        except Exception:
+            ok, pr, why = False, None, "unreadable input"
+        print("clear=" + ("true" if ok else "false"))
+        print(f"pr={pr or ''}")
+        print("reason=" + why)
         return 0
     if cmd == "breaker":
         try:
