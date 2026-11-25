@@ -26,3 +26,5 @@ Follow `engineer.md` for the worktree, the pull request, the tests, the checks, 
 ## Cost
 
 Senior runs cost more of the charter's AI budget than `eng` runs. Use this tier only for the issues it was routed to. The share of issues it handles is measured from the `tier:senior` label count (ADR 0016); do not add senior runs beyond that routing.
+
+Fill the PR body exactly as `.github/pull_request_template.md` shows it: `Review rounds:`, `Defects found and fixed:` and `Fail-first output` (or `Fail-first exemption:`) each alone on a line, with no bullets or checkboxes, because CI reads them literally.

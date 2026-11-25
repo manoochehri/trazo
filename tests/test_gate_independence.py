@@ -41,7 +41,7 @@ def test_external_behavior_and_fail_first_are_checked_by_reviewers():
     assert "test's failing" in reviewer and "before the fix" in reviewer
     assert "UNVERIFIED" in work
     assert "Review rounds" in template
-    assert "defects found and fixed" in template
+    assert "Defects found and fixed" in template
 
 
 def test_external_api_rules_require_sources_for_assumptions_and_fakes():
