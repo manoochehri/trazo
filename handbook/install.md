@@ -35,7 +35,9 @@ What it does:
   install again replaces the block and nothing else.
 - For the Claude adapter, copies `agents/` and `commands/` into `.claude/`. If a file of
   that name is already yours, the Trazo one is installed as `trazo-<name>.md` and the
-  script says so. `.claude/settings.json` is installed only if you have none.
+  script says so. `.claude/settings.json` is installed only if you have none; on upgrade, an existing one gets
+  the shipped deny rules and hook entries merged in (additive, idempotent, `.bak` written first,
+  `model` and your own entries untouched; invalid JSON is refused).
 - For Codex, inserts the `AGENTS.md` adapter block and installs project-scoped role agents
   under `.codex/agents/` and workflow skills under `.agents/skills/`. Both point to the
   canonical roles and rules in `.trazo/`. Existing host files are preserved; on a name

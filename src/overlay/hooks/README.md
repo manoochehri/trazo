@@ -57,9 +57,10 @@ allowlist above and why deploy credentials should live only in CI.
 
 Deploy commands are host-specific. Add your own rules to the host's `.claude/settings.json`
 under `permissions.deny`, for example `Bash(./bin/ship *)` or `Bash(terraform apply *)`. The
-installer writes `settings.json` only when absent and never overwrites an existing one, so your
-additions survive an upgrade, and a host with an existing file must add this release's `hooks`
-block and deny rules by hand.
+installer writes `settings.json` only when absent; on `upgrade` it merges this release's missing
+deny rules and hook entries into your existing file (additive and idempotent, backup at
+`.claude/settings.json.bak`), so your additions survive and you do not add the hook entries by
+hand.
 
 ## Not covered
 

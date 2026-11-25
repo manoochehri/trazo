@@ -19,7 +19,8 @@
 #                      only the <!-- trazo:begin --> ... <!-- trazo:end --> block. Content
 #                      outside the markers is never read into, rewritten or removed
 #   .claude/           agents/ and commands/ files; a name that is already the host's is
-#                      installed as trazo-<name>.md. settings.json only if absent
+#                      installed as trazo-<name>.md. settings.json placed only if absent; an upgrade merges
+#                      its missing deny rules and hook entries into the host's (.bak first)
 #   .codex/agents/     project-scoped Codex role agents; names are prefixed with trazo-
 #   .agents/skills/    Codex workflow skills; names are prefixed with trazo-
 #   harness (src/harness/)
@@ -340,6 +341,80 @@ place_harness_all() {
 
 # ---------------------------------------------------------------- install / upgrade
 
+# Additive merge of the shipped settings.json into the host's (#337). Adds missing
+# permissions.deny entries and missing hooks.PreToolUse entries (matched by matcher + command);
+# a hook is added only if its .trazo/hooks/ script exists in <hooks_dir>. Never removes,
+# reorders or edits a host entry, and never touches `model`. Modes: check (validate only),
+# dry (print what would be added), apply (back up to .bak, write, print what was added).
+merge_settings() {
+  local mode="$1" shipped="$2" hooks_dir="$3"
+  python3 - "$mode" "$shipped" ".claude/settings.json" "$hooks_dir" <<'PY'
+import json, os, re, shutil, sys
+
+mode, shipped_p, host_p, hooks_dir = sys.argv[1:5]
+
+
+def refuse(why):
+    print("error: .claude/settings.json " + why + "; refusing, nothing changed. Fix it, "
+          "or merge src/adapters/claude/settings.json by hand.", file=sys.stderr)
+    sys.exit(1)
+
+
+try:
+    with open(host_p) as f:
+        host = json.load(f)
+except ValueError:
+    refuse("is not valid JSON")
+with open(shipped_p) as f:
+    ship = json.load(f)
+if not isinstance(host, dict):
+    refuse("is not a JSON object")
+perms = host.get("permissions", {})
+deny = perms.get("deny", []) if isinstance(perms, dict) else None
+hooks = host.get("hooks", {})
+pre = hooks.get("PreToolUse", []) if isinstance(hooks, dict) else None
+if not isinstance(deny, list) or not isinstance(pre, list):
+    refuse("has a permissions.deny or hooks.PreToolUse that is not a list")
+if not all(isinstance(e, dict) and isinstance(e.get("hooks", []), list) for e in pre):
+    refuse("has a hooks.PreToolUse entry of an unexpected shape")
+
+added = []
+for rule in ship.get("permissions", {}).get("deny", []):
+    if rule not in deny:
+        deny.append(rule)
+        added.append("permissions.deny: " + rule)
+have = {(e.get("matcher"), h.get("command"))
+        for e in pre for h in e.get("hooks", []) if isinstance(h, dict)}
+for e in ship.get("hooks", {}).get("PreToolUse", []):
+    for h in e.get("hooks", []):
+        key = (e.get("matcher"), h.get("command"))
+        m = re.search(r"\.trazo/hooks/([A-Za-z0-9._-]+)", h.get("command", ""))
+        if key in have or (m and not os.path.isfile(os.path.join(hooks_dir, m.group(1)))):
+            continue
+        pre.append({"matcher": e.get("matcher"), "hooks": [h]})
+        have.add(key)
+        added.append("hooks.PreToolUse [" + str(e.get("matcher")) + "]: " + h.get("command", ""))
+
+if mode == "check":
+    sys.exit(0)
+if not added:
+    print(".claude/settings.json: already has everything shipped; unchanged")
+    sys.exit(0)
+if mode == "apply":
+    shutil.copyfile(host_p, host_p + ".bak")
+    host.setdefault("permissions", {})["deny"] = deny
+    host.setdefault("hooks", {})["PreToolUse"] = pre
+    with open(host_p, "w") as f:
+        json.dump(host, f, indent=2)
+        f.write("\n")
+print(".claude/settings.json: " + ("would add" if mode == "dry" else "added")
+      + " (yours kept; backup .claude/settings.json.bak):")
+for a in added:
+    print("  + " + a)
+PY
+}
+
+
 do_install() {
   local mode="$1" tag="$2" source="$3" adapter="$4" dryrun="$5" want_sha="$6"
   local tmp new_managed f name dest placed kind sha line
@@ -396,6 +471,14 @@ do_install() {
     done
     diff -ru "$tmp" "$new_managed" || true
     echo "== end diff"
+    if [ "$adapter" = claude ] || [ "$adapter" = both ]; then
+      if [ -f .claude/settings.json ] && { ! in_manifest .claude/settings.json || edited .claude/settings.json; }; then
+        merge_settings check "$work/repo/src/adapters/claude/settings.json" "$new_managed/hooks" ||
+          die "settings.json merge refused (see above)"
+        [ "$dryrun" != 1 ] ||
+          merge_settings dry "$work/repo/src/adapters/claude/settings.json" "$new_managed/hooks"
+      fi
+    fi
     if [ "$dryrun" = 1 ]; then
       echo "dry run: nothing changed"
       return 0
@@ -454,9 +537,13 @@ do_install() {
         place_adapter_file "$f" ".claude/$kind" "$(basename "$f")" "$placed"
       done
     done
-    if [ -e .claude/settings.json ] && ! in_manifest .claude/settings.json; then
-      echo "note: .claude/settings.json is yours; not touched. Trazo's deny rules for secrets are in" \
-        "src/adapters/claude/settings.json at $tag; merge them yourself."
+    if [ -e .claude/settings.json ] && { ! in_manifest .claude/settings.json || { [ "$mode" = upgrade ] && edited .claude/settings.json; }; }; then
+      if [ "$mode" = upgrade ]; then
+        merge_settings apply "$work/repo/src/adapters/claude/settings.json" .trazo/hooks
+      else
+        echo "note: .claude/settings.json is yours; not touched. Trazo's deny rules for secrets are in" \
+          "src/adapters/claude/settings.json at $tag; an upgrade merges them in."
+      fi
     else
       put_file "$work/repo/src/adapters/claude/settings.json" .claude/settings.json "$placed"
       echo "== .claude/settings.json, as shipped (review it)"

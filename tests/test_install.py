@@ -403,7 +403,7 @@ def test_crlf_markers_are_recognised(host, source):
 @pytest.mark.parametrize(
     "adapter,rel",
     [
-        ("claude", ".claude/settings.json"),
+        # settings.json: an edited one is merged on upgrade (#337), see test_upgrade_merge_*
         ("claude", ".claude/agents/pm.md"),
         ("claude", ".claude/commands/work.md"),
         ("codex", ".codex/agents/trazo-reviewer.toml"),
@@ -620,3 +620,84 @@ def test_upgrade_leaves_edited_architecture_contract_byte_identical(tmp_path, ho
     run(host, "upgrade", "v0.2.0", source=src)
     assert version(host) == "v0.2.0"
     assert contract.read_bytes() == before
+
+
+# ---------------------------------------------------------------- settings merge (#337)
+
+
+def _settings(host):
+    import json
+
+    return json.loads((host / ".claude/settings.json").read_text())
+
+
+def _old_host_settings(host, text):
+    (host / ".claude").mkdir(exist_ok=True)
+    (host / ".claude/settings.json").write_text(text)
+
+
+HOST_SETTINGS = (
+    '{"model": "opus", "permissions": {"deny": ["Bash(./bin/ship *)"]}, "hooks": {"PreToolUse": '
+    '[{"matcher": "Bash", "hooks": [{"type": "command", "command": "echo mine"}]}]}}'
+)
+
+
+def _installed_then_host_settings(host, source, text=HOST_SETTINGS):
+    run(host, "install", "v0.1.0", "--adapter", "claude", source=source)
+    _old_host_settings(host, text)
+    (host / ".claude/settings.json.bak").unlink(missing_ok=True)
+
+
+def test_upgrade_merge_keeps_host_entries_and_adds_shipped_ones(host, source):
+    _installed_then_host_settings(host, source)
+    r = run(host, "upgrade", "v0.1.0", "--adapter", "claude", source=source)
+    s = _settings(host)
+    assert s["model"] == "opus"
+    assert s["permissions"]["deny"][0] == "Bash(./bin/ship *)"
+    assert "Read(./**/.env)" in s["permissions"]["deny"]
+    pre = s["hooks"]["PreToolUse"]
+    assert pre[0]["hooks"][0]["command"] == "echo mine"
+    cmds = [h["command"] for e in pre for h in e["hooks"]]
+    assert any("pm_bash_guard.py" in c for c in cmds)
+    assert any("agent_role_guard.py" in c for c in cmds)
+    assert (host / ".claude/settings.json.bak").read_text() == HOST_SETTINGS
+    assert "agent_role_guard.py" in r.stdout
+
+
+def test_upgrade_merge_is_idempotent(host, source):
+    _installed_then_host_settings(host, source)
+    run(host, "upgrade", "v0.1.0", "--adapter", "claude", source=source)
+    first = (host / ".claude/settings.json").read_text()
+    (host / ".claude/settings.json.bak").unlink()
+    run(host, "upgrade", "v0.1.0", "--adapter", "claude", source=source)
+    assert (host / ".claude/settings.json").read_text() == first
+    assert not (host / ".claude/settings.json.bak").exists()
+
+
+def test_upgrade_merge_refuses_invalid_json(host, source):
+    _installed_then_host_settings(host, source, "{not json")
+    r = run(host, "upgrade", "v0.1.0", "--adapter", "claude", source=source, check=False)
+    assert r.returncode != 0
+    assert "not valid JSON" in r.stdout + r.stderr
+    assert (host / ".claude/settings.json").read_text() == "{not json"
+    assert not (host / ".claude/settings.json.bak").exists()
+
+
+def test_upgrade_merge_dry_run_writes_nothing(host, source):
+    _installed_then_host_settings(host, source)
+    before = snapshot(host)
+    r = run(host, "upgrade", "v0.1.0", "--adapter", "claude", "--dry-run", source=source)
+    assert "agent_role_guard.py" in r.stdout
+    assert snapshot(host) == before
+
+
+def test_upgrade_merge_skips_hook_whose_script_is_absent(tmp_path, host):
+    def mutate(src, tag):
+        (src / "overlay/hooks/agent_role_guard.py").unlink()
+
+    src = make_source(tmp_path, mutate=mutate)
+    _installed_then_host_settings(host, src)
+    run(host, "upgrade", "v0.1.0", "--adapter", "claude", source=src)
+    cmds = [h["command"] for e in _settings(host)["hooks"]["PreToolUse"] for h in e["hooks"]]
+    assert any("pm_bash_guard.py" in c for c in cmds)
+    assert not any("agent_role_guard.py" in c for c in cmds)
