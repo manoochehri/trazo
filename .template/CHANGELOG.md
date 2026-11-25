@@ -1,5 +1,26 @@
 # Trazo changelog
 
+## 0.4.0 (2026-11-25)
+Agents are pinned and guarded: engineers run as pinned subagents behind new guard hooks, the front door can merge a reviewed PR through a gated workflow, upgrades merge settings for you, and a halted driver can clear itself.
+- #315 Fix the unattended driver's first live PR, which committed empty dependency files and used a wrong `Closes` keyword
+- #321 Add an owner-triggered merge workflow (`owner-merge.yml`) for any green PR with verdicts, not only Drive branches
+- #322 The evidence check accepts headings and re-runs when the PR body is edited
+- #323 Fix the `/trazo` skill: one reply budget, and it reports auto-merge state and a stale STATUS first
+- #326 Only pinned Trazo roles may start as subagents: a role guard hook blocks generic subagents, and engineer, senior-engineer and architect agents are pinned; `/eng` and `/senior-eng` now start those agents
+- #330 Add an engineer Bash guard hook that denies `gh api` writes, merges, status setting and secret reads through routes the deny rules missed
+- #332 A drive halt clears itself once after the fix merges and CI is green
+- #333 The front door merges a reviewed PR by dispatching `owner-merge.yml`, which re-checks the review, CI and security at the exact head. `gh pr merge` stays denied and the engineer Bash guard allows only that one dispatch command. This loosens a safety limit on the owner's instruction, and the engineer-facing wording in `rules.md` changes with it. The shared owner login can still forge statuses until the restricted agent token (#320) lands, planned for 0.4.1.
+- #337 `install.sh upgrade` merges the new hooks and deny rules into an existing `.claude/settings.json`
+
+Upgrading from 0.3.1
+- Run `install.sh upgrade v0.4.0` (use `--dry-run` first). `.trazo/` is replaced from the tag; `.trazo/project/` is never touched.
+- The upgrade now merges the new hooks and deny rules into an existing `.claude/settings.json` itself, with a backup in `.claude/settings.json.bak` (#337).
+- New files shipped: the `owner-merge.yml` workflow, the agent role guard and engineer Bash guard hooks, and pinned engineer and senior-engineer agents. `/eng` and `/senior-eng` now start those agents.
+- Set the repository variable `DRIVE_BUILDER_APP_LOGIN` to the builder App's login (for example `trazo-builder[bot]`). Without it the halt auto-clear (#332) does nothing.
+- UNVERIFIED: the new hooks' input shape has not been checked on a live run. They fail closed, so a mismatch blocks the action rather than allowing it.
+- The engineer Bash guard is a speed bump, not a security boundary. A restricted agent token (#320) is the real fix, planned for 0.4.1.
+- Not in 0.4.0 (moved to 0.4.1): the STATUS generator (#334), faster tests (#341), and the restricted agent token (#320).
+
 ## 0.3.1 (2026-11-22)
 Fixes two v0.3.0 problems: the main session stalling on a menu instead of acting, and agents unable to deploy.
 - #304 The main session is the front door: `rules.md` and both adapters define it, `/trazo` reports what it is doing and dispatches the PM instead of printing "You could say" (ADR 0029, extends 0025)
