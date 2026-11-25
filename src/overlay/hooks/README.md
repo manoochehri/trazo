@@ -106,6 +106,12 @@ command the parser never sees. These are known to get through:
   a bare flag, so the value is mistaken for the command.
 - Anything the Read, Edit and Write tools do: this hook binds Bash only.
 
+One carve-out (#347): the `reviewer` subagent may post `trazo/verdict` and the `security`
+subagent `trazo/security`, each only as one plain `gh api [-X POST] repos/<o>/<r>/statuses/<40-hex sha>`
+call carrying `state` (success, failure, pending, error), `context`, `description` and an optional
+`target_url`, with no shell syntax. Every other caller, context, endpoint or field stays denied,
+the skeptic included.
+
 The real fix is an agent token that cannot merge or set statuses (#320), plus branch protection.
 Until then, treat a green result from this guard as "the obvious routes are closed", never as
 "the engineer cannot merge".
