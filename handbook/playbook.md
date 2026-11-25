@@ -11,7 +11,7 @@ Examples below use Claude Code commands. Codex provides corresponding `trazo-*` 
 
 | Who | Command | Does | Model | Edits code? |
 |---|---|---|---|---|
-| **You (owner)** | – | Decide, approve, merge. Pick what matters; answer what only you can. | – | Rarely |
+| **You (owner)** | – | Decide and approve (the front door merges, through `owner-merge.yml`). Pick what matters; answer what only you can. | – | Rarely |
 | **Engineer** | `/eng`, `/work` | Builds: code, tests, branches, pull requests | Haiku default; `/work` uses forked Haiku context | Yes |
 | **PM / advisor** | `/pm` | Status, planning, priorities, "is this real?", writes issues | Sonnet for `/pm`; pinned `pm` subagent | No |
 | **Reviewer** | subagent only | Checks pull requests before merge, with fresh eyes | Sonnet | No |

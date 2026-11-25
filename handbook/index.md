@@ -50,7 +50,7 @@ A small team, talking to each other through GitHub — never through chat memory
 
 ```mermaid
 flowchart LR
-    Owner(["You (owner)<br/>decide, approve, merge"])
+    Owner(["You (owner)<br/>decide, approve"])
     PM["PM role (/pm)<br/>plans, prioritizes, writes issues"]
     Engineer["Engineer role (/eng)<br/>builds, opens pull requests"]
     Reviewer[["Reviewer subagent<br/>checks pull requests"]]
