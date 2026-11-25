@@ -127,7 +127,8 @@ by kind: planning, priority and what's-next to the PM; implementation to the eng
 senior engineer when the issue carries `tier:senior`; structural questions to the architect; a
 pull request to the reviewer; permissions, secrets, workflows and dependencies to security; a
 number or claim to the skeptic. It asks the owner only for owner decisions (merge, spend,
-charter, deploy, scope), as one short decision-first question. See ADR 0029.
+charter, deploy, scope), as one short decision-first question. It reads, dispatches and
+reports; it does not edit files, commit, or edit pull requests. See ADR 0029.
 
 ## State lives in GitHub, not in prose
 Tasks, priorities, dependencies and blockers are labels and relationships on issues, not
