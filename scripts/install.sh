@@ -179,6 +179,8 @@ PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.jso
 # overwrite and delete. Accept only "<sha256>  <path>" with a path from the allowed set.
 check_manifest() {
   local line h f
+  [ ! -L "$MANIFEST" ] || die "$MANIFEST must not be a symlink; refusing"
+  [ ! -L "$SETTINGS_REC" ] || die "$SETTINGS_REC must not be a symlink; refusing"
   [ -f "$MANIFEST" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
     h="${line%%  *}"

@@ -895,3 +895,19 @@ def test_upgrade_keeps_recorded_rule_in_manifest_when_guard_is_unavailable(tmp_p
 
     # The rule remains eligible for removal on a later upgrade after the guard is available.
     assert OLD_RULE in json.loads((host / REC).read_text())["deny"]
+
+
+def test_upgrade_refuses_symlinked_settings_record_without_overwriting_target(tmp_path, host):
+    src = _two_releases(tmp_path)
+    _installed_v1_with_host_rule(host, src)
+    target = tmp_path / "outside-record"
+    original = (host / REC).read_text()
+    target.write_text(original)
+    (host / REC).unlink()
+    (host / REC).symlink_to(target)
+
+    r = run(host, "upgrade", "v0.2.0", "--adapter", "claude", source=src, check=False)
+
+    assert r.returncode != 0
+    assert "symlink" in r.stdout + r.stderr
+    assert target.read_text() == original
