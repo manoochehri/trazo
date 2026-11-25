@@ -170,7 +170,7 @@ drop_block() {
 
 MANIFEST=.trazo/INSTALLED
 P=.trazo/project
-HARNESS_RE='\.github/workflows/(ci|review|report|drive|owner-merge)\.yml|\.github/pull_request_template\.md|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.env\.example|Dockerfile|scripts/(scan\.sh|scan-preflight\.sh|put_secret\.sh|check_pr_evidence\.py|report_verdict\.py|drive_guard\.py|drive_sweep\.py)'
+HARNESS_RE='\.github/workflows/(ci|review|report|drive|owner-merge|status)\.yml|\.github/pull_request_template\.md|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.env\.example|Dockerfile|scripts/(scan\.sh|scan-preflight\.sh|put_secret\.sh|check_pr_evidence\.py|report_verdict\.py|drive_guard\.py|drive_sweep\.py|gen_status\.py)'
 PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.json|'"$HARNESS_RE"'|\.codex/agents/[A-Za-z0-9._-]+\.toml|\.agents/skills/[A-Za-z0-9._-]+/SKILL\.md)$'
 
 # check_manifest: the manifest is a committed file anyone can edit, and it decides what we
@@ -314,13 +314,13 @@ place_harness_all() {
   [ -d "$h" ] || { echo "note: this tag ships no src/harness; no CI or scripts placed" >&2; return 0; }
   for f in .github/workflows/ci.yml .github/pull_request_template.md .gitleaks.toml \
     .pre-commit-config.yaml Dockerfile scripts/scan.sh scripts/scan-preflight.sh \
-    scripts/put_secret.sh scripts/check_pr_evidence.py scripts/report_verdict.py scripts/drive_guard.py scripts/drive_sweep.py; do
+    scripts/put_secret.sh scripts/check_pr_evidence.py scripts/report_verdict.py scripts/drive_guard.py scripts/drive_sweep.py scripts/gen_status.py; do
     place_harness "$h/$f" "$f" "$placed"
   done
   # Stored as env.example in src/ so no tool mistakes the source for a real .env file.
   place_harness "$h/env.example" .env.example "$placed"
   if [ "$adapter" = claude ] || [ "$adapter" = both ]; then
-    for f in .github/workflows/review.yml .github/workflows/report.yml .github/workflows/drive.yml .github/workflows/owner-merge.yml; do
+    for f in .github/workflows/review.yml .github/workflows/report.yml .github/workflows/drive.yml .github/workflows/owner-merge.yml .github/workflows/status.yml; do
       place_harness "$h/$f" "$f" "$placed"
     done
   fi
