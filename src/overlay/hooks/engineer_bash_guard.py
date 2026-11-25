@@ -381,6 +381,50 @@ def check(command: str, prefixes: list[list[str]], paths: list[re.Pattern[str]])
         check_argv(argv, prefixes, paths)
 
 
+STATUS_CONTEXT = {"reviewer": "trazo/verdict", "security": "trazo/security"}
+STATUS_ENDPOINT = re.compile(r"repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/statuses/[0-9a-f]{40}")
+STATUS_STATES = {"success", "failure", "pending", "error"}
+STATUS_FIELDS = {"state", "context", "description", "target_url"}
+SHELL_META = re.compile(r"[`$;&|<>()\\\n\r]")
+
+
+def is_own_status_post(agent: object, command: str) -> bool:
+    """#347: the reviewer and security subagents post their own commit status and nothing else.
+    True only for one plain `gh api [-X POST] repos/<o>/<r>/statuses/<40-hex> -f k=v ...` whose
+    context is the caller's (reviewer: trazo/verdict, security: trazo/security), whose fields are
+    state, context, description and an optional target_url, with no shell syntax. Anything else,
+    or anything unparseable, is False and falls through to the full guard."""
+    if not isinstance(agent, str) or agent not in STATUS_CONTEXT or SHELL_META.search(command):
+        return False
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return False
+    if words[:2] != ["gh", "api"]:
+        return False
+    rest, endpoint, fields, i = words[2:], None, {}, 0
+    while i < len(rest):
+        word = rest[i]
+        if word in {"-X", "--method"} and i + 1 < len(rest) and rest[i + 1] == "POST":
+            i += 2
+        elif word in {"-f", "--raw-field"} and i + 1 < len(rest):
+            key, eq, value = rest[i + 1].partition("=")
+            if not eq or key not in STATUS_FIELDS or key in fields:
+                return False
+            fields[key] = value
+            i += 2
+        elif endpoint is None and not word.startswith("-") and STATUS_ENDPOINT.fullmatch(word):
+            endpoint = word
+            i += 1
+        else:
+            return False
+    return (
+        endpoint is not None
+        and fields.get("state") in STATUS_STATES
+        and fields.get("context") == STATUS_CONTEXT[agent]
+    )
+
+
 def main(argv: list[str]) -> int:
     try:
         skip = argv[argv.index("--skip-agent") + 1] if "--skip-agent" in argv else None
@@ -392,6 +436,8 @@ def main(argv: list[str]) -> int:
         command = payload["tool_input"]["command"]
         if not isinstance(command, str):
             raise Deny("no command")
+        if is_own_status_post(payload.get("agent_type"), command):
+            return 0
         prefixes, paths = load_rules()
         check(command, prefixes, paths)
     except Deny as why:
