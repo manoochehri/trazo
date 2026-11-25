@@ -132,7 +132,7 @@ def test_drive_ships_with_its_kill_switch(host, source):
 def test_pr_template_carries_the_fields_the_checker_requires(host, source):
     run(host, "install", "v0.1.0", source=source)
     template = (host / ".github/pull_request_template.md").read_text()
-    for field in ("Review rounds:", "efects found and fixed:", "Fail-first output:"):
+    for field in ("Review rounds:", "efects found and fixed:", "## Fail-first output"):
         assert field in template, field
     spec = importlib.util.spec_from_file_location(
         "host_check_pr_evidence", host / "scripts/check_pr_evidence.py"
