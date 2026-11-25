@@ -128,12 +128,15 @@ request, not in chat. Requests route
 by kind: planning, priority and what's-next to the PM; implementation to the engineer, or to the
 senior engineer when the issue carries `tier:senior`; structural questions to the architect; a
 pull request to the reviewer; permissions, secrets, workflows and dependencies to security; a
-number or claim to the skeptic. It executes routine dispatch, review, security, CI, retry, repair,
-merge and close-loop work without asking the owner. It monitors automated reviewer and security
-workflows, retries transient failures, repairs routine workflow setup, and merges a pull request
-by dispatching `owner-merge.yml` once the reviewer verdict (and security where required) is success
-on the current head and CI is green; the engineer and PM never merge. It asks the owner only for
-irreversible decisions about scope, spend, charter, deploy, or permissions. See ADR 0029.
+number or claim to the skeptic. It executes routine dispatch, review, security, CI, retry, and
+close-loop work without asking the owner. For workflow repair, it may inspect read-only, retry or
+rerun runs, and restore already-declared workflow configuration. It must not change workflow
+files, permissions, infrastructure, build configuration, or secrets without a separate owner
+decision and required security gate. It merges a pull request by dispatching `owner-merge.yml`
+once the reviewer verdict (and security where required) is success on the current head and CI is
+green; routine gated merges remain authorized, and the engineer and PM never merge. It asks the
+owner only for irreversible decisions about scope, spend, charter, deploy, or permissions. See
+ADR 0029.
 
 ## State lives in GitHub, not in prose
 Tasks, priorities, dependencies and blockers are labels and relationships on issues, not
