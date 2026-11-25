@@ -54,6 +54,7 @@ def test_coordinator_is_ready_to_act_and_escalates_only_irreversible_decisions()
         "repair",
         "merge",
         "close-loop",
+        "without asking the owner",
         "scope",
         "spend",
         "charter",
