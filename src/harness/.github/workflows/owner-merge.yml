@@ -1,0 +1,90 @@
+name: owner-merge
+# Owner-triggered merge for any pull request, not only drive's issue-* branches (issue #321).
+#
+# Why: an agent session may not run `gh pr merge` (the shipped settings.json denies it), and drive.yml
+# merges only issue-* branches that touch no owner-protected path. This is the one path for everything
+# else: the OWNER starts it, and it still refuses unless this exact head has passed every gate.
+#
+#   gh workflow run owner-merge.yml -f pr=123        (or "Run workflow" on the Actions tab)
+#
+# It merges only when, at the head commit read at the start:
+#   - the pull request is open, not a draft, not from a fork, and targets the default branch
+#   - trazo/verdict is success on that head and every check run on it is success or skipped
+#   - if it changes an owner-protected path (the classifier shared with review.yml and drive.yml),
+#     trazo/security is also success: the owner starting this run is the owner review CODEOWNERS asks for
+# and it merges with --match-head-commit, so a push after the check cannot slip in. Any error refuses.
+#
+# Only the repository owner's dispatch runs, from the default branch, so a pull request cannot edit the
+# script it is judged by. UNVERIFIED on a live run: that github.token may squash-merge a pull request that
+# edits files under .github/workflows/ (GitHub restricts that token's workflow-file writes). If it cannot,
+# the owner merges that one pull request with `gh pr merge`.
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to merge
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: owner-merge
+  cancel-in-progress: false
+jobs:
+  merge:
+    if: >-
+      github.actor == github.repository_owner &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      statuses: read
+      checks: read
+      issues: read
+    steps:
+      # The default branch supplies .github/CODEOWNERS and scripts/report_verdict.py.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: merge the pull request if its gates have passed at its current head
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PR: ${{ inputs.pr }}
+        run: |
+          set -euo pipefail
+          refuse() { echo "::error::PR #${PR}: $1; not merging."; exit 1; }
+          [[ "$PR" =~ ^[0-9]+$ ]] || { echo "::error::pr must be a pull request number"; exit 1; }
+          IFS=$'\t' read -r state draft cross base sha <<<"$(gh pr view "$PR" \
+            --json state,isDraft,isCrossRepository,baseRefName,headRefOid \
+            -q '[.state, (.isDraft | tostring), (.isCrossRepository | tostring), .baseRefName, .headRefOid] | @tsv')"
+          [[ "$state" == "OPEN" ]] || refuse "state is ${state:-unknown}"
+          [[ "$draft" == "false" ]] || refuse "it is a draft"
+          [[ "$cross" == "false" ]] || refuse "it comes from a fork"
+          [[ "$base" == "$DEFAULT_BRANCH" ]] || refuse "its base is ${base:-unknown}, not ${DEFAULT_BRANCH}"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || refuse "no head commit was found"
+          # One classifier, shared with review.yml and drive.yml: it sees both sides of a rename and fails
+          # closed on a short listing.
+          changed=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" -q '.changed_files')
+          sensitive=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" \
+            -q '.[] | [.filename, (.previous_filename // "")] | @tsv' \
+            | CHANGED_FILES="$changed" python3 scripts/report_verdict.py --sensitive .github/CODEOWNERS)
+          status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/status?per_page=100")
+          verdict=$(jq -r '[.statuses[] | select(.context == "trazo/verdict")][0].state // ""' <<<"$status")
+          security=$(jq -r '[.statuses[] | select(.context == "trazo/security")][0].state // "none"' <<<"$status")
+          runs=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs" -q '.check_runs[] | .conclusion // "pending"')
+          if [[ -n "$runs" ]] && ! grep -qvxE 'success|skipped' <<<"$runs"; then ci=success; else ci=pending; fi
+          [[ "$verdict" == "success" ]] || refuse "trazo/verdict is ${verdict:-missing} on this head"
+          [[ "$ci" == "success" ]] || refuse "the checks are not all green on this head"
+          case "$sensitive" in
+            sensitive=false) ;;
+            sensitive=true)
+              [[ "$security" == "success" ]] || refuse "it changes owner-protected paths and trazo/security is ${security} on this head" ;;
+            *) refuse "the changed files could not be classified" ;;
+          esac
+          gh pr merge "$PR" --squash --match-head-commit "$sha"
+          echo "Merged PR #${PR} at ${sha}."
