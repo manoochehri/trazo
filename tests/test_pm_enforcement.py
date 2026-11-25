@@ -363,7 +363,8 @@ def _settings_hook_command() -> str:
     hooks = [h for h in SETTINGS_JSON["hooks"]["PreToolUse"] if h["matcher"] == "Bash"]
     assert len(hooks) == 1
     inner = hooks[0]["hooks"]
-    assert len(inner) == 1 and inner[0]["type"] == "command"
+    # #330 adds the engineer guard as a second hook on the same matcher; this is the PM guard.
+    assert inner[0]["type"] == "command" and "pm_bash_guard.py" in inner[0]["command"]
     return inner[0]["command"]
 
 
