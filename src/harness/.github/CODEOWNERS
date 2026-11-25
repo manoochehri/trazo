@@ -6,6 +6,7 @@
 /.trazo/roles/           @OWNER
 /.trazo/skills/          @OWNER
 /.trazo/hooks/           @OWNER
+/.trazo/INSTALLED-settings @OWNER
 /.trazo/templates/       @OWNER
 /.trazo/ADVISOR.md       @OWNER
 /.trazo/ARCHITECTURE.md  @OWNER

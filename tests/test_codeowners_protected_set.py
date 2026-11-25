@@ -87,3 +87,13 @@ def test_agentic_paths_are_not_protected():
         "tests/test_x.py",
     ):
         assert not any(_covers(x, path) for x in patterns), f"{path} should be agentic"
+
+
+def test_installed_settings_record_is_owner_reviewed():
+    """The upgrade record decides which deny rules get deleted, so an agent PR must not edit it
+    unreviewed (#346): CODEOWNERS covers it and the drive classifier, fed CODEOWNERS, flags it."""
+    record = ".trazo/INSTALLED-settings"
+    patterns = [pattern for pattern, _ in _rules()]
+    assert any(_covers(x, record) for x in patterns)
+    text = (REPO_ROOT / ".github" / "CODEOWNERS").read_text(encoding="utf-8")
+    assert report_verdict.classify("M\t" + record, "1", text)

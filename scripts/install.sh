@@ -21,6 +21,7 @@
 #   .claude/           agents/ and commands/ files; a name that is already the host's is
 #                      installed as trazo-<name>.md. settings.json placed only if absent; an upgrade merges
 #                      its missing deny rules and hook entries into the host's (.bak first)
+#                      and drops ones it added earlier that the release dropped (.trazo/INSTALLED-settings)
 #   .codex/agents/     project-scoped Codex role agents; names are prefixed with trazo-
 #   .agents/skills/    Codex workflow skills; names are prefixed with trazo-
 #   harness (src/harness/)
@@ -170,6 +171,7 @@ drop_block() {
 # ---------------------------------------------------------------- manifest
 
 MANIFEST=.trazo/INSTALLED
+SETTINGS_REC=.trazo/INSTALLED-settings
 P=.trazo/project
 HARNESS_RE='\.github/workflows/(ci|review|report|drive|owner-merge|status)\.yml|\.github/pull_request_template\.md|\.gitleaks\.toml|\.pre-commit-config\.yaml|\.env\.example|Dockerfile|scripts/(scan\.sh|scan-preflight\.sh|put_secret\.sh|check_pr_evidence\.py|report_verdict\.py|drive_guard\.py|drive_sweep\.py|gen_status\.py)'
 PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.json|'"$HARNESS_RE"'|\.codex/agents/[A-Za-z0-9._-]+\.toml|\.agents/skills/[A-Za-z0-9._-]+/SKILL\.md)$'
@@ -178,6 +180,8 @@ PATH_RE='^(\.claude/(agents|commands)/[A-Za-z0-9._-]+\.md|\.claude/settings\.jso
 # overwrite and delete. Accept only "<sha256>  <path>" with a path from the allowed set.
 check_manifest() {
   local line h f
+  [ ! -L "$MANIFEST" ] || die "$MANIFEST must not be a symlink; refusing"
+  check_settings_record
   [ -f "$MANIFEST" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
     h="${line%%  *}"
@@ -186,6 +190,21 @@ check_manifest() {
       ! [[ "$f" =~ (^|/)\.\.(/|$) ]] && [ "$line" = "$h  $f" ] ||
       die "$MANIFEST has an invalid adapter entry ($line); refusing"
   done <"$MANIFEST"
+}
+
+check_settings_record() {
+  local links
+  [ -e "$SETTINGS_REC" ] || [ -L "$SETTINGS_REC" ] || return 0
+  [ ! -L "$SETTINGS_REC" ] || die "$SETTINGS_REC must not be a symlink; refusing"
+  [ -f "$SETTINGS_REC" ] || die "$SETTINGS_REC must be a regular file; refusing"
+  links="$(python3 - "$SETTINGS_REC" <<'PY'
+import os
+import sys
+
+print(os.lstat(sys.argv[1]).st_nlink)
+PY
+)" || die "could not inspect $SETTINGS_REC; refusing"
+  [ "$links" = 1 ] || die "$SETTINGS_REC must not be a hard link; refusing"
 }
 
 recorded_hash() { [ -f "$MANIFEST" ] && awk -v p="$1" '{ h = $1; $1 = ""; sub(/^ +/, ""); if ($0 == p) print h }' "$MANIFEST" || true; }
@@ -341,17 +360,36 @@ place_harness_all() {
 
 # ---------------------------------------------------------------- install / upgrade
 
-# Additive merge of the shipped settings.json into the host's (#337). Adds missing
+# Merge of the shipped settings.json into the host's (#337, #346). Adds missing
 # permissions.deny entries and missing hooks.PreToolUse entries (matched by matcher + command);
-# a hook is added only if its .trazo/hooks/ script exists in <hooks_dir>. Never removes,
-# reorders or edits a host entry, and never touches `model`. Modes: check (validate only),
-# dry (print what would be added), apply (back up to .bak, write, print what was added).
+# a hook is added only if its .trazo/hooks/ script exists in <hooks_dir>. It never reorders or
+# edits a host entry and never touches `model`. It removes only what THIS INSTALLER added
+# earlier (recorded in $SETTINGS_REC) and the new release no longer ships, and only while the
+# replacement guard hook is installed and registered. A historic rule from before the record
+# existed is never removed (the installer cannot prove it wrote it): it is kept and reported
+# with the exact line to delete.
+# Modes: check (validate only), dry (print what would change), apply (back up to .bak, write,
+# print what changed, update the record), record (fresh install: record everything shipped).
 merge_settings() {
   local mode="$1" shipped="$2" hooks_dir="$3"
-  python3 - "$mode" "$shipped" ".claude/settings.json" "$hooks_dir" <<'PY'
-import json, os, re, shutil, sys
+  python3 - "$mode" "$shipped" ".claude/settings.json" "$hooks_dir" "$SETTINGS_REC" <<'PY'
+import json, os, re, shutil, stat, sys, tempfile
 
-mode, shipped_p, host_p, hooks_dir = sys.argv[1:5]
+mode, shipped_p, host_p, hooks_dir, rec_p = sys.argv[1:6]
+
+# Deny rules shipped in v0.3.0, before the record existed. Of these, the ones the current
+# release does not ship were dropped later (the blanket workflow dispatch deny, replaced by the
+# engineer Bash guard allowlist; the deploy-command denies). They are kept and reported, never
+# removed: a host cannot prove it did not write one itself.
+HISTORIC = [
+    "Read(./**/.env)", "Read(./**/.env.*)", "Read(./secrets/**)", "Read(./**/*.pem)",
+    "Read(./**/*.key)", "Bash(gh pr merge *)", "Bash(fly *)", "Bash(flyctl *)",
+    "Bash(clasp push *)", "Bash(clasp deploy *)", "Bash(scripts/deploy*)",
+    "Bash(./scripts/deploy*)", "Bash(scripts/put_secret.sh *)", "Bash(gh secret *)",
+    "Bash(gh variable set *)", "Bash(gh " + "workflow run *)", "Read(~/.ssh/**)",
+    "Read(~/.aws/**)", "Read(~/.config/**)", "Read(~/.claude/**)", "Read(~/.netrc)",
+    "Read(~/.docker/**)", "Read(~/.gitconfig)",
+]
 
 
 def refuse(why):
@@ -360,13 +398,63 @@ def refuse(why):
     sys.exit(1)
 
 
+def validate_record(path):
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        print("error: " + path + " could not be inspected: " + str(exc) + "; refusing",
+              file=sys.stderr)
+        sys.exit(1)
+    if not stat.S_ISREG(info.st_mode):
+        print("error: " + path + " must be a regular file; refusing", file=sys.stderr)
+        sys.exit(1)
+    if info.st_nlink != 1:
+        print("error: " + path + " must not be a hard link; refusing", file=sys.stderr)
+        sys.exit(1)
+
+
+with open(shipped_p) as f:
+    ship = json.load(f)
+ship_deny = ship.get("permissions", {}).get("deny", [])
+ship_keys = [(e.get("matcher"), h.get("command"))
+             for e in ship.get("hooks", {}).get("PreToolUse", []) for h in e.get("hooks", [])]
+
+
+def save_rec(deny, keys):
+    data = {"deny": deny, "hooks": [list(k) for k in keys]}
+    validate_record(rec_p)
+    parent = os.path.dirname(rec_p) or "."
+    fd, tmp = tempfile.mkstemp(prefix="." + os.path.basename(rec_p) + ".tmp-", dir=parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, rec_p)
+        dir_fd = os.open(parent, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    finally:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+
+
+if mode == "record":
+    save_rec(list(ship_deny), ship_keys)
+    sys.exit(0)
+
 try:
     with open(host_p, encoding="utf-8") as f:
         host = json.load(f)
 except ValueError:
     refuse("is not valid JSON")
-with open(shipped_p) as f:
-    ship = json.load(f)
 if not isinstance(host, dict):
     refuse("is not a JSON object")
 perms = host.get("permissions", {})
@@ -378,13 +466,48 @@ if not isinstance(deny, list) or not isinstance(pre, list):
 if not all(isinstance(e, dict) and isinstance(e.get("hooks", []), list) for e in pre):
     refuse("has a hooks.PreToolUse entry of an unexpected shape")
 
-added = []
-for rule in ship.get("permissions", {}).get("deny", []):
+rec_deny, rec_keys = [], []
+validate_record(rec_p)
+if os.path.isfile(rec_p):
+    try:
+        with open(rec_p, encoding="utf-8") as f:
+            rec = json.load(f)
+        rec_deny = [r for r in rec["deny"] if isinstance(r, str)]
+        rec_keys = [tuple(k) for k in rec["hooks"] if isinstance(k, list) and len(k) == 2]
+    except (ValueError, KeyError, TypeError):
+        print("note: " + rec_p + " is unreadable; ignoring it (nothing recorded is removed)",
+              file=sys.stderr)
+
+if mode == "check":
+    sys.exit(0)
+
+removed, kept, added = [], [], []
+
+# --- removals: recorded as installer-added and no longer shipped
+new_pre = []
+for e in pre:
+    hs = e.get("hooks", [])
+    keep = []
+    for h in hs:
+        key = (e.get("matcher"), h.get("command") if isinstance(h, dict) else None)
+        if key in rec_keys and key not in ship_keys:
+            removed.append("hooks.PreToolUse [" + str(key[0]) + "]: " + str(key[1])
+                           + "  (recorded as installer-added)")
+        else:
+            keep.append(h)
+    if keep or not hs:
+        e["hooks"] = keep
+        new_pre.append(e)
+pre[:] = new_pre
+
+# --- additions
+for rule in ship_deny:
     if rule not in deny:
         deny.append(rule)
         added.append("permissions.deny: " + rule)
 have = {(e.get("matcher"), h.get("command"))
         for e in pre for h in e.get("hooks", []) if isinstance(h, dict)}
+added_keys = []
 for e in ship.get("hooks", {}).get("PreToolUse", []):
     for h in e.get("hooks", []):
         key = (e.get("matcher"), h.get("command"))
@@ -393,11 +516,48 @@ for e in ship.get("hooks", {}).get("PreToolUse", []):
             continue
         pre.append({"matcher": e.get("matcher"), "hooks": [h]})
         have.add(key)
+        added_keys.append(key)
         added.append("hooks.PreToolUse [" + str(e.get("matcher")) + "]: " + h.get("command", ""))
 
-if mode == "check":
-    sys.exit(0)
-if not added:
+# --- deny removals (#346): a dropped deny rule goes only when its replacement, the shipped
+# engineer Bash guard hook, is installed (script present) and registered in the merged result.
+# Otherwise the rule stays and is reported, so a host never ends with neither the deny nor the guard.
+guard_keys = [k for k in ship_keys if "engineer_bash_guard.py" in str(k[1])]
+guard_ok = bool(guard_keys)
+for k in guard_keys:
+    m = re.search(r"\.trazo/hooks/([A-Za-z0-9._-]+)", str(k[1]))
+    if k not in have or not (m and os.path.isfile(os.path.join(hooks_dir, m.group(1)))):
+        guard_ok = False
+dropped_hist = [d for d in HISTORIC if d not in ship_deny]
+new_deny = []
+for rule in deny:
+    droppable = rule in rec_deny and rule not in ship_deny
+    if droppable and guard_ok:
+        removed.append("permissions.deny: " + rule + "  (recorded as installer-added)")
+    else:
+        new_deny.append(rule)
+        if droppable:
+            kept.append(json.dumps(rule, ensure_ascii=False) + "  (the replacement guard hook "
+                        "is not installed and registered, so the rule stays)")
+        elif rule in dropped_hist and rule not in rec_deny:
+            kept.append(json.dumps(rule, ensure_ascii=False))
+deny[:] = new_deny
+
+# --- the record: what we added, cumulatively, minus what is gone. A dropped rule that remains
+# because its replacement guard is unavailable stays recorded for a later safe upgrade.
+added_deny = [a.split(": ", 1)[1] for a in added if a.startswith("permissions.deny: ")]
+new_rec_deny = [r for r in rec_deny if r in deny]
+new_rec_deny += [r for r in added_deny if r not in new_rec_deny]
+new_rec_keys = [k for k in rec_keys if k in ship_keys and k in have]
+new_rec_keys += [k for k in added_keys if k not in new_rec_keys]
+
+for k in kept:
+    print("kept (not recorded as installer-added): " + k + "  <- a Trazo rule an older release "
+          "shipped and this one dropped; delete this line from permissions.deny in "
+          ".claude/settings.json if you did not write it")
+if not (added or removed):
+    if mode == "apply" and (new_rec_deny, new_rec_keys) != (rec_deny, rec_keys):
+        save_rec(new_rec_deny, new_rec_keys)
     print(".claude/settings.json: already has everything shipped; unchanged")
     sys.exit(0)
 if mode == "apply":
@@ -407,13 +567,15 @@ if mode == "apply":
     with open(host_p, "w", encoding="utf-8") as f:
         json.dump(host, f, indent=2, ensure_ascii=False)
         f.write("\n")
-print(".claude/settings.json: " + ("would add" if mode == "dry" else "added")
+    save_rec(new_rec_deny, new_rec_keys)
+print(".claude/settings.json: " + ("would change" if mode == "dry" else "changed")
       + " (yours kept; backup .claude/settings.json.bak):")
 for a in added:
     print("  + " + a)
+for r in removed:
+    print("  - removed " + r)
 PY
 }
-
 
 do_install() {
   local mode="$1" tag="$2" source="$3" adapter="$4" dryrun="$5" want_sha="$6"
@@ -466,7 +628,7 @@ do_install() {
     tmp="$work/old"
     mkdir -p "$tmp"
     for f in .trazo/*; do
-      case "$f" in "$P" | "$MANIFEST") continue ;; esac
+      case "$f" in "$P" | "$MANIFEST" | "$SETTINGS_REC") continue ;; esac
       [ -e "$f" ] && cp -R "$f" "$tmp/"
     done
     diff -ru "$tmp" "$new_managed" || true
@@ -490,7 +652,7 @@ do_install() {
   mkdir -p .trazo
   for f in .trazo/* .trazo/.[!.]*; do
     [ -e "$f" ] || continue
-    case "$f" in "$P" | "$MANIFEST") continue ;; esac
+    case "$f" in "$P" | "$MANIFEST" | "$SETTINGS_REC") continue ;; esac
     rm -rf "$f"
   done
   cp -R "$new_managed/." .trazo/
@@ -546,6 +708,10 @@ do_install() {
       fi
     else
       put_file "$work/repo/src/adapters/claude/settings.json" .claude/settings.json "$placed"
+      # The file is now exactly what we ship: record it, so a later release can drop rules.
+      if cmp -s "$work/repo/src/adapters/claude/settings.json" .claude/settings.json; then
+        merge_settings record "$work/repo/src/adapters/claude/settings.json" .trazo/hooks
+      fi
       echo "== .claude/settings.json, as shipped (review it)"
       cat "$work/repo/src/adapters/claude/settings.json"
       echo "== end settings.json"
@@ -601,6 +767,7 @@ print_owner_steps() {
     echo "  $n. Your .github/CODEOWNERS was not edited. Add these lines (replace @owner):"
     echo "       /.trazo/project/charter/   @owner"
     echo "       /.claude/settings.json     @owner"
+    echo "       /.trazo/INSTALLED-settings @owner"
     echo "       /.github/workflows/        @owner"
     echo "       /.github/CODEOWNERS        @owner"
   fi

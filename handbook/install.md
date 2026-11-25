@@ -37,7 +37,15 @@ What it does:
   that name is already yours, the Trazo one is installed as `trazo-<name>.md` and the
   script says so. `.claude/settings.json` is installed only if you have none; on upgrade, an existing one gets
   the shipped deny rules and hook entries merged in (additive, idempotent, `.bak` written first,
-  `model` and your own entries untouched; invalid JSON is refused).
+  `model` and your own entries untouched; invalid JSON is refused). The merge also removes, and
+  prints, a deny rule or hook entry that the installer itself added earlier and the new release
+  no longer ships. What it added is recorded in `.trazo/INSTALLED-settings` (installer-owned,
+  removed by uninstall); a rule you wrote is never removed. A rule that predates that record is
+  kept and reported as `kept (not recorded as installer-added): "<rule>"`, with the line you can
+  delete. A recorded rule is removed only while the shipped engineer Bash guard hook is installed
+  and registered; otherwise it is kept and reported. Because the record decides what is
+  removed, `.trazo/INSTALLED-settings` belongs in `CODEOWNERS` (the installer's starter and its
+  printed lines include it). Read the printed `- removed` lines; the `.bak` has the old file.
 - For Codex, inserts the `AGENTS.md` adapter block and installs project-scoped role agents
   under `.codex/agents/` and workflow skills under `.agents/skills/`. Both point to the
   canonical roles and rules in `.trazo/`. Existing host files are preserved; on a name
