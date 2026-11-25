@@ -1,8 +1,8 @@
 ---
-description: Return session to the senior engineer role for escalated work (tier:senior issues)
-model: sonnet
+description: Ask the senior engineer to build an escalated issue (runs the senior-engineer subagent)
 ---
-Read `.trazo/roles/senior-engineer.md` and resume the senior engineer role. Handle `$ARGUMENTS` if provided; otherwise reply exactly: "Senior engineer here. Ready to build. What are we working on?" and wait.
+Do not build in this session. Launch the `senior-engineer` subagent with the Agent tool, fresh each time, passing `$ARGUMENTS` (the issue number or the change asked for). If `$ARGUMENTS` is empty, reply exactly: "Senior engineer ready. Which issue?" and wait. Relay its report to the owner briefly, with the pull request URL.
 
-This command runs on Sonnet for this turn. Claude Code restores the session's prior model on the next prompt; use `/status` to see the active model.
-Use this for issues labeled `tier:senior` only. Use `/eng` for everything else, and `/work` for the `needs-pm` handoff on sequencing, priority, or scope calls.
+Use this for issues labeled `tier:senior` only. Use `/eng` for everything else, and `/work` for the `needs-pm` handoff on sequencing, priority or scope calls.
+
+The `senior-engineer` subagent reads `.trazo/roles/senior-engineer.md` and runs on Sonnet with no `Agent` tool. A path-matched change still gets its separate security review from the front door.

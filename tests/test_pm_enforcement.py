@@ -359,8 +359,9 @@ SETTINGS_JSON = json.loads(SETTINGS.read_text(encoding="utf-8")) if SETTINGS.exi
 
 
 def _settings_hook_command() -> str:
-    hooks = SETTINGS_JSON["hooks"]["PreToolUse"]
-    assert len(hooks) == 1 and hooks[0]["matcher"] == "Bash"
+    # The PM guard is the Bash entry; #326 adds a separate entry for the Agent tool.
+    hooks = [h for h in SETTINGS_JSON["hooks"]["PreToolUse"] if h["matcher"] == "Bash"]
+    assert len(hooks) == 1
     inner = hooks[0]["hooks"]
     assert len(inner) == 1 and inner[0]["type"] == "command"
     return inner[0]["command"]

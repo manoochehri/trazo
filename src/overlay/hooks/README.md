@@ -65,3 +65,29 @@ block and deny rules by hand.
 
 Engineers and the main session keep Bash; they are bound only by the deny rules in section 3.
 Symlinks inside the repository that point outside it are not resolved by the guard (UNVERIFIED).
+
+# Only the pinned roles start as subagents: `agent_role_guard.py` (issue #326)
+
+The front door once started generic subagents (`general-purpose`, `Explore`, `Plan`) and gave them
+a role in the prompt, instead of the pinned agents or the role commands. A prompt did not stop it.
+`settings.json` registers a `PreToolUse` hook on the `Agent` tool (`Agent|Task`) that allows only
+`pm`, `engineer`, `senior-engineer`, `reviewer`, `security` and `skeptic` (and the installer's `trazo-` prefixed copies) and
+blocks everything else with exit 2. Engineering is `/eng`, `/senior-eng` or `/work`; architecture
+is `/architect`.
+
+- **Fails closed.** A missing, empty or non-string `subagent_type`, unparseable input, or a missing
+  script all block (the declared command ends `|| exit 2`).
+- **UNVERIFIED live.** The input shape (`tool_name`, `tool_input.subagent_type`) comes from the
+  Claude Code hooks documentation, not from a recorded payload; the live check was not run. A payload
+  of another shape is blocked, so the failure mode is "too strict", never "open". If Claude Code
+  starts a pinned agent under a name this list does not know, the hook blocks it.
+- **Existing hosts add it by hand.** The installer writes `settings.json` only when absent and never
+  overwrites an existing one, so a host with its own `settings.json` must add this hook entry itself
+  after upgrading, together with the hook script the upgrade places in `.trazo/hooks/`. Do not add
+  the entry before the script is installed: the declared command blocks every Agent call when the
+  script is missing.
+- **Not covered.** There is no pinned architect agent (ADR 0021 says none), so `/architect` stays a
+  main-session role switch. `/eng` and `/senior-eng` start the pinned `engineer` and `senior-engineer`
+  subagents, so the main session no longer needs to write; a lock on main-session writes is the next
+  step and is not part of this change. A hook binds the session it is registered in, not the agents
+  that session starts.
