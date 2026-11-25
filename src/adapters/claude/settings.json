@@ -29,6 +29,10 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.trazo/hooks/pm_bash_guard.py\" --agent pm || exit 2"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.trazo/hooks/engineer_bash_guard.py\" --skip-agent pm || exit 2"
           }
         ]
       },

@@ -61,10 +61,35 @@ installer writes `settings.json` only when absent and never overwrites an existi
 additions survive an upgrade, and a host with an existing file must add this release's `hooks`
 block and deny rules by hand.
 
+## 4. The engineer's Bash guard (`engineer_bash_guard.py`, issue #330)
+
+The deny rules above match command text as written, so `gh api -X PUT repos/<o>/<r>/pulls/<n>/merge`,
+`gh api -X POST repos/<o>/<r>/statuses/<sha>` and `cat .env` slipped past them. A second `Bash`
+hook in `settings.json`, run with `--skip-agent pm`, denies those routes for every caller except
+`pm` (which keeps the allowlist in section 2): the main session and the engineer and
+senior-engineer subagents.
+
+It is a denylist over the parsed command (quotes, `;` `&&` `|`, `$(...)`, backticks, `bash -c`,
+`eval`, `env` and `sudo` wrappers, and gh global flags such as `-R` are looked through). It denies
+every `gh api` call that is not a GET or HEAD (`-X`, `--method`, `-f`, `-F`, `--input` and method
+override headers), `gh api graphql`, `gh alias`, `gh auth token`, and any word naming a protected
+path or command. It allows what an engineer needs: `git`, `gh pr create|view|comment|diff|checks`,
+`gh issue *`, read-only `gh api`, tests, `uv`, `make`, and `.env.example`-style placeholders.
+
+One source: it reads the protected commands (`Bash(<prefix> *)`) and paths (`Read(<glob>)`) from
+`permissions.deny` in `.claude/settings.json`, so adding a rule there extends the guard. If that
+file is missing or has no such rules the hook blocks. Exit 2 blocks, and the declared command ends
+`|| exit 2`, so a missing script or `python3` blocks too.
+
+It is not a security boundary: `python -c`, a script the agent wrote, or an obfuscated word can
+still reach the same routes, and a word such as `.env` inside a path argument is refused even when
+harmless. The real fix is an agent token that cannot merge or set statuses (#320).
+
 ## Not covered
 
-Engineers and the main session keep Bash; they are bound only by the deny rules in section 3.
-Symlinks inside the repository that point outside it are not resolved by the guard (UNVERIFIED).
+Engineers and the main session are bound by the deny rules in section 3 and the guard in section
+4, neither of which is a security boundary. Symlinks inside the repository that point outside it
+are not resolved by the guard (UNVERIFIED).
 
 # Only the pinned roles start as subagents: `agent_role_guard.py` (issue #326)
 
