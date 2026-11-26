@@ -1,5 +1,10 @@
 # Trazo changelog
 
+## 0.4.2 (2026-11-25)
+Coordinator action loop and canonical architecture baseline.
+- #353 Make the Coordinator action-first and remove routine owner merge handoffs
+- #356 Establish the canonical architecture and design index
+
 ## 0.4.1 (2026-11-25)
 Follow-up fixes for the gated workflow, installer upgrades, and front-door brevity. This patch release hardens the Coordinator's merge guard and makes installer settings-record updates safe against redirected or partial writes.
 - #343 Harden workflow-dispatch and rerun guards against shell-segment and substitution bypasses
