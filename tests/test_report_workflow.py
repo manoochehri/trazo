@@ -139,6 +139,8 @@ def test_terminal_verdict_skip_requires_the_current_evidence_digest():
     assert "evidence" in review
     assert '"$state" == "success" || "$state" == "failure"' in review
     assert "current evidence" in review.lower()
+    assert "github.event.pull_request.body" in review
+    assert "upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in review
 
 
 def test_report_replaces_only_a_stale_terminal_verdict_after_fresh_review():
@@ -146,6 +148,9 @@ def test_report_replaces_only_a_stale_terminal_verdict_after_fresh_review():
     assert "EVIDENCE_DIGEST" in report
     assert "existing_description" in report or "description=$(jq" in report
     assert "stale terminal verdict" in report.lower()
+    assert 'name == "review-evidence"' in report
+    assert "current_evidence" in report
+    assert "evidence changed during the review" in report
     assert "-X DELETE" not in report
     assert "trazo/security" not in report
 

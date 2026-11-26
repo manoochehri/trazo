@@ -73,9 +73,24 @@ jobs:
           if [[ "$current_head" != "$HEAD_SHA" ]]; then
             finish none "no verdict: the head moved since the review; the new head gets its own review"
           fi
+          artifact_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+            -q '[.artifacts[] | select(.name == "review-evidence")][0].id // ""') \
+            || finish failure "could not find the review evidence artifact"
+          if [[ ! "$artifact_id" =~ ^[0-9]+$ ]]; then
+            finish failure "could not find the review evidence artifact"
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > "$RUNNER_TEMP/evidence.zip" \
+            || finish failure "could not download the review evidence artifact"
+          EVIDENCE_DIGEST=$(unzip -p "$RUNNER_TEMP/evidence.zip" evidence-digest 2>/dev/null | tr -d '\r\n')
+          if [[ ! "$EVIDENCE_DIGEST" =~ ^[0-9a-f]{64}$ ]]; then
+            finish failure "the review evidence artifact was malformed"
+          fi
           evidence_body=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" -q '.body // ""') \
             || finish failure "could not read the pull request evidence"
-          EVIDENCE_DIGEST=$(printf '%s' "$evidence_body" | sha256sum | awk '{print $1}')
+          current_evidence=$(printf '%s' "$evidence_body" | sha256sum | awk '{print $1}')
+          if [[ "$current_evidence" != "$EVIDENCE_DIGEST" ]]; then
+            finish none "no verdict: PR evidence changed during the review; the new event gets its own review"
+          fi
           jobs=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs" \
             -q '[.jobs[] | select(.head_sha == env.HEAD_SHA)]') \
             || finish failure "could not read the review run's jobs"

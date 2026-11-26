@@ -36,11 +36,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          BODY: ${{ github.event.pull_request.body || '' }}
         run: |
           # A commit status is head-bound by the API, and its description carries the exact PR
           # evidence revision. A terminal result from an older body must trigger a fresh review.
-          body=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" -q '.body // ""')
-          evidence=$(printf '%s' "$body" | sha256sum | awk '{print $1}')
+          evidence=$(printf '%s' "$BODY" | sha256sum | awk '{print $1}')
           status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
             -q '[.[] | select(.context == "trazo/verdict")][0] | {state: (.state // ""), description: (.description // "")}')
           state=$(jq -r '.state' <<<"$status")
@@ -53,6 +53,19 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "No terminal verdict bound to current evidence; starting a fresh review."
           fi
+      - name: capture event-time evidence digest
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          BODY: ${{ github.event.pull_request.body || '' }}
+        run: |
+          printf '%s' "$BODY" | sha256sum | awk '{print $1}' > "$RUNNER_TEMP/evidence-digest"
+      - name: upload event-time evidence digest
+        if: steps.gate.outputs.skip == 'false'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: review-evidence
+          path: ${{ runner.temp }}/evidence-digest
+          if-no-files-found: error
   review:
     needs: gate
     if: needs.gate.outputs.skip == 'false'
