@@ -74,6 +74,28 @@ def test_stale_review_on_an_earlier_head_does_not_count():
     assert decide([review("merge", commit=OTHER)])[0] == "failure"
 
 
+def test_terminal_status_is_stale_when_the_evidence_digest_changes():
+    old_evidence = report_verdict.evidence_digest("old PR evidence")
+    current_evidence = report_verdict.evidence_digest("fresh PR evidence")
+    assert old_evidence != current_evidence
+    assert not report_verdict.status_matches_evidence(
+        f"evidence={old_evidence} bot review on this head says merge", current_evidence
+    )
+
+
+def test_terminal_status_matches_the_current_head_evidence_only():
+    current_evidence = report_verdict.evidence_digest("fresh PR evidence")
+    description = f"evidence={current_evidence} bot review on this head says merge"
+    assert report_verdict.status_matches_evidence(description, current_evidence)
+    assert not report_verdict.status_matches_evidence(description, "0" * 64)
+
+
+def test_status_binding_does_not_clear_or_reuse_a_status_without_fresh_review():
+    # A stale status may be superseded only by the report of a fresh independent review;
+    # the pure binding helper never turns a missing review into a status write.
+    assert not report_verdict.status_matches_evidence("", report_verdict.evidence_digest("x"))
+
+
 def test_merge_review_that_names_an_older_head_does_not_credit_current_head():
     stale_review = review("merge", reviewed_head=OTHER)
     assert decide([stale_review])[0] == "failure"

@@ -133,6 +133,33 @@ def test_report_never_overwrites_a_terminal_verdict():
     assert "could not check the head's existing verdict" in t
 
 
+def test_terminal_verdict_skip_requires_the_current_evidence_digest():
+    review = text("review.yml")
+    assert "sha256sum" in review
+    assert "evidence" in review
+    assert 'state == "success" || state == "failure"' in review
+    assert "current evidence" in review.lower()
+
+
+def test_report_replaces_only_a_stale_terminal_verdict_after_fresh_review():
+    report = text()
+    assert "status_matches_evidence" in report
+    assert "stale terminal verdict" in report.lower()
+    assert "-X DELETE" not in report
+    assert "trazo/security" not in report
+
+
+def test_status_binding_is_explicit_for_both_independent_contexts():
+    reviewer = (REPO_ROOT / "src/overlay/roles/reviewer.md").read_text()
+    security = (REPO_ROOT / "src/overlay/roles/security.md").read_text()
+    assert "evidence digest" in reviewer.lower()
+    assert "evidence digest" in security.lower()
+    assert "context=trazo/verdict" in reviewer
+    assert "context=trazo/security" in security
+    assert "context=trazo/security" not in reviewer
+    assert "context=trazo/verdict" not in security
+
+
 def test_report_skips_quietly_when_the_gate_or_review_did_not_run():
     t = text()
     assert '"skipped"' in t
