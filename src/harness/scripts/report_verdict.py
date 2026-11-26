@@ -19,6 +19,7 @@ of the base branch, plus the extra paths below. The count of lines must equal CH
 listing is treated as sensitive and the gate fails closed.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -101,6 +102,21 @@ EXTRA_SENSITIVE_BASENAMES = (
 
 def parse_time(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def evidence_digest(body):
+    """Identify the exact PR evidence revision used by a review gate."""
+    if not isinstance(body, str):
+        body = ""
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def status_matches_evidence(description, digest):
+    """Return whether a status description carries the requested evidence digest."""
+    if not isinstance(description, str) or not isinstance(digest, str):
+        return False
+    match = re.search(r"(?:^|\s)evidence=([0-9a-f]{64})(?:\s|$)", description)
+    return bool(match and match.group(1) == digest)
 
 
 def first_line(body):

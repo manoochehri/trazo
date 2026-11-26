@@ -137,13 +137,14 @@ def test_terminal_verdict_skip_requires_the_current_evidence_digest():
     review = text("review.yml")
     assert "sha256sum" in review
     assert "evidence" in review
-    assert 'state == "success" || state == "failure"' in review
+    assert '"$state" == "success" || "$state" == "failure"' in review
     assert "current evidence" in review.lower()
 
 
 def test_report_replaces_only_a_stale_terminal_verdict_after_fresh_review():
     report = text()
-    assert "status_matches_evidence" in report
+    assert "EVIDENCE_DIGEST" in report
+    assert "existing_description" in report or "description=$(jq" in report
     assert "stale terminal verdict" in report.lower()
     assert "-X DELETE" not in report
     assert "trazo/security" not in report
@@ -152,8 +153,8 @@ def test_report_replaces_only_a_stale_terminal_verdict_after_fresh_review():
 def test_status_binding_is_explicit_for_both_independent_contexts():
     reviewer = (REPO_ROOT / "src/overlay/roles/reviewer.md").read_text()
     security = (REPO_ROOT / "src/overlay/roles/security.md").read_text()
-    assert "evidence digest" in reviewer.lower()
-    assert "evidence digest" in security.lower()
+    assert "EVIDENCE_DIGEST" in reviewer
+    assert "EVIDENCE_DIGEST" in security
     assert "context=trazo/verdict" in reviewer
     assert "context=trazo/security" in security
     assert "context=trazo/security" not in reviewer
@@ -254,9 +255,12 @@ def test_a_retarget_starts_a_fresh_review_and_other_edits_do_not():
     types = triggers(wf)["pull_request"]["types"]
     assert "edited" in types
     cond = _gate_if()
-    # An edit only counts when the base changed, so a title or body edit starts nothing and cannot
+    # Base or body edits start fresh review; title-only edits do not change the evidence and cannot
     # cancel a review in progress or be used to loop.
-    assert "github.event.action != 'edited' || github.event.changes.base != null" in cond
+    assert (
+        "github.event.action != 'edited' || github.event.changes.base != null || "
+        "github.event.changes.body != null"
+    ) in cond
     # the job that holds the cancel-in-progress group is behind the gate
     assert load("review.yml")["jobs"]["review"]["needs"] == "gate"
     assert "needs.gate.outputs.skip == 'false'" in str(load("review.yml")["jobs"]["review"]["if"])

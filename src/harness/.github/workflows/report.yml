@@ -55,7 +55,7 @@ jobs:
           set -o pipefail
           # Each path writes the output once. state=none means no verdict is set for this head.
           finish() {
-            printf 'state=%s\nreason=%s\n' "$1" "$2" >> "$GITHUB_OUTPUT"
+            printf 'state=%s\nevidence=%s\nreason=%s\n' "$1" "$EVIDENCE_DIGEST" "$2" >> "$GITHUB_OUTPUT"
             exit 0
           }
           # The pull request for this exact head, from the API (not from the event's pull_requests list).
@@ -73,6 +73,9 @@ jobs:
           if [[ "$current_head" != "$HEAD_SHA" ]]; then
             finish none "no verdict: the head moved since the review; the new head gets its own review"
           fi
+          evidence_body=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" -q '.body // ""') \
+            || finish failure "could not read the pull request evidence"
+          EVIDENCE_DIGEST=$(printf '%s' "$evidence_body" | sha256sum | awk '{print $1}')
           jobs=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs" \
             -q '[.jobs[] | select(.head_sha == env.HEAD_SHA)]') \
             || finish failure "could not read the review run's jobs"
@@ -134,22 +137,28 @@ jobs:
           SHA: ${{ github.event.workflow_run.head_sha }}
           STATE: ${{ steps.decide.outputs.state }}
           REASON: ${{ steps.decide.outputs.reason }}
+          EVIDENCE_DIGEST: ${{ steps.decide.outputs.evidence }}
         run: |
-          # Another writer may have set a terminal state since this run started: a person's /check-pr.
-          # Never overwrite one. If the lookup fails, write failure, never success. A pending set by
-          # anyone but this App is a person's run in progress, so it is left alone too.
-          existing_line=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
-            -q '[.[] | select(.context == "trazo/verdict")][0] | ((.state // "") + " " + (.creator.login // ""))') || {
-            existing_line=""
+          # A terminal status is reusable only when it carries this exact evidence digest. A stale
+          # terminal status may be superseded only now, after this independent review completed.
+          # If the lookup fails, write failure, never success. A pending set by anyone but this App
+          # is another independent review in progress, so it is left alone too.
+          existing_json=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
+            -q '[.[] | select(.context == "trazo/verdict")][0] | {state: (.state // ""), creator: (.creator.login // ""), description: (.description // "")}') || {
+            existing_json='{}'
             STATE=failure
             REASON="could not check the head's existing verdict"
           }
-          existing=${existing_line%% *}
-          creator=${existing_line#* }
+          existing=$(jq -r '.state // ""' <<<"$existing_json")
+          creator=$(jq -r '.creator // ""' <<<"$existing_json")
+          description=$(jq -r '.description // ""' <<<"$existing_json")
           case "$existing" in
             success|failure)
-              echo "trazo/verdict is already ${existing} on this head; leaving it."
-              exit 0
+              if [[ "$description" =~ (^|[[:space:]])evidence=${EVIDENCE_DIGEST}([[:space:]]|$) ]]; then
+                echo "trazo/verdict is already ${existing} for this head and evidence; leaving it."
+                exit 0
+              fi
+              echo "Replacing stale terminal verdict for the current evidence after fresh review."
               ;;
             pending)
               if [[ "$creator" != "${APP_SLUG}[bot]" ]]; then
@@ -160,5 +169,5 @@ jobs:
           esac
           gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
             -f state="$STATE" -f context=trazo/verdict \
-            -f description="$REASON" \
+            -f description="evidence=${EVIDENCE_DIGEST} ${REASON}" \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/$GITHUB_RUN_ID"
