@@ -55,9 +55,9 @@ on undocumented environment variables or inspect local runtime data. For another
 loads only `AGENTS.md`, name that tool when known; otherwise use `AGENTS.md` as the adapter
 label. Omit unknown model or ID fields.
 
-## Front door
+## Coordinator
 
-The main session is the front door (`.trazo/rules.md`, "Front door"). In Codex it starts the
+The main session is the Trazo Coordinator (`.trazo/rules.md`, "Coordinator"). In Codex it starts the
 `trazo-*` role agents the PM records on issues and sends every pull request to review. Open ready
 to act, with no menu step, and reply in at most 3 short lines.
 
@@ -68,12 +68,12 @@ Use the matching Trazo skill for a request even when the owner does not name a c
 | Request | Skill or role |
 |---|---|
 | “Work on issue 12”, “fix this”, or another implementation request | `trazo-work` |
-| “What is next?”, “catch me up”, or a status request | The front door acts: dispatch `trazo-pm`; `trazo-start` for a quick catch-up |
+| “What is next?”, “catch me up”, or a status request | The Coordinator acts: dispatch `trazo-pm`; `trazo-start` for a quick catch-up |
 | “Is PR 15 ready?”, “review this PR”, or “can I merge?” | `trazo-check-pr` |
 | “Should we do this?” or a prioritization question | `trazo-pm` |
 | “Does this fit the design?” or a structural question | Architect role (`.trazo/roles/architect.md`); Codex agent `trazo-architect` ships with the Codex adapter (ADR 0021) |
 | An issue labeled `tier:senior` (ADR 0018) | Senior engineer role (`.trazo/roles/senior-engineer.md`); Codex agent `trazo-senior-engineer` (ADR 0016) |
-| “Help” or “what can I do?” | The front door acts and reports what it is doing: `trazo-menu` |
+| “Help” or “what can I do?” | The Coordinator acts and reports what it is doing: `trazo-menu` |
 
 Codex skills are installed under `.agents/skills/`; role agents are under
 `.codex/agents/`. If the matching skill is not available to invoke, read its installed
