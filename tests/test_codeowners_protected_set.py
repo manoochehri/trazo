@@ -42,6 +42,7 @@ PROTECTED = {
     ".trazo/project/SKEPTIC_BAR.md",
     ".trazo/hooks/pm_bash_guard.py",
     ".trazo/hooks/agent_role_guard.py",
+    ".trazo/hooks/front_door_guard.py",
     ".trazo/hooks/engineer_bash_guard.py",
     ".gitleaks.toml",
     ".claude/agents/pm.md",

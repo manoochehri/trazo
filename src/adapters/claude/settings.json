@@ -43,6 +43,15 @@
             "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.trazo/hooks/agent_role_guard.py\" || exit 2"
           }
         ]
+      },
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.trazo/hooks/front_door_guard.py\" || exit 2"
+          }
+        ]
       }
     ]
   }
