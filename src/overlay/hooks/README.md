@@ -114,7 +114,9 @@ command the parser never sees. These are known to get through:
 One carve-out (#347): the `reviewer` subagent may post `trazo/verdict` and the `security`
 subagent `trazo/security`, each only as one plain `gh api [-X POST] repos/<o>/<r>/statuses/<40-hex sha>`
 call carrying `state` (success, failure, pending, error), `context`, `description` and an optional
-`target_url`, with no shell syntax. Every other caller, context, endpoint or field stays denied,
+`target_url`, with no shell syntax except two exact read-only substitutions, the ones the role files
+use (#364): `$(gh repo view --json nameWithOwner -q .nameWithOwner)` for `<o>/<r>` and
+`$(gh pr view <n> --json headRefOid -q .headRefOid)` for the sha. Every other caller, context, endpoint or field stays denied,
 the skeptic included.
 
 The real fix is an agent token that cannot merge or set statuses (#320), plus branch protection.
