@@ -3,25 +3,17 @@
 **Status:** current
 
 **Updated:** 2026-11-27 by eng (STATUS refresh after v0.4.2)
-**Phase / milestone:** v0.4.2 is released. Tags v0.4.0, v0.4.1 and v0.4.2 are published ([release PR](https://github.com/manoochehri/trazo/pull/358)). Next scope is [v0.5.0](https://github.com/manoochehri/trazo/milestone/10).
-
-## Released
-- [v0.4.0](https://github.com/manoochehri/trazo/milestone/7): front door merges via `owner-merge.yml`, pinned roles only, drive halt self-clears, engineer Bash hardening.
-- [v0.4.1](https://github.com/manoochehri/trazo/milestone/11): reviewer and security set their own status, upgrade removes dropped deny rules, PR template matches the evidence checker, 3-line front door.
-- [v0.4.2](https://github.com/manoochehri/trazo/milestone/12): action-first Coordinator, canonical architecture and design index.
-
-## Milestone close pending (owner or PM)
-- v0.4.0, v0.4.1 and v0.4.2 have every issue closed (11, 8 and 2 respectively, 0 open), but GitHub still lists them as open. Close them in GitHub.
+**Phase / milestone:** v0.4.2 is released and this repo's install is v0.4.2 ([release PR](https://github.com/manoochehri/trazo/pull/358), [PR 361](https://github.com/manoochehri/trazo/pull/361) merged). Current goal: [v0.5.0](https://github.com/manoochehri/trazo/milestone/10). Milestones [v0.4.0](https://github.com/manoochehri/trazo/milestone/7), [v0.4.1](https://github.com/manoochehri/trazo/milestone/11) and [v0.4.2](https://github.com/manoochehri/trazo/milestone/12) are closed.
 
 ## Running now
-- [PR 361](https://github.com/manoochehri/trazo/pull/361): upgrade of this repo's pinned Trazo install. Checks green; awaiting reviewer verdict.
-- [PR 360](https://github.com/manoochehri/trazo/pull/360) (closes #359): bind review gates to current evidence. `trazo/verdict` is failing with "automatic review did not finish".
-- Main CI and drive runs are green as of 2026-11-27.
+- [PR 360](https://github.com/manoochehri/trazo/pull/360) (#359): bind review gates to current evidence. `trazo/verdict` is failing.
+- Until #364 lands, reviewer and security cannot set their own status, so the owner sets `trazo/verdict` by hand.
 
 ## Blocked / needs a decision
-- Owner decision: #320 (GitHub as the lock, P0, needs-decision).
-- Owner decision: #311 (Dependabot PRs fail the evidence check, P1, needs-decision). Dependabot PRs [299](https://github.com/manoochehri/trazo/pull/299) and [300](https://github.com/manoochehri/trazo/pull/300) are red for this reason.
-- #359 is `needs-pm` and `tier:senior`, with no milestone.
+- #320 (GitHub as the lock) is P0, `needs-pm`, `tier:senior`.
+- #311 (Dependabot PRs fail the evidence check) is an owner decision. Dependabot PRs [299](https://github.com/manoochehri/trazo/pull/299) and [300](https://github.com/manoochehri/trazo/pull/300) have failing `test` checks.
+- #280 and other open issues have no milestone: [open issues without a milestone](https://github.com/manoochehri/trazo/issues?q=is%3Aissue+is%3Aopen+no%3Amilestone).
 
 ## Next
-- [v0.5.0](https://github.com/manoochehri/trazo/milestone/10): 27 open, 0 closed. P0s are #327 (epic; owner out of the routine loop), #320 (decision), #319 (front door does engineer work and cannot merge, `tier:senior`), #280 (decisions persist without the owner, `tier:senior`), #252 (drive workflow identity decision) and #247 (verify drive on a live run).
+- [v0.5.0](https://github.com/manoochehri/trazo/milestone/10) is the goal and scope. Its open issues are the source of truth; this file does not list them.
+- Priorities: #359, #320, #319, #252, #247, #363, #364.
