@@ -269,9 +269,9 @@ def test_repo_files_stay_locked_and_issue_text_is_open(project):
     assert _bash(project, 'gh issue comment 5 --body "$(date)"').returncode == 0
 
 
-def test_settings_allow_memory_writes_and_keep_the_claude_read_deny():
+def test_settings_ship_no_allow_and_keep_the_claude_read_deny():
     perms = json.loads(SETTINGS.read_text(encoding="utf-8"))["permissions"]
-    assert "Write(~/.claude/projects/*/memory/**)" in perms["allow"]
+    assert set(perms) == {"deny"}
     assert "Read(~/.claude/**)" in perms["deny"]
 
 

@@ -26,12 +26,13 @@ GitHub already holds the real limits: the main ruleset, CODEOWNERS and `owner-me
 - The reviewer and security post their own commit status (`trazo/verdict`, `trazo/security`) with
   one `gh api` call each, and no other context.
 - The main session (front door) may write its memory directory
-  (`~/.claude/projects/<project>/memory/`) and issue text. The `Read(~/.claude/**)` deny stays.
-  The edit lock on repository files stays. The allow covers `~/.claude/projects/*/memory/**`, not
-  only the current project's directory: `settings.json` ships to hosts and Claude Code permission
-  patterns have no variable for the current project's slug, so it cannot be narrower there.
-  Memory files are loaded into later sessions, which is why the write allowance is limited to the
-  memory directories and the `Read(~/.claude/**)` deny is kept.
+  (`~/.claude/projects/<project>/memory/`) and issue text, through `front_door_guard.py` only. The
+  `Read(~/.claude/**)` deny stays and the edit lock on repository files stays. No `allow` entry
+  ships in `settings.json`: shipped settings only deny, so they never grant a host permissions
+  (pinned by `tests/test_install.py`). Claude Code's own permission prompt for `~/.claude` memory
+  writes is therefore configured in the user's own settings, not shipped. The hook also cannot
+  name only the current project's directory, since the project slug is not in the payload; it
+  allows `~/.claude/projects/*/memory/`.
 - `rules.md` states the principle in "Permissive by default".
 
 The stop list in `rules.md` and every owner-only limit win over this record.

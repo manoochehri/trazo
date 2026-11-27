@@ -1,10 +1,6 @@
 {
   "model": "haiku",
   "permissions": {
-    "allow": [
-      "Write(~/.claude/projects/*/memory/**)",
-      "Edit(~/.claude/projects/*/memory/**)"
-    ],
     "deny": [
       "Read(./**/.env)",
       "Read(./**/.env.*)",
