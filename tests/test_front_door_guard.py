@@ -283,4 +283,8 @@ def test_roles_state_the_permissive_policy_and_drop_the_old_construct_ban():
         assert "ADR 0032" in text
     pm = (root / "adapters/claude/agents/pm.md").read_text(encoding="utf-8")
     assert "close and reopen" in pm and "add or remove labels" in pm
+    assert "never remove `needs-decision` or `drive-halt`" in pm
+    rules = (root / "overlay/rules.md").read_text(encoding="utf-8")
+    assert "never removes `needs-decision` or `drive-halt`" in rules
+    assert "win over this section" in rules
     assert "## Permissive by default" in (root / "overlay/rules.md").read_text(encoding="utf-8")

@@ -19,13 +19,22 @@ GitHub already holds the real limits: the main ruleset, CODEOWNERS and `owner-me
 
 - Agents may use ordinary shell constructs; a command is judged by the verbs it resolves to.
   Role and skill text that told agents to avoid `$(...)`, heredocs or backticks is removed.
-- The PM may close issues and edit labels (no longer limited to create, comment, edit).
+- The PM may close issues and edit labels (no longer limited to create, comment, edit), except
+  that it never removes `needs-decision` or `drive-halt`: clearing `needs-decision` is the owner's
+  decision signal, so a PM that could clear it could approve an owner gate itself.
+  `pm_bash_guard.py` `STOP_LABELS` already enforces this and is unchanged.
 - The reviewer and security post their own commit status (`trazo/verdict`, `trazo/security`) with
   one `gh api` call each, and no other context.
 - The main session (front door) may write its memory directory
   (`~/.claude/projects/<project>/memory/`) and issue text. The `Read(~/.claude/**)` deny stays.
-  The edit lock on repository files stays.
+  The edit lock on repository files stays. The allow covers `~/.claude/projects/*/memory/**`, not
+  only the current project's directory: `settings.json` ships to hosts and Claude Code permission
+  patterns have no variable for the current project's slug, so it cannot be narrower there.
+  Memory files are loaded into later sessions, which is why the write allowance is limited to the
+  memory directories and the `Read(~/.claude/**)` deny is kept.
 - `rules.md` states the principle in "Permissive by default".
+
+The stop list in `rules.md` and every owner-only limit win over this record.
 
 Unchanged and still human-only: secrets and credentials, production and spend, force-push or
 deletion on the default branch, repository, ruleset and release settings, `gh pr merge` (merging

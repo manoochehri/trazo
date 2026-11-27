@@ -65,13 +65,14 @@ version and its description are reviewed together and can never disagree.
 Agents act freely on reversible repository work and the owner is not in the routine loop (ADR 0032,
 superseding the shell-text parts of ADR 0029 and issue #330). A role may use ordinary shell
 constructs (`$(...)`, heredocs, redirects, pipes); a command is judged by the verbs it resolves
-to, not by the characters it contains. The PM may close issues and edit labels. The reviewer and
+to, not by the characters it contains. The PM may close issues and edit labels, but never removes `needs-decision` or `drive-halt`: clearing `needs-decision` is the owner's decision signal. The reviewer and
 security post their own commit status (`trazo/verdict`, `trazo/security`) and no other. The front
 door may write its memory notes and issue text. The limits that stay are the irreversible ones:
 secrets and credentials, production and spend, force-push or deletion on the default branch,
 repository, ruleset and release settings, `gh pr merge` (merging goes through `owner-merge.yml`),
 and the governance paths on the stop list below. Those are enforced by GitHub (rulesets,
-CODEOWNERS, required checks) first, and by hooks only for what GitHub cannot see.
+CODEOWNERS, required checks) first, and by hooks only for what GitHub cannot see. The stop list
+below and every owner-only limit win over this section.
 
 ## The repo is the memory
 Sessions are disposable and contexts reset. Anything that must survive goes in the repo:
