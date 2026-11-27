@@ -88,13 +88,19 @@ jobs:
           status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/status?per_page=100")
           verdict=$(jq -r '[.statuses[] | select(.context == "trazo/verdict")][0].state // ""' <<<"$status")
           security=$(jq -r '[.statuses[] | select(.context == "trazo/security")][0].state // "none"' <<<"$status")
-          runs=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs" -q '.check_runs[] | .conclusion // "pending"')
+          # Only the latest run of each check name counts (highest id): a re-run on the same sha leaves its old
+          # failed or cancelled runs in the list. A latest run still in progress has no conclusion: pending.
+          runs=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs" \
+            -q '.check_runs[] | [.name, (.id | tostring), (.conclusion // "pending")] | @tsv' \
+            | sort -t "$(printf '\t')" -k1,1 -k2,2n \
+            | awk -F '\t' '{ latest[$1] = $3 } END { for (name in latest) print latest[name] }')
           if [[ -n "$runs" ]] && ! grep -qvxE 'success|skipped' <<<"$runs"; then ci=success; else ci=pending; fi
           [[ "$ci" == "success" ]] || refuse "the checks are not all green on this head"
           case "$sensitive" in
             sensitive=false)
               # Non-risky only: the dispatch is the Coordinator's check. A recorded reviewer objection stands.
-              [[ -z "$verdict" || "$verdict" == "success" ]] || refuse "trazo/verdict is ${verdict} on this head" ;;
+              [[ -z "$verdict" || "$verdict" == "success" ]] || refuse "trazo/verdict is ${verdict} on this head"
+              [[ "$security" == "none" || "$security" == "success" ]] || refuse "trazo/security is ${security} on this head" ;;
             sensitive=true)
               [[ "$verdict" == "success" ]] || refuse "it changes risky paths and trazo/verdict is ${verdict:-missing} on this head"
               [[ "$security" == "success" ]] || refuse "it changes owner-protected paths and trazo/security is ${security} on this head" ;;

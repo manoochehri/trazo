@@ -116,9 +116,11 @@ elif args[0] == "api" and any(a.endswith("/files") for a in args):
         new, _, old = name.partition(">")  # "new>old" models a rename
         say(new + "\t" + old)
 elif args[0] == "api" and any("/commits/" in a and a.endswith("/check-runs") for a in args):
-    for run in env.get("FAKE_RUNS", "success,skipped").split(","):
+    # An entry is "name:id:conclusion", or a bare conclusion (given its own name and id).
+    for i, run in enumerate(env.get("FAKE_RUNS", "success,skipped").split(",")):
         if run:
-            say(run)
+            name, id_, conclusion = run.split(":") if ":" in run else (f"check{{i}}", str(i), run)
+            say("\t".join([name, id_, conclusion]))
 elif args[0] == "api" and any("/commits/" in a and "/status" in a for a in args):
     statuses = []
     if env.get("FAKE_VERDICT"):
@@ -258,6 +260,41 @@ def test_a_docs_only_pull_request_still_needs_green_ci(tmp_path, fake):
 def test_a_reviewer_failure_or_pending_is_never_ignored_on_a_docs_pull_request(tmp_path, verdict):
     result, merges = _run(tmp_path, FAKE_FILES="docs/notes.md", FAKE_VERDICT=verdict)
     assert result.returncode != 0 and merges == []
+
+
+@pytest.mark.parametrize("security", ["failure", "error", "pending"])
+def test_a_security_failure_or_pending_is_never_ignored_on_a_docs_pull_request(tmp_path, security):
+    for verdict in ("", "success"):
+        result, merges = _run(
+            tmp_path, FAKE_FILES="docs/notes.md", FAKE_VERDICT=verdict, FAKE_SECURITY=security
+        )
+        assert result.returncode != 0 and merges == [], (verdict, security)
+
+
+def test_a_docs_pull_request_with_a_security_success_merges(tmp_path):
+    result, merges = _run(
+        tmp_path, FAKE_FILES="docs/notes.md", FAKE_VERDICT="", FAKE_SECURITY="success"
+    )
+    assert result.returncode == 0 and merges == MERGED
+
+
+def test_only_the_latest_run_of_each_check_counts(tmp_path):
+    """A re-run on the same sha leaves old failed runs behind (seen on PR #372)."""
+    for k in range(1, 5):
+        (tmp_path / f"r{k}").mkdir()
+    result, merges = _run(
+        tmp_path / "r1",
+        FAKE_RUNS="test:1:failure,test:2:success,review:3:cancelled,review:4:success",
+    )
+    assert result.returncode == 0, result.stderr
+    assert merges == MERGED
+    result, merges = _run(tmp_path / "r2", FAKE_RUNS="test:1:success,test:2:failure")
+    assert result.returncode != 0 and merges == []
+    result, merges = _run(tmp_path / "r3", FAKE_RUNS="test:1:success,test:2:pending,lint:3:success")
+    assert result.returncode != 0 and merges == []
+    # ids order the runs, not the order the API lists them
+    result, merges = _run(tmp_path / "r4", FAKE_RUNS="test:2:success,test:1:failure")
+    assert result.returncode == 0 and merges == MERGED
 
 
 def test_a_mixed_diff_counts_as_risky(tmp_path):
