@@ -11,6 +11,7 @@ import json
 import os
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -151,8 +152,9 @@ def test_release_is_dispatch_only_owner_only_and_runs_release_sh_as_the_builder_
 
 def test_release_checks_ci_green_before_tagging_and_never_force_pushes():
     text = RELEASE.read_text()
-    assert "check-runs" in text
-    assert text.index("check-runs") < text.rindex("scripts/release.sh")
+    assert "scripts/ci_green.sh" in text
+    assert text.index("scripts/ci_green.sh") < text.rindex("scripts/release.sh")
+    assert "SELF_JOB: release" in text and wf_job_name_is_release()
     assert "--force" not in text and "push -f" not in text
 
 
@@ -276,3 +278,209 @@ def test_audit_workflow_is_scheduled_read_only_except_issues():
     assert perms["issues"] == "write" and perms["contents"] == "read"
     assert "pull-requests" in perms and perms["pull-requests"] == "read"
     assert "scripts/audit_merges.py" in (ROOT / ".github/workflows/merge-audit.yml").read_text()
+
+
+def wf_job_name_is_release():
+    job = _wf(RELEASE)["jobs"]["release"]
+    return "name" not in job  # check-run name is then the job id, "release"
+
+
+# ---- review fixes: CI-green step, audit dedup, read-back -----------------------------------------
+
+SHA = "a" * 40
+CI_STUB = """#!/usr/bin/env bash
+cat "$(dirname "$0")/runs.json"
+"""
+
+
+def _ci(tmp_path, runs):
+    stub = tmp_path / "gh"
+    stub.write_text(CI_STUB)
+    stub.chmod(stub.stat().st_mode | stat.S_IEXEC)
+    (tmp_path / "runs.json").write_text(json.dumps({"check_runs": runs}))
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}:{os.environ['PATH']}",
+        "GITHUB_REPOSITORY": "o/r",
+        "GITHUB_RUN_ID": "555",
+        "SELF_JOB": "release",
+    }
+    cmd = ["bash", str(ROOT / "scripts" / "ci_green.sh"), SHA]
+    return subprocess.run(cmd, env=env, capture_output=True, text=True)  # noqa: S603, S607
+
+
+def _cr(i, name, conclusion, url="https://github.com/o/r/actions/runs/1/job/1"):
+    return {"id": i, "name": name, "conclusion": conclusion, "details_url": url}
+
+
+OWN = "https://github.com/o/r/actions/runs/555/job/9"
+
+
+def test_ci_green_ignores_the_running_release_job_itself(tmp_path):
+    runs = [_cr(1, "test", "success"), _cr(2, "docker", "skipped"), _cr(3, "release", None, OWN)]
+    r = _ci(tmp_path, runs)
+    assert r.returncode == 0, r.stderr
+
+
+def test_ci_green_refuses_a_failed_or_pending_other_check(tmp_path):
+    assert _ci(tmp_path, [_cr(1, "test", "failure"), _cr(3, "release", None, OWN)]).returncode == 1
+    assert _ci(tmp_path, [_cr(1, "test", None), _cr(3, "release", None, OWN)]).returncode == 1
+
+
+def test_ci_green_only_excuses_the_release_job_of_this_run(tmp_path):
+    other = "https://github.com/o/r/actions/runs/444/job/9"
+    assert (
+        _ci(tmp_path, [_cr(1, "test", "success"), _cr(3, "release", None, other)]).returncode == 1
+    )
+
+
+def test_ci_green_judges_the_latest_run_per_check_name(tmp_path):
+    runs = [_cr(1, "test", "failure"), _cr(5, "test", "success"), _cr(3, "release", None, OWN)]
+    assert _ci(tmp_path, runs).returncode == 0
+    runs = [_cr(1, "test", "success"), _cr(5, "test", "failure"), _cr(3, "release", None, OWN)]
+    assert _ci(tmp_path, runs).returncode == 1
+
+
+def test_ci_green_refuses_when_there_is_nothing_to_judge(tmp_path):
+    assert _ci(tmp_path, [_cr(3, "release", None, OWN)]).returncode == 1
+
+
+def test_audit_dedup_counts_only_issues_the_workflow_opened():
+    a = _audit()
+    mine = {
+        "title": "Merge audit: 1 (d)",
+        "body": "- #7 x",
+        "user": {"login": "github-actions[bot]"},
+    }
+    outsider = {"title": "Merge audit: 1 (d)", "body": "- #8 x", "user": {"login": "mallory"}}
+    pr = {
+        "title": "Merge audit: x",
+        "body": "- #9 x",
+        "pull_request": {},
+        "user": {"login": "github-actions[bot]"},
+    }
+    assert a.reported_numbers([mine, outsider, pr]) == {7}
+
+
+def test_verify_requires_other_actors_and_conditions_unchanged():
+    mod = _load("allow_release_app", "scripts/allow_release_app.py")
+    sent = mod.add_payload(V_CREATE, 12345)
+    assert mod.verify({**V_CREATE, **sent}, sent) == []
+    dropped_admin = {**V_CREATE, **sent, "bypass_actors": [sent["bypass_actors"][-1]]}
+    assert any("bypass_actors" in x for x in mod.verify(dropped_admin, sent))
+    moved = {**V_CREATE, **sent, "conditions": {"ref_name": {"include": ["~ALL"], "exclude": []}}}
+    assert any("conditions" in x for x in mod.verify(moved, sent))
+    no_app = {**V_CREATE, **sent, "bypass_actors": V_CREATE["bypass_actors"]}
+    assert mod.verify(no_app, sent)
+
+
+# ---- stub-gh tests of the GitHub I/O in allow_release_app.py and audit_merges.py -----------------
+
+ROUTER = """#!/usr/bin/env python3
+import json, os, sys
+d = os.path.dirname(os.path.abspath(__file__))
+args = sys.argv[1:]
+log = open(os.path.join(d, "calls.log"), "a")
+log.write(json.dumps(args) + "\\n")
+routes = json.load(open(os.path.join(d, "routes.json")))
+if args[:2] == ["issue", "create"]:
+    open(os.path.join(d, "issue.json"), "w").write(json.dumps(args))
+    print("https://example/issues/1")
+    sys.exit(0)
+if "-X" in args and args[args.index("-X") + 1] == "PUT":
+    path = [a for a in args if a.startswith("repos/")][0]
+    body = json.loads(sys.stdin.read())
+    routes[path] = {**routes[path], **body}
+    json.dump(routes, open(os.path.join(d, "routes.json"), "w"))
+    sys.exit(0)
+if args[0] == "repo":
+    print("o/r")
+    sys.exit(0)
+path = [a for a in args if a.startswith("repos/")][0]
+print(json.dumps(routes[path]))
+"""
+
+
+def _router(tmp_path, routes):
+    stub = tmp_path / "gh"
+    stub.write_text(ROUTER)
+    stub.chmod(stub.stat().st_mode | stat.S_IEXEC)
+    (tmp_path / "routes.json").write_text(json.dumps(routes))
+    return {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"}
+
+
+def _run_allow(tmp_path, args, ruleset=V_CREATE):
+    routes = {
+        "repos/o/r/rulesets": [{"id": 3, "name": "v-create", "target": "tag"}],
+        "repos/o/r/rulesets/3": ruleset,
+    }
+    env = _router(tmp_path, routes)
+    cmd = ["python3", str(ROOT / "scripts" / "allow_release_app.py"), *args]
+    r = subprocess.run(cmd, env=env, capture_output=True, text=True)  # noqa: S603, S607
+    return r, json.loads((tmp_path / "routes.json").read_text())["repos/o/r/rulesets/3"]
+
+
+def test_allow_release_app_applies_the_documented_actor_shape_through_gh(tmp_path):
+    r, live = _run_allow(tmp_path, ["12345"])
+    assert r.returncode == 0, r.stderr
+    assert live["bypass_actors"] == [
+        V_CREATE["bypass_actors"][0],
+        {"actor_id": 12345, "actor_type": "Integration", "bypass_mode": "always"},
+    ]
+    assert live["conditions"] == V_CREATE["conditions"] and live["rules"] == [{"type": "creation"}]
+
+
+def test_allow_release_app_dry_run_writes_nothing_and_remove_restores(tmp_path):
+    r, live = _run_allow(tmp_path, ["12345", "--dry-run"])
+    assert r.returncode == 0 and live == V_CREATE
+    with_app = {
+        **V_CREATE,
+        "bypass_actors": V_CREATE["bypass_actors"]
+        + [{"actor_id": 12345, "actor_type": "Integration", "bypass_mode": "always"}],
+    }
+    r, live = _run_allow(tmp_path, ["12345", "--remove"], with_app)
+    assert r.returncode == 0, r.stderr
+    assert live["bypass_actors"] == V_CREATE["bypass_actors"]
+
+
+def _audit_routes(files, verdict):
+    sha = "d" * 40
+    return {
+        "repos/o/r/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=100": [
+            {"number": 7, "title": "t", "head": {"sha": sha}, "merged_at": "2999-01-01T00:00:00Z"}
+        ],
+        "repos/o/r/issues?state=all&per_page=100": [],
+        "repos/o/r/pulls/7/files": [[{"filename": f} for f in files]],
+        f"repos/o/r/commits/{sha}/status?per_page=100": {
+            "statuses": [{"context": "trazo/verdict", "state": verdict}] if verdict else []
+        },
+        f"repos/o/r/commits/{sha}/check-runs": [
+            {"check_runs": [{"id": 1, "name": "test", "conclusion": "success"}]}
+        ],
+    }
+
+
+def _run_audit(tmp_path, files, verdict):
+    env = _router(tmp_path, _audit_routes(files, verdict))
+    env.update(GITHUB_REPOSITORY="o/r", DEFAULT_BRANCH="main")
+    r = subprocess.run(  # noqa: S603
+        [sys.executable, str(ROOT / "scripts" / "audit_merges.py")],
+        env=env,
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    return r, tmp_path / "issue.json"
+
+
+def test_audit_main_opens_an_issue_for_a_risky_merge_without_verdict(tmp_path):
+    r, issue = _run_audit(tmp_path, ["scripts/report_verdict.py"], "")
+    assert r.returncode == 0, r.stderr
+    assert "1 failed the gate" in r.stdout
+    assert issue.exists() and "#7 " in "".join(json.loads(issue.read_text()))
+
+
+def test_audit_main_is_quiet_for_a_docs_only_merge(tmp_path):
+    r, issue = _run_audit(tmp_path, [".trazo/project/STATUS.md"], "")
+    assert r.returncode == 0, r.stderr
+    assert "0 failed the gate" in r.stdout and not issue.exists()

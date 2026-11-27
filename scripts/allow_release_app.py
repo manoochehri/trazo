@@ -28,11 +28,10 @@ UNVERIFIED: the bypass actor shape `{"actor_id": <App ID>, "actor_type": "Integr
 written; it
 was not fetched or run live (no agent can write rulesets). After the PUT the script reads the
 ruleset back and
-exits non-zero unless the actor is present, so a wrong shape is reported, never silent. Also
-UNVERIFIED: that
-a push by the App's installation token is covered by this bypass. Check with the first real release;
-if the
-push is refused, run this script with --remove and tag with `make release` as before.
+exits non-zero unless the bypass list, conditions and rules are exactly as sent, so a wrong shape is
+reported, never silent. Also UNVERIFIED: that a push by the App's installation token is covered by
+this bypass. Check with the first real release; if the push is refused, run this script with
+--remove and tag with `make release` as before.
 """
 
 import json
@@ -88,6 +87,20 @@ def remove_payload(current: dict, app_id: int) -> dict:
     return _payload(current, actors)
 
 
+def verify(back: dict, payload: dict) -> list[str]:
+    """What differs between the ruleset read back and what was sent; empty means as intended.
+
+    Compares the bypass list (so the other actors are unchanged and the App is present or absent as
+    asked), the conditions, the rules, the target and the enforcement.
+    """
+    wrong = []
+    for key in ("bypass_actors", "conditions", "rules", "target", "enforcement", "name"):
+        got = back.get(key) or ([] if key == "bypass_actors" else None)
+        if got != payload[key]:
+            wrong.append(f"{key} is {got!r}, expected {payload[key]!r}")
+    return wrong
+
+
 def _gh(*args: str, stdin: str | None = None) -> str:
     gh = shutil.which("gh")
     if gh is None:
@@ -129,15 +142,9 @@ def main(argv: list[str]) -> int:
         return 0
     _gh("api", "-X", "PUT", path, "--input", "-", stdin=json.dumps(payload))
     back = json.loads(_gh("api", path))
-    present = any(
-        a.get("actor_type") == "Integration" and a.get("actor_id") == app_id
-        for a in back.get("bypass_actors") or []
-    )
-    if present == remove:
-        sys.exit(
-            f"MISMATCH: after the change the App {'is still' if remove else 'is not'} in the "
-            "bypass list. Check Settings > Rules by hand."
-        )
+    wrong = verify(back, payload)
+    if wrong:
+        sys.exit("MISMATCH after the change: " + "; ".join(wrong) + ". Check Settings > Rules.")
     print("Applied and read back." + ("" if remove else " Undo with --remove."))
     return 0
 

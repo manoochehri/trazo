@@ -47,6 +47,24 @@ def problems(sensitive: bool, verdict: str, security: str, runs: list[str]) -> l
     return out
 
 
+AUDIT_AUTHOR = "github-actions[bot]"
+
+
+def reported_numbers(issues: list[dict]) -> set[int]:
+    """PR numbers named by earlier audit reports.
+
+    Only issues the workflow itself opened count, so an outside account cannot file a
+    "Merge audit:" issue that mentions a PR and suppress its report."""
+    seen: set[int] = set()
+    for issue in issues:
+        if "pull_request" in issue or not issue["title"].startswith("Merge audit:"):
+            continue
+        if (issue.get("user") or {}).get("login") != AUDIT_AUTHOR:
+            continue
+        seen.update(int(n) for n in re.findall(r"#(\d+) ", issue.get("body") or ""))
+    return seen
+
+
 def audit(prs, facts, already_reported):
     """Return [(number, [reason, ...])] for merged PRs that fail the gate and are not yet
     reported."""
@@ -158,10 +176,7 @@ def main() -> int:
         if p.get("merged_at")
         and datetime.fromisoformat(p["merged_at"].replace("Z", "+00:00")) >= since
     ]
-    seen: set[int] = set()
-    for issue in json.loads(_gh("api", f"repos/{repo}/issues?state=all&per_page=100")):
-        if issue["title"].startswith("Merge audit:") and "pull_request" not in issue:
-            seen.update(int(n) for n in re.findall(r"#(\d+) ", issue.get("body") or ""))
+    seen = reported_numbers(json.loads(_gh("api", f"repos/{repo}/issues?state=all&per_page=100")))
     found = audit(merged, _facts(repo), seen)
     print(
         f"audited {len(merged)} merged PR(s) since {since:%Y-%m-%d}; {len(found)} failed the gate"
