@@ -80,7 +80,6 @@ DENIED = [
     "gh api repos/o/r/statuses/abc123 -f state=success -f context=trazo/verdict",
     "gh api repos/o/r/statuses/abc123 --input status.json",
     # other gh api writes
-    "gh api -X DELETE repos/o/r/git/refs/heads/x",
     "gh api -X PATCH repos/o/r/branches/main/protection",
     "gh api -X POST repos/o/r/dispatches -f event_type=x",
     "gh api graphql -f query='mutation { mergePullRequest(input:{}) { clientMutationId } }'",
@@ -189,6 +188,35 @@ ALLOWED = [
     "gh issue comment 330 --body 'Decided: x'",
     "gh issue edit 330 --add-label needs-pm",
     "gh issue create --title t --body b",
+    "gh issue close 330",
+    'gh issue close 330 --comment "done"',
+    "gh issue reopen 330",
+    "gh api -X PATCH repos/o/r/milestones/3 -f state=closed",
+    "gh api -X PATCH repos/o/r/issues/5 -f state=closed",
+    "gh api -X POST repos/o/r/issues/5/comments -f body=x",
+    "gh api -X POST repos/o/r/labels -f name=x -f color=ffffff",
+    "gh api -X PATCH repos/o/r/pulls/5 -f state=closed",
+    "gh api -X DELETE repos/o/r/git/refs/heads/eng-330",
+    "gh api -X POST repos/o/r/git/refs -f ref=refs/heads/eng-330 -f sha=abc",
+    "gh api -X POST repos/o/r/issues/$N/comments -f body=x",
+    'gh pr create --title t --body "$(cat /tmp/body.md)"',
+    "gh pr create --title t --body-file /tmp/body.md",
+    'gh issue comment 5 --body "built $(date)"',
+    "gh issue comment 5 --body-file /tmp/note.md",
+    "cat > /tmp/b.md <<'EOF'\nuses $(foo) and `gh pr merge 5`; gh pr merge 5\nEOF\ngh pr create --body-file /tmp/b.md",  # noqa: E501
+    "cat > /tmp/b.md <<EOF\nbuilt $(date) today\nEOF",
+    "gh pr create --title t --body \"$(cat <<'EOF'\nmentions $(rm x); gh pr merge 5\nEOF\n)\"",
+    "echo hi > /tmp/x",
+    "make test 2>&1 | tail -5",
+    "uv run pytest &> /tmp/out.txt",
+    "SHA=$(git rev-parse HEAD); git log $SHA",
+    "# a comment with a quote: don't\ngit status",
+    'echo "see ~/.claude/settings.json for the mention"',
+    "grep -rn .claude src",
+    "echo note > ~/.claude/projects/-Users-me-proj/memory/note.md",
+    "echo x > .trazo/project/note.md",
+    "cp .claude/settings.json /tmp/s.json",
+    "git add .claude/settings.json",
     "gh api repos/o/r/pulls/5",
     "gh api repos/o/r/pulls/5/merge",
     "gh api -X GET repos/o/r/commits/abc/statuses",
@@ -210,6 +238,9 @@ ALLOWED = [
     "git push -u origin HEAD",
     "git push origin HEAD:eng-330",
     "git push",
+    "git push --force origin eng-330",
+    "git push -f origin HEAD:eng-330",
+    "git push --force-with-lease origin eng-330",
     "git push origin feature/main-fix",
     "git log --oneline -3 main",
     "git commit -m \"$(cat <<'EOF'\nCloses #330: x\n\nbody\nEOF\n)\"",
@@ -337,9 +368,6 @@ def test_a_role_may_not_post_another_roles_status_or_another_write(project, agen
         _status(f"repos/o/r/statuses/{SHA40}", mine) + " ; gh api -X PUT repos/o/r/pulls/7/merge",
         _status("repos/$(rm -rf /)/statuses/" + SHA40, mine),
         _status(f"repos/{REPO_SUB}/statuses/$(gh pr merge 7)", mine),
-        _status(f"repos/{REPO_SUB}/statuses/$(gh pr view 7 --json headRefOid -q .x)", mine),
-        _status(f"repos/o/r/statuses/{SHA40}", mine) + " -f target_url=$(cat x)",
-        f"gh api -X POST repos/o/r/issues/7/comments -f body=x -f context={mine}",
     ]:
         assert _blocked(project, command, agent), f"{agent}: {command!r} must stay blocked"
 
@@ -387,3 +415,94 @@ def test_project_claude_directory_is_not_a_secret_path(project, command):
 def test_home_directory_secrets_stay_denied(project, command):
     """Only a project-relative `.claude/` word is exempt; every home-prefixed form stays denied."""
     assert _blocked(project, command, None), f"{command!r} must stay blocked"
+
+
+NEW_DENIED = [
+    # api writes on the blocklist
+    "gh api -X POST repos/o/r/rulesets -f name=x",
+    "gh api -X PUT repos/o/r/rulesets/1",
+    "gh api -X DELETE repos/o/r/branches/main/protection",
+    "gh api -X PUT repos/o/r/actions/secrets/KEY -f encrypted_value=x",
+    "gh api -X PATCH repos/o/r/actions/variables/V -f value=x",
+    "gh api -X POST repos/o/r/keys -f key=x",
+    "gh api -X POST user/keys -f key=x",
+    "gh api -X PUT repos/o/r/collaborators/u",
+    "gh api -X POST repos/o/r/releases -f tag_name=v1",
+    "gh api -X POST repos/o/r/git/refs -f ref=refs/tags/v1 -f sha=abc",
+    "gh api -X POST repos/o/r/git/refs -f ref=refs/heads/main -f sha=abc",
+    "gh api -X PATCH repos/o/r/git/refs/heads/main -f sha=abc",
+    "gh api -X DELETE repos/o/r/git/refs/tags/v1",
+    "gh api -X DELETE repos/o/r/git/refs/heads/$B",
+    "gh api -X PATCH repos/o/r -f name=x",
+    "gh api -X POST repos/o/r/merges -f base=main -f head=x",
+    "gh api -X PUT repos/o/r/contents/f.txt -f message=m -f content=Yg==",
+    "gh api -X PUT repos/o/r/contents/f.txt -f message=m -f branch=main",
+    "gh api -X PATCH orgs/o -f x=y",
+    "gh api -X PUT repos/o/r/pulls/5/merge",
+    "gh api -X PATCH $E -f x=y",
+    "gh api -X PUT repos/o/$R/rulesets/1",
+    "gh api -X PUT repos/$A/rulesets",
+    "gh api -X POST repos/o/r/statuses/$S -f state=success -f context=trazo/verdict",
+    "gh api -X POST repos/o/r/issues/$(rm -rf x)/comments -f body=x",
+    # gh and git on the blocklist
+    "gh repo edit --visibility public",
+    "gh repo delete o/r --yes",
+    "gh repo archive o/r",
+    "gh auth status --show-token",
+    "gh $V pr merge 5",
+    "gh pr $(echo merge) 5",
+    "gh pr `echo merge` 5",
+    "git push --tags",
+    "git push origin refs/tags/v1",
+    "git push origin tag v1",
+    "git push --follow-tags origin eng-330",
+    "git push --force origin HEAD:main",
+    # governance writes
+    "echo x > .claude/settings.json",
+    "echo x >> .claude/agents/pm.md",
+    "echo x &> .claude/settings.json",
+    "echo x | tee .trazo/rules.md",
+    "sed -i s/a/b/ .claude/settings.json",
+    "cp /tmp/x .trazo/hooks/g.py",
+    "mv /tmp/x .claude/commands/c.md",
+    "rm .trazo/roles/pm.md",
+    "touch ./.claude/x",
+    "echo x > .trazo/project/../rules.md",
+    "echo x > .trazo/project/charter/charter.md",
+    "cat > .claude/hooks/x <<'EOF'\nx\nEOF",
+    "echo x > ~/.claude/settings.json",
+    "echo x > ~/.claude/projects/p/memory/../../settings.json",
+    # still-denied reads and eval forms
+    "cat ~/.claude/settings.json",
+    'eval "$(cat x)"',
+    'bash -c "$(cat x)"',
+    "cat <<EOF | bash\ngh pr merge 5\nEOF",
+    "cat <<EOF\n$(gh pr merge 5)\nEOF",
+    "cat <<EOF\n$(cat .env)\nEOF",
+]
+
+
+@pytest.mark.parametrize("command", NEW_DENIED)
+@pytest.mark.parametrize("agent", [None, "engineer"])
+def test_loosened_guard_still_denies_the_blocklist(project, command, agent):
+    assert _blocked(project, command, agent), f"{command!r} must stay blocked (agent={agent})"
+
+
+@pytest.mark.parametrize("agent", sorted(ROLE_CONTEXT))
+def test_role_status_post_with_variables_and_unquoted_substitutions(project, agent):
+    mine = ROLE_CONTEXT[agent]
+    for command in [
+        f"REPO={REPO_SUB}; SHA={SHA_SUB}; "
+        f"gh api -X POST repos/$REPO/statuses/$SHA -f state=success -f context={mine}",
+        f"gh api repos/{REPO_SUB}/statuses/{SHA_SUB} -f state=failure -f context={mine} "
+        f'-f description="$(date)"',
+        f'gh api -X POST "repos/${{REPO}}/statuses/${{SHA}}" -f state=success -f context={mine}',
+    ]:
+        assert not _blocked(project, command, agent), f"{agent}: {command!r} must be allowed"
+    other = next(c for a, c in ROLE_CONTEXT.items() if a != agent)
+    for command in [
+        f"gh api -X POST repos/$REPO/statuses/$SHA -f state=success -f context={other}",
+        f"gh api -X POST repos/$REPO/statuses/$SHA -f state=success -f context={mine} -f x=y",
+        f"gh api -X PATCH repos/$REPO/statuses/$SHA -f state=success -f context={mine}",
+    ]:
+        assert _blocked(project, command, agent), f"{agent}: {command!r} must stay blocked"

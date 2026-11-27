@@ -21,7 +21,7 @@ An allowlist of exact argument shapes, registered twice so a skipped layer does 
   when the hook input's `agent_type` is `pm`, and it runs in `-p` sessions too.
 
 It permits read-only `git` and `gh` with known flags, `gh api repos/<owner>/<repo>/...` with
-`--jq`/`--paginate` only, `gh issue create|comment|edit` with a fixed flag set (`--body`, not
+`--jq`/`--paginate` only, `gh issue create|comment|edit|close|reopen` and `gh label create|edit` with a fixed flag set (`--body`, not
 `--body-file`), and stdin-only filters after a pipe (`head tail wc cut tr grep jq`, no file
 operands). It blocks everything else: `gh auth`, any glob, `;` `&` `||` redirection, substitution,
 absolute, `~` or `..` paths for git, `git diff --no-index` (and its abbreviations), and any word
@@ -75,18 +75,41 @@ hook in `settings.json`, run with `--skip-agent pm`, denies those routes for eve
 `pm` (which keeps the allowlist in section 2): the main session and the engineer and
 senior-engineer subagents.
 
-It is a denylist over the parsed command. It splits on `;` `&&` `||` `|`, `$(...)` and backticks
-(also inside double quotes), shell keywords and braces (`if`, `then`, `do`, `{`, `!`), and it
-checks the command a shell flag (`bash -c`, `-lc`, `-xc`) or `eval` is handed. It strips the
-wrappers `env` (including `-u` and `-S`), `sudo`, `timeout`, `nice`, `command`, `exec`, `time`,
-`nohup`, `xargs` and `stdbuf`, and gh flags such as `--repo` wherever they stand. It denies every
-`gh api` call that is not a GET or HEAD (`-X`, `--method`, `-f`, `-F`, `--input` and method
-override headers), `gh api graphql` in any case, `gh alias`, `gh auth token`, `gh release`
-writes, `git push` to `main` or `master` (or `--all`, `--mirror`), git `alias.*` settings, a bare
-shell that reads a script from a pipe, here-string or heredoc, and any word naming a protected path
-or command. It allows what an engineer needs: `git` (pushes to feature branches), `gh pr
-create|view|comment|diff|checks`, `gh issue *`, read-only `gh api`, tests, `uv`, `make`, and
-`.env.example`-style placeholders.
+Since #378 it is a short blocklist over the parsed command, not a ban on shell constructs. It
+judges the verbs a command resolves to: each `$(...)` and backtick span (also inside double
+quotes, never inside single quotes) is checked as its own command, heredoc bodies are removed
+(an unquoted body's substitutions are still checked), `#` comments are ignored, and pipes and
+redirects are read for the verbs and files they name. It splits on `;` `&&` `||` `|`, shell
+keywords and braces, and checks the command a shell flag (`bash -c`, `-lc`, `-xc`) or `eval` is
+handed. It strips the wrappers `env` (including `-u` and `-S`), `sudo`, `timeout`, `nice`,
+`command`, `exec`, `time`, `nohup`, `xargs` and `stdbuf`, and gh flags such as `--repo` wherever
+they stand.
+
+Allowed, beyond what a read-only engineer did before: `gh issue close|reopen`, any `gh api` call
+that is not on the blocklist (milestone close, comments, labels, issue and PR edits, refs of the
+agent's own branches), `$(...)`, heredocs, redirects and variables in any command, force-push of a
+branch that is not the default, and writes to the auto-memory directory
+(`~/.claude/projects/<project>/memory/<note>`). Prose that merely mentions a `.claude` path is not
+a read of it.
+
+Denied: `gh api` writes to `repos/<o>/<r>` itself, `rulesets`, `branches/*/protection`,
+`actions/*` (secrets, variables, workflows, runs), `hooks`, `keys` / `gpg_keys`, `collaborators`,
+`invitations`, `releases`, `environments`, `deployments`, `merges`, the merge endpoint, `contents`
+without an explicit non-default `branch`, `git/refs` of tags or the default branch, commit
+statuses (except the reviewer's and security's own, below) and `orgs/` and other account-level
+endpoints; a write whose endpoint has a computed part unless the computed part is a variable or a
+read-only lookup (`gh repo|pr|issue view`, `git rev-parse`) under an issues, pulls, statuses,
+milestones or labels collection; `gh api graphql`, dispatches and `actions/workflows`;
+`gh repo edit|delete|archive|rename`, `gh alias`, `gh auth token` and `gh auth ... --show-token`,
+`gh release` writes, `gh run rerun`, `gh pr merge`, `gh secret`, `gh variable set`,
+`put_secret.sh`; a `gh` subcommand named by a variable or substitution; `git push` to `main` or
+`master`, `--all`, `--mirror`, `--tags`, `--follow-tags`, tag refs; git `alias.*` settings; a bare
+shell fed from a pipe, here-string or heredoc, and `eval "$(...)"`; writes (redirect, `tee`,
+`cp|mv|rm|touch|install|ln|sed -i|dd of=|git mv|git rm`) to `.claude/` and `.trazo/`, except
+`.trazo/project/` (its `charter/` and `SKEPTIC_BAR.md` stay denied) and `.claude/worktrees/`;
+and any word naming a protected path (`.env`, `secrets/`, keys, `~/.ssh`, `~/.claude`, ...).
+`.env.example`-style placeholders are readable. Known gaps: the working directory is not tracked
+(`cd .claude && echo x > y`), and an endpoint or path built by a variable cannot be judged.
 
 One source: it reads the protected commands (`Bash(<prefix> *)`) and paths (`Read(<glob>)`) from
 `permissions.deny` in `.claude/settings.json`, so adding a rule there extends the guard. If that
@@ -111,13 +134,13 @@ command the parser never sees. These are known to get through:
   a bare flag, so the value is mistaken for the command.
 - Anything the Read, Edit and Write tools do: this hook binds Bash only.
 
-One carve-out (#347): the `reviewer` subagent may post `trazo/verdict` and the `security`
-subagent `trazo/security`, each only as one plain `gh api [-X POST] repos/<o>/<r>/statuses/<40-hex sha>`
-call carrying `state` (success, failure, pending, error), `context`, `description` and an optional
-`target_url`, with no shell syntax except two exact read-only substitutions, the ones the role files
-use (#364): `$(gh repo view --json nameWithOwner -q .nameWithOwner)` for `<o>/<r>` and
-`$(gh pr view <n> --json headRefOid -q .headRefOid)` for the sha. Every other caller, context, endpoint or field stays denied,
-the skeptic included.
+One carve-out (#347, widened in #378): the `reviewer` subagent may post `trazo/verdict` and the
+`security` subagent `trazo/security`, each only as a `gh api [-X POST] repos/<o>/<r>/statuses/<sha>`
+call carrying `state` (success, failure, pending, error), `context` (its own), `description` and an
+optional `target_url`. The repo and the sha may be literals, shell variables (`$REPO`, `${SHA}`)
+or read-only `$(gh repo view ...)`, `$(gh pr view ...)` and `$(git rev-parse ...)` lookups; a
+`description` may use `$(...)`. Every other caller, context, endpoint, method or field stays
+denied, the skeptic included.
 
 The real fix is an agent token that cannot merge or set statuses (#320), plus branch protection.
 Until then, treat a green result from this guard as "the obvious routes are closed", never as

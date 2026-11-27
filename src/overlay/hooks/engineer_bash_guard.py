@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
-"""PreToolUse hook for the Bash tool of every caller except `pm` (issue #330).
+"""PreToolUse hook for the Bash tool of every caller except `pm` (issues #330, #378).
 
-The `settings.json` deny rules match command text as written, so the engineer's Bash still
-reached a merge (`gh api -X PUT .../pulls/N/merge`), a commit status (`gh api -X POST
-.../statuses/<sha>`) and secrets (`cat .env`). This hook is a denylist over the parsed command
-that closes those routes. The PM is not its business: the PM runs an allowlist
-(pm_bash_guard.py).
+The `settings.json` deny rules match command text as written, so a shell could still reach a
+merge (`gh api -X PUT .../pulls/N/merge`), a commit status, a ruleset edit or a secret
+(`cat .env`). This hook parses the command, resolves the verbs it runs (through `$(...)`,
+backticks, heredocs, pipes and redirects) and denies a short blocklist; everything else passes.
+The PM is not its business: the PM runs an allowlist (pm_bash_guard.py).
+
+The blocklist is the irreversible or self-governing set (#377): secret and credential reads,
+merging (`gh pr merge`, the merge endpoint), commit statuses (except the reviewer's and
+security's own), release and tag writes, ruleset / branch-protection / Actions-secret /
+collaborator / key / repo-settings edits, workflow dispatch, pushes to the default branch, and
+writes to the governance paths `.claude/` and `.trazo/` (outside `.trazo/project/`).
+GitHub's own rulesets and CODEOWNERS are the real limits; this hook only refuses the obvious
+routes early.
 
 One source: the protected commands and paths are read from `permissions.deny` in the project's
-`.claude/settings.json` (`Bash(<prefix> *)` rules and `Read(<glob>)` rules). The only rule
-that file cannot express is "no `gh api` write", which is code here. If settings.json is missing,
-unreadable or carries no Bash and Read rules, the hook denies: it fails closed, like the rest.
+`.claude/settings.json` (`Bash(<prefix> *)` rules and `Read(<glob>)` rules). The rules that file
+cannot express (the `gh api` blocklist, governance paths, tags) are code here. If settings.json
+is missing, unreadable or carries no Bash and Read rules, the hook denies: it fails closed.
 
 Contract (Claude Code hooks): the call arrives as JSON on stdin with `tool_input.command` and,
 inside a subagent, `agent_type`. Exit 0 allows (permission deny rules still win), exit 2 blocks
@@ -24,18 +32,23 @@ not see (`python -c`, a script it wrote, an obfuscated word). The real fix is an
 that cannot merge or set statuses (#320).
 """
 
+from __future__ import annotations
+
 import json
 import os
+import posixpath
 import re
 import shlex
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 REASON = (
-    "engineer guard: {why}. Merging, setting commit statuses, writing through `gh api` and "
-    "reading secrets are not the engineer's to do (issue #330). Use `gh pr`, `gh issue` or a "
-    "read-only `gh api` call, and edit config through the Edit tool; the Coordinator merges "
-    "through the gated workflow."
+    "engineer guard: {why}. Merging, release and tag writes, commit statuses (other than the "
+    "reviewer's and security's own), ruleset, protection, secret and settings edits, governance "
+    "paths and secret reads are not the engineer's to do (issues #330, #378). Everything else "
+    "through `gh`, `gh api` and `git` is allowed; the Coordinator merges through the gated "
+    "workflow."
 )
 
 WRAPPERS = {
@@ -53,8 +66,12 @@ WRAPPERS = {
 }
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 GH_VALUE_FLAGS = {"-R", "--repo", "--hostname"}  # gh global flags that take a value
-GH_METHOD_FLAGS = {"-X", "--method"}
-GH_FIELD_FLAGS = {"-f", "-F", "--field", "--raw-field", "--input"}  # imply POST without -X
+# `gh api` flags that take a value (a value left unlisted would be read as the endpoint).
+GH_API_VALUED = {
+    "-X", "--method", "-H", "--header", "-f", "-F", "--field", "--raw-field", "--input",
+    "--jq", "-q", "--cache", "-t", "--template", "-p", "--preview", "--hostname",
+}  # fmt: skip
+GH_FIELD_FLAGS = {"-f", "-F", "--field", "--raw-field"}
 # Always denied under `gh`, whatever the arguments: not expressible as a settings.json rule.
 GH_ALWAYS = {
     ("alias",), ("auth", "token"), ("release", "create"), ("release", "upload"),
@@ -83,19 +100,37 @@ TEXT_FLAGS = {
 # Placeholder config files are meant to be read and edited (".trazo/rules.md": new config goes
 # in the env example).
 PLACEHOLDER = re.compile(r"\.env\.(example|sample|template|dist)$", re.IGNORECASE)
-OPERATORS = {";", "&", "&&", "|", "||", "|&", "(", ")", "\n", ";;", ";&", ";;&", "&>", "<(", ">("}
-REDIRECTS = {"<", ">", ">>", "<<", "<<<", "<&", ">&", ">|"}
+OPERATORS = {";", "&", "&&", "|", "||", "|&", "(", ")", "\n", ";;", ";&", ";;&", "<(", ">("}
+REDIRECTS = {"<", ">", ">>", "<<", "<<<", "<&", ">&", ">|", "&>", "&>>"}
+OUTPUT_REDIRECTS = {">", ">>", ">&", ">|", "&>", "&>>"}
 
+# An expanded `$(...)` or backtick span is replaced by this word in the text the parser sees; the
+# span itself is checked as its own command. `\x01<index>\x02` names the span.
+SUB_MARK = re.compile(r"\$\x01(\d+)\x02")
+SUB_WORD = "$\x01{}\x02"
+HEREDOC = re.compile(r"<<(-?)[ \t]*(?:'([^']*)'|\"([^\"]*)\"|\\?([A-Za-z0-9_.-]+))")
 
 # A word that is only a project-relative `.claude/` path: no home prefix, no `..`, no empty or
 # dot component. The project's own `.claude/` is repo content; `Read(~/.claude/**)` is the home
 # directory's. Only this one deny pattern is skipped for such a word (#364).
 PROJECT_CLAUDE = re.compile(r"(\./)?\.claude(/[A-Za-z0-9_][A-Za-z0-9_.-]*)*/?")
 HOME_CLAUDE_GLOB = "~/.claude/**"
+# The auto-memory directory (`~/.claude/projects/<project>/memory/<note>`): notes are written
+# there on purpose (#378), no `..`, no nesting.
+MEMORY_NOTE = re.compile(
+    r"(~|\$HOME|\$\{HOME\}|/Users/[^/]+|/home/[^/]+)/\.claude/projects/[A-Za-z0-9_.-]+/memory/"
+    r"[A-Za-z0-9_][A-Za-z0-9_.-]*"
+)
 
 
 class Deny(Exception):
     pass
+
+
+# The spans of the command being checked, for the read-only test on `gh api` endpoint spans.
+_SUBS: list[list[str]] = [[]]
+# The calling agent type, set once in main(); only the status carve-out reads it.
+_CALLER: list[str | None] = [None]
 
 
 def settings_path() -> Path:
@@ -150,11 +185,150 @@ def load_rules() -> tuple[list[list[str]], list[re.Pattern[str]]]:
     return prefixes, paths
 
 
+def substitutions(word: str) -> list[str]:
+    """The text of each `$(...)` and backtick substitution left inside a block of text."""
+    found, i = [], 0
+    while (i := word.find("$(", i)) != -1:
+        depth, j = 1, i + 2
+        while j < len(word) and depth:
+            depth += {"(": 1, ")": -1}.get(word[j], 0)
+            j += 1
+        found.append(word[i + 2 : j - 1])
+        i = j
+    found += re.findall(r"`([^`]*)`", word)
+    return found
+
+
+def scan(command: str) -> tuple[str, list[str]]:
+    """Pre-pass over the raw text, quote-aware. Returns the text the word parser sees and the
+    list of command spans to check on their own.
+
+    - every `$(...)` and backtick span outside single quotes becomes one placeholder word and is
+      listed as a span (checked recursively), so a `$(` in a body or an argument is judged by the
+      verbs inside it and never rejected as a construct;
+    - heredoc bodies are removed (a quoted delimiter makes the body literal text; an unquoted one
+      still expands, so its substitutions are listed as spans);
+    - `#` comments are removed.
+    """
+    out: list[str] = []
+    spans: list[str] = []
+    pending: list[tuple[str, bool, bool]] = []  # (delimiter, strip tabs, quoted)
+    stack: list = []  # int = start of an open `$(`; "par" = a `(` group; "dq" = a double quote
+    n, i = len(command), 0
+
+    def in_sub() -> bool:
+        return any(isinstance(s, int) for s in stack)
+
+    def emit(text: str) -> None:
+        if not in_sub():
+            out.append(text)
+
+    def close_span(inner: str) -> None:
+        spans.append(inner)
+        if not in_sub():
+            out.append(SUB_WORD.format(len(spans) - 1))
+
+    while i < n:
+        c = command[i]
+        top = stack[-1] if stack else None
+        if top == "dq" and c == "\\":
+            emit(command[i : i + 2])
+            i += 2
+            continue
+        if top == "dq" and c == '"':
+            stack.pop()
+            emit(c)
+            i += 1
+            continue
+        if c == "`":
+            j = i + 1
+            while j < n and command[j] != "`":
+                j += 2 if command[j] == "\\" else 1
+            close_span(command[i + 1 : j])
+            i = j + 1
+            continue
+        if command.startswith("$(", i):
+            stack.append(i + 2)
+            i += 2
+            continue
+        if top == "dq":
+            emit(c)
+            i += 1
+            continue
+        # command context: top level, `$( )` or `( )`
+        if c == "'":
+            j = command.find("'", i + 1)
+            j = n - 1 if j < 0 else j
+            emit(command[i : j + 1])
+            i = j + 1
+            continue
+        if c == "\\":
+            emit(command[i : i + 2])
+            i += 2
+            continue
+        if c == '"':
+            stack.append("dq")
+            emit(c)
+        elif c == "#" and (i == 0 or command[i - 1] in " \t\n;&|()"):
+            while i < n and command[i] != "\n":
+                i += 1
+            continue
+        elif c == "(":
+            stack.append("par")
+            emit(c)
+        elif c == ")":
+            if isinstance(top, int):
+                stack.pop()
+                close_span(command[top:i])
+            else:
+                if top == "par":
+                    stack.pop()
+                emit(c)
+        elif command.startswith("<<<", i):
+            emit("<<<")
+            i += 3
+            continue
+        elif command.startswith("<<", i) and (m := HEREDOC.match(command, i)):
+            strip, sq, dq, bare = m.groups()
+            delim = sq if sq is not None else dq if dq is not None else bare
+            quoted = (
+                sq is not None or dq is not None or command[m.start() : m.end()].find("\\") >= 0
+            )
+            pending.append((delim, bool(strip), quoted))
+            emit(m.group(0))
+            i = m.end()
+            continue
+        elif c == "\n":
+            emit(c)
+            i += 1
+            for delim, strip, quoted in pending:
+                body: list[str] = []
+                while i < n:
+                    j = command.find("\n", i)
+                    j = n if j < 0 else j
+                    line = command[i:j]
+                    i = min(j + 1, n)
+                    if (line.lstrip("\t") if strip else line) == delim:
+                        break
+                    body.append(line)
+                if not quoted and not in_sub():
+                    spans.extend(substitutions("\n".join(body).replace("\\$", "")))
+            pending.clear()
+            continue
+        else:
+            emit(c)
+        i += 1
+    for start in [s for s in stack if isinstance(s, int)][:1]:  # an unclosed `$(`
+        spans.append(command[start:])
+        out.append(SUB_WORD.format(len(spans) - 1))
+    return "".join(out), spans
+
+
 def segments(command: str) -> list[list[str]]:
-    """Split into simple commands on operators, substitutions and backticks. Redirect operators
-    stay as words so the file they name is scanned."""
+    """Split into simple commands on operators. Redirect operators stay as words so the file they
+    name is scanned."""
     try:
-        lexer = shlex.shlex(command.replace("`", " ; "), posix=True, punctuation_chars=True)
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
         lexer.whitespace_split = True
         lexer.commenters = ""
         tokens = list(lexer)
@@ -245,6 +419,162 @@ def check_gh_workflow(argv: list[str], words: list[str]) -> None:
         )
 
 
+# --- `gh api` -------------------------------------------------------------------------------
+
+DYN = re.compile(r"\$\x01\d+\x02|\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*|\$[0-9@*#?!$-]")
+MARK = "\x00"
+# Path segments that make a write a blocklisted route wherever they stand after `repos/<o>/<r>`.
+API_DENY_SEGMENTS = {
+    "rulesets", "protection", "hooks", "keys", "gpg_keys", "ssh_signing_keys", "collaborators",
+    "invitations", "releases", "environments", "deployments", "merges", "merge", "transfer",
+    "dispatches", "actions", "codespaces", "dependabot", "secrets", "variables",
+}  # fmt: skip
+API_DENY_TOP = {
+    "orgs", "enterprises", "applications", "authorizations", "app", "installation", "admin",
+    "teams",
+}  # fmt: skip
+# A write whose path has a computed part is allowed only under one of these collections.
+API_DYNAMIC_OK = {"issues", "pulls", "statuses", "milestones", "labels"}
+READONLY_INNER = re.compile(
+    r"\s*(gh (repo|pr|issue) view|git rev-parse|git remote get-url)(\s[^;&|<>`$()\n\\]*)?"
+)
+SHA40 = re.compile(r"[0-9a-f]{40}")
+STATUS_CONTEXT = {"reviewer": "trazo/verdict", "security": "trazo/security"}
+STATUS_STATES = {"success", "failure", "pending", "error"}
+STATUS_FIELDS = {"state", "context", "description", "target_url"}
+
+
+def parse_gh_api(args: list[str]) -> tuple[str, str | None, list[tuple[str, str]], bool]:
+    """(method, endpoint, [(field key, value)], uses --input) from the words after `api`."""
+    method, endpoint, fields, has_input = "", None, [], False
+    i = 1
+    while i < len(args):
+        a = args[i]
+        i += 1
+        if "method-override" in a.lower():
+            raise Deny("`gh api` method override headers are not allowed")
+        if a.startswith("--"):
+            name, eq, inline = a.partition("=")
+            if name not in GH_API_VALUED:
+                continue
+            if eq:
+                value = inline
+            elif i < len(args):
+                value, i = args[i], i + 1
+            else:
+                value = ""
+            flag = name
+        elif a.startswith("-") and len(a) > 1:
+            flag = a[:2]
+            if flag not in GH_API_VALUED:
+                continue
+            if len(a) > 2:
+                value = a[2:].lstrip("=") if flag == "-X" else a[2:]
+            elif i < len(args):
+                value, i = args[i], i + 1
+            else:
+                value = ""
+        else:
+            endpoint = endpoint if endpoint is not None else a
+            continue
+        if flag in {"-X", "--method"}:
+            method = value
+        elif flag in GH_FIELD_FLAGS:
+            key, _, val = value.partition("=")
+            fields.append((key, val))
+        elif flag == "--input":
+            has_input = True
+        elif "method-override" in value.lower():
+            raise Deny("`gh api` method override headers are not allowed")
+    return method, endpoint, fields, has_input
+
+
+def _readonly_spans(endpoint: str) -> None:
+    """A computed part of a write endpoint may only be a read-only lookup (`gh repo view`,
+    `gh pr view`, `git rev-parse`) or a shell variable; anything else could build any path."""
+    spans = _SUBS[-1]
+    for m in SUB_MARK.finditer(endpoint):
+        idx = int(m.group(1))
+        inner = spans[idx] if idx < len(spans) else ""
+        if not READONLY_INNER.fullmatch(inner):
+            raise Deny(
+                "a computed part of a `gh api` write endpoint may only be a read-only lookup"
+            )
+
+
+def _status_post(effective: str, fields: list[tuple[str, str]], has_input: bool) -> None:
+    caller = _CALLER[0]
+    if not isinstance(caller, str) or caller not in STATUS_CONTEXT:
+        raise Deny("commit statuses are set only by the reviewer and security roles")
+    keys = [k for k, _ in fields]
+    values = dict(fields)
+    if (
+        effective != "POST"
+        or has_input
+        or len(set(keys)) != len(keys)
+        or not set(keys) <= STATUS_FIELDS
+        or values.get("state") not in STATUS_STATES
+        or values.get("context") != STATUS_CONTEXT[caller]
+    ):
+        raise Deny(
+            f"{caller} may post only its own {STATUS_CONTEXT[caller]} status, as a plain POST"
+        )
+
+
+def check_gh_api_write(
+    endpoint: str, effective: str, fields: list[tuple[str, str]], has_input: bool
+) -> None:
+    _readonly_spans(endpoint)
+    path = unquote(endpoint.split("?", 1)[0]).strip().lower()
+    path = re.sub(r"\{(owner|repo)\}", "x", path)
+    path = DYN.sub(MARK, path)
+    segs = [s for s in path.strip("/").split("/") if s]
+    dynamic = any(MARK in s for s in segs)
+    if not segs or any(s in {".", ".."} for s in segs):
+        raise Deny("`gh api` write to an unreadable endpoint")
+    if MARK in segs[0]:
+        raise Deny("a `gh api` write may not start with a computed endpoint")
+    if segs[0] in API_DENY_TOP:
+        raise Deny(f"`gh api` writes to `{segs[0]}/...` (settings, billing, teams) are not allowed")
+    if segs[0] != "repos":
+        if any(s in API_DENY_SEGMENTS for s in segs[1:]):
+            raise Deny("`gh api` write to a key, secret, release or settings endpoint")
+        return
+    if not dynamic and len(segs) <= 3:
+        raise Deny("`gh api` write to the repository itself (settings, rename, delete)")
+    scan_from = 1 if dynamic else 3
+    if dynamic:
+        coll = next((k for k, s in enumerate(segs) if k >= 1 and s in API_DYNAMIC_OK), None)
+        if coll is None or coll - 1 > 2:
+            raise Deny(
+                "a `gh api` write with a computed part must name an issues, pulls, "
+                "statuses, milestones or labels collection"
+            )
+    for s in segs[scan_from:]:
+        if s in API_DENY_SEGMENTS:
+            raise Deny(
+                f"`gh api` write to `{s}`: rulesets, protection, secrets, keys, releases, "
+                "collaborators, merges and settings are not the engineer's"
+            )
+    tail = segs[3:] if not dynamic else segs[1:]
+    if "git" in tail:
+        refs = "/".join(tail[tail.index("git") + 1 :])
+        names = [refs.removeprefix("refs/")] if refs.startswith("refs") else []
+        names += [v.removeprefix("refs/") for k, v in fields if k == "ref"]
+        if any(MARK in r or re.match(r"(tags(/|$)|heads/(main|master)$)", r) for r in names if r):
+            raise Deny("`gh api` writes to tag refs and the default branch are not allowed")
+    if "contents" in tail:
+        branch = [v for k, v in fields if k == "branch"]
+        if not branch or MARK in DYN.sub(MARK, branch[0]) or branch[0].lower() in DEFAULT_BRANCHES:
+            raise Deny("`gh api` writes to `contents` need an explicit non-default `branch`")
+    if "statuses" in tail:
+        k = tail.index("statuses")
+        rest = tail[k + 1 :]
+        if len(rest) != 1 or not (SHA40.fullmatch(rest[0]) or MARK in rest[0]):
+            raise Deny("a status post names exactly one 40-hex sha or a variable")
+        _status_post(effective, fields, has_input)
+
+
 def check_gh_api(args: list[str]) -> None:
     for word in args[1:]:
         low = word.lower().strip("/")
@@ -254,26 +584,79 @@ def check_gh_api(args: list[str]) -> None:
             )
     if any(w.lower().strip("/") == "graphql" for w in args[1:]):
         raise Deny("`gh api graphql` can mutate; use `gh pr` or `gh issue`")
-    method = None
-    implied = False
-    i = 1
-    while i < len(args):
-        a = args[i]
-        name, eq, inline = a.partition("=")
-        if a.startswith("-X") and not a.startswith("--") and len(a) > 2:
-            method = a[2:].lstrip("=")
-        elif name in GH_METHOD_FLAGS:
-            method = inline if eq else (args[i + 1] if i + 1 < len(args) else "")
-            i += 0 if eq else 1
-        elif name in GH_FIELD_FLAGS or (a.startswith(("-f", "-F")) and len(a) > 2 and a[2] != "-"):
-            implied = True
-            i += 0 if eq or len(a) > 2 and not a.startswith("--") else 1
-        if "method-override" in a.lower():
-            raise Deny("`gh api` method override headers are not allowed")
-        i += 1
-    effective = (method or ("POST" if implied else "GET")).upper()
-    if effective not in {"GET", "HEAD"}:
-        raise Deny(f"`gh api` is read-only for the engineer ({effective} is a write)")
+    method, endpoint, fields, has_input = parse_gh_api(args)
+    effective = (method or ("POST" if fields or has_input else "GET")).upper()
+    if effective in {"GET", "HEAD"}:
+        return
+    if endpoint is None:
+        raise Deny("`gh api` write without an endpoint")
+    check_gh_api_write(endpoint, effective, fields, has_input)
+
+
+# --- governance-path writes ------------------------------------------------------------------
+
+WRITE_ALL = {"tee", "touch", "truncate", "rm", "mv", "chmod", "chown", "mkdir", "rmdir", "unlink"}
+WRITE_DEST = {"cp", "install", "ln", "rsync"}
+
+
+def governance_path(word: str) -> bool:
+    """True for a path under `.claude/` or `.trazo/` that is governance (not `.trazo/project/`
+    outside its charter, not a worktree, not a memory note)."""
+    if SUB_MARK.search(word):
+        return False
+    if MEMORY_NOTE.fullmatch(posixpath.normpath(word)):
+        return False
+    norm = posixpath.normpath(word.replace("$HOME", "~"))
+    parts = norm.split("/")
+    for k, part in enumerate(parts):
+        if part == ".claude":
+            return parts[k + 1 : k + 2] != ["worktrees"]
+        if part == ".trazo":
+            rest = parts[k + 1 :]
+            if rest[:1] == ["project"]:
+                return rest[1:2] in (["charter"], ["SKEPTIC_BAR.md"])
+            return True
+    return False
+
+
+def check_writes(head: str, argv: list[str]) -> None:
+    args = argv[1:]
+    for k, word in enumerate(args):
+        if word in OUTPUT_REDIRECTS and k + 1 < len(args) and governance_path(args[k + 1]):
+            raise Deny(f"a redirect into {args[k + 1]!r} writes a governance path")
+    args = [
+        a
+        for k, a in enumerate(args)
+        if a not in REDIRECTS and (k == 0 or args[k - 1] not in REDIRECTS)
+    ]
+    positional = [a for a in args if not a.startswith("-")]
+    targets: list[str] = []
+    if head in WRITE_ALL:
+        targets = positional
+    elif head in WRITE_DEST:
+        targets = positional[-1:]
+        for k, a in enumerate(args):
+            if a in {"-t", "--target-directory"} and k + 1 < len(args):
+                targets.append(args[k + 1])
+            elif a.startswith("--target-directory="):
+                targets.append(a.partition("=")[2])
+    elif head in {"sed", "perl"} and any(
+        re.fullmatch(r"-[A-Za-z]*i[A-Za-z0-9.]*|--in-place(=.*)?", a) for a in args
+    ):
+        targets = positional
+    elif head == "dd":
+        targets = [a[3:] for a in args if a.startswith("of=")]
+    elif head == "git" and positional[:1] in (["mv"], ["rm"]):
+        targets = positional[1:]
+    for t in targets:
+        if governance_path(t):
+            raise Deny(
+                f"{t!r} is a governance path (.claude/ or .trazo/); change it through a "
+                "reviewed pull request and the Edit tool"
+            )
+
+
+# --- the rest ------------------------------------------------------------------------------
 
 
 def sets_protected_gh_env(argv: list[str]) -> bool:
@@ -302,15 +685,6 @@ def sets_protected_gh_env(argv: list[str]) -> bool:
     return False
 
 
-def has_gh_substitution(command: str) -> bool:
-    """Substitution before a `gh` subcommand prevents static allowlist inspection."""
-    for segment in re.split(r"&&|\|\||[;&|]", command):
-        match = re.search(r"(?<![A-Za-z0-9_./-])gh(?=\s|$)", segment)
-        if match and re.search(r"\$\(|`", segment[match.end() :]):
-            return True
-    return False
-
-
 def check_shell(head: str, argv: list[str], prefixes, paths) -> None:
     """`bash -c "<script>"` (also `-lc`, `-xc`), `eval <words>`, `bash script.sh`. A shell that
     reads its script from stdin, a pipe or a here-string cannot be checked: deny it."""
@@ -333,7 +707,8 @@ def check_shell(head: str, argv: list[str], prefixes, paths) -> None:
 
 
 def check_git(argv: list[str]) -> None:
-    """`git push` may not name the default branch (or push everything); no alias settings."""
+    """`git push` may not name the default branch (or push everything or a tag); no alias
+    settings. Force-pushing a branch that is not the default is allowed."""
     args, i, sub = argv[1:], 0, None
     if any(a.lower().startswith("alias.") or ".alias." in a.lower() for a in args):
         raise Deny("git aliases can hide any command")
@@ -348,14 +723,18 @@ def check_git(argv: list[str]) -> None:
     if sub != "push":
         return
     rest = args[i + 1 :]
-    if any(a in {"--all", "--mirror", "--tags-all"} for a in rest):
-        raise Deny("`git push --all/--mirror` would push the default branch")
+    if any(a in {"--all", "--mirror", "--tags", "--follow-tags"} for a in rest):
+        raise Deny("`git push --all/--mirror/--tags` would push the default branch or a tag")
     words = [a for a in rest if not a.startswith("-")]
+    if len(words) > 1 and words[1] == "tag":
+        raise Deny("tags are cut by the release workflow, not pushed from a session")
     for ref in words[1:]:  # words[0] is the remote
         dest = ref.rpartition(":")[2] if ":" in ref else ref
         dest = dest.removeprefix("refs/heads/").lstrip("+")
         if dest in DEFAULT_BRANCHES:
             raise Deny("the engineer never pushes to the default branch; open a pull request")
+        if dest.startswith("refs/tags/"):
+            raise Deny("tags are cut by the release workflow, not pushed from a session")
 
 
 def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Pattern[str]]) -> None:
@@ -365,19 +744,25 @@ def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Patter
         return
     head = os.path.basename(argv[0])
     if argv[0].startswith("$"):
-        raise Deny("a command named by a variable cannot be checked")
+        raise Deny("a command named by a variable or substitution cannot be checked")
     if head in SHELLS or head == "eval":
         check_shell(head, argv, prefixes, paths)
     if head == "git":
         check_git(argv)
+    check_writes(head, argv)
     candidates = [argv]
     if head == "gh":
         args = gh_args(argv)
         candidates = [["gh", *args]]
         words = bare_words(args)
+        verbs = words[:1] if words[:1] == ["api"] else words[:2]  # `api`'s next word is a path
+        if any("$" in w for w in verbs):
+            raise Deny("a `gh` subcommand named by a variable or substitution cannot be checked")
         for banned in GH_ALWAYS:
             if tuple(words[: len(banned)]) == banned:
                 raise Deny(f"`gh {' '.join(banned)}` is not the engineer's")
+        if words[:1] == ["auth"] and any(a in {"--show-token", "-t"} for a in args):
+            raise Deny("`gh auth` may not print the token")
         if args[:1] == ["api"]:
             check_gh_api(args)
         if words[:1] == ["workflow"]:
@@ -397,110 +782,42 @@ def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Patter
                 *prefix[1:],
             ]:
                 raise Deny(f"`{' '.join(prefix)}` is denied by settings.json")
+    home_claude = glob_to_regex(HOME_CLAUDE_GLOB).pattern
     previous = ""
     for word in argv[1:]:
         if previous not in TEXT_FLAGS and not PLACEHOLDER.search(word):
             project_claude = PROJECT_CLAUDE.fullmatch(word) is not None
-            if any(
-                p.search(word)
-                for p in paths
-                if not (project_claude and p.pattern == glob_to_regex(HOME_CLAUDE_GLOB).pattern)
-            ):
+            # Prose that mentions a `.claude` path, and the memory notes, are not reads of the
+            # home directory (#378).
+            skip_claude = (
+                project_claude
+                or re.search(r"\s", word) is not None
+                or MEMORY_NOTE.fullmatch(posixpath.normpath(word)) is not None
+            )
+            if any(p.search(word) for p in paths if not (skip_claude and p.pattern == home_claude)):
                 raise Deny(f"{word!r} names a secret path")
         previous = word
 
 
-def substitutions(word: str) -> list[str]:
-    """The text of each `$(...)` and backtick substitution left inside a (quoted) word."""
-    found, i = [], 0
-    while (i := word.find("$(", i)) != -1:
-        depth, j = 1, i + 2
-        while j < len(word) and depth:
-            depth += {"(": 1, ")": -1}.get(word[j], 0)
-            j += 1
-        found.append(word[i + 2 : j - 1])
-        i = j
-    found += re.findall(r"`([^`]*)`", word)
-    return found
-
-
 def check(command: str, prefixes: list[list[str]], paths: list[re.Pattern[str]]) -> None:
-    if has_gh_substitution(command):
-        raise Deny("`gh` commands may not use substitution before the subcommand")
-    protected_env = False
-    for inner in re.findall(r"`([^`]*)`", command):  # before segments() splits on backticks
-        check(inner, prefixes, paths)
-    for argv in segments(command):
-        for word in argv:
-            for inner in substitutions(word):
-                check(inner, prefixes, paths)
-        normalized = strip_wrappers(argv)
-        if protected_env and normalized and os.path.basename(normalized[0]) == "gh":
-            args = gh_args(normalized)
-            if bare_words(args)[:1] == ["workflow"]:
-                raise Deny(
-                    "`gh workflow` may not follow an earlier protected environment assignment"
-                )
-        check_argv(argv, prefixes, paths)
-        protected_env = protected_env or sets_protected_gh_env(argv)
-
-
-STATUS_CONTEXT = {"reviewer": "trazo/verdict", "security": "trazo/security"}
-STATUS_ENDPOINT = re.compile(r"repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/statuses/[0-9a-f]{40}")
-STATUS_STATES = {"success", "failure", "pending", "error"}
-STATUS_FIELDS = {"state", "context", "description", "target_url"}
-SHELL_META = re.compile(r"[`$;&|<>()\\\n\r]")
-# The two read-only substitutions the reviewer and security role files tell their agents to use
-# for the endpoint (#364). Matched exactly and replaced by inert text before the shell-syntax
-# check, so any other `$(...)` still fails it.
-SUBSTITUTIONS = (
-    (re.compile(r"\$\(gh repo view --json nameWithOwner (?:-q|--jq) \.nameWithOwner\)"), "o/r"),
-    (
-        re.compile(r"\$\(gh pr view [0-9]{1,9} --json headRefOid (?:-q|--jq) \.headRefOid\)"),
-        "0" * 40,
-    ),
-)
-
-
-def is_own_status_post(agent: object, command: str) -> bool:
-    """#347: the reviewer and security subagents post their own commit status and nothing else.
-    True only for one plain `gh api [-X POST] repos/<o>/<r>/statuses/<40-hex> -f k=v ...` whose
-    context is the caller's (reviewer: trazo/verdict, security: trazo/security), whose fields are
-    state, context, description and an optional target_url, with no shell syntax. Anything else,
-    or anything unparseable, is False and falls through to the full guard."""
-    if not isinstance(agent, str) or agent not in STATUS_CONTEXT:
-        return False
-    for pattern, inert in SUBSTITUTIONS:
-        command = pattern.sub(inert, command)
-    if SHELL_META.search(command):
-        return False
+    clean, spans = scan(command)
+    _SUBS.append(spans)
     try:
-        words = shlex.split(command)
-    except ValueError:
-        return False
-    if words[:2] != ["gh", "api"]:
-        return False
-    rest, endpoint, fields, i = words[2:], None, {}, 0
-    while i < len(rest):
-        word = rest[i]
-        if word in {"-X", "--method"} and i + 1 < len(rest) and rest[i + 1] == "POST":
-            i += 2
-        elif word in {"-f", "--raw-field"} and i + 1 < len(rest):
-            key, eq, value = rest[i + 1].partition("=")
-            if not eq or key not in STATUS_FIELDS or key in fields:
-                return False
-            fields[key] = value
-            i += 2
-        elif endpoint is None and not word.startswith("-") and STATUS_ENDPOINT.fullmatch(word):
-            endpoint = word
-            i += 1
-        else:
-            return False
-    return (
-        endpoint is not None
-        and fields.get("state") in STATUS_STATES
-        and fields.get("context") == STATUS_CONTEXT[agent]
-    )
+        for inner in spans:
+            check(inner, prefixes, paths)
+        protected_env = False
+        for argv in segments(clean):
+            normalized = strip_wrappers(argv)
+            if protected_env and normalized and os.path.basename(normalized[0]) == "gh":
+                args = gh_args(normalized)
+                if bare_words(args)[:1] == ["workflow"]:
+                    raise Deny(
+                        "`gh workflow` may not follow an earlier protected environment assignment"
+                    )
+            check_argv(argv, prefixes, paths)
+            protected_env = protected_env or sets_protected_gh_env(argv)
+    finally:
+        _SUBS.pop()
 
 
 def main(argv: list[str]) -> int:
@@ -514,8 +831,7 @@ def main(argv: list[str]) -> int:
         command = payload["tool_input"]["command"]
         if not isinstance(command, str):
             raise Deny("no command")
-        if is_own_status_post(payload.get("agent_type"), command):
-            return 0
+        _CALLER[0] = payload.get("agent_type")
         prefixes, paths = load_rules()
         check(command, prefixes, paths)
     except Deny as why:
