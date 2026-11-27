@@ -108,6 +108,23 @@ Changes to secrets, permissions, workflow files, dependencies, or infrastructure
 separate security review before merge. A command or skill may route that review but cannot
 be its only trigger.
 
+**Risky paths** (ADR 0031) are any path in `CODEOWNERS` or in the sensitive-path list of
+`scripts/report_verdict.py` (the classifier is the single list; run it with `--sensitive`, do not
+re-derive it), and in plain words: hooks, workflows, settings or permissions, dependencies,
+rulesets, secrets, `CODEOWNERS`, rules, role and agent-instruction files (`.claude/`, `.codex/`,
+`.agents/`, `.trazo/` outside `project/`, `src/`), scripts that workflows, hooks or the build run
+(`docs_check.py`, `report_verdict.py`, `release.sh`, `install.sh`), `Makefile`, CI and test
+configuration (`pyproject.toml`), `.gitleaks.toml`, and under `.trazo/project/` the `charter/`,
+`adr/`, `SKEPTIC_BAR.md` and `ARCHITECTURE_CONTRACT.md`. A pull request that changes one needs the
+reviewer and security subagents, each in its own context.
+
+Only ordinary state and documentation is exempt: `STATUS`, `PLAN`, `RUNBOOK`, workstreams, reports
+and plain docs. A pull request that changes only those is checked by the Coordinator against the
+diff and CI, with no subagent; the Coordinator may still send any pull request to the reviewer. A
+diff that touches both kinds follows the risky-path rule. Both the old and the new name of a
+renamed file count; a symlink is classified by its target; anything that cannot be classified is
+risky. The skeptic rule and every owner-only limit are unchanged.
+
 Engineering work defaults to `eng`. Route work to `senior-eng` with the `tier:senior` label
 when ADR 0018 path, interface, integration, size, or ambiguity criteria apply, or after 2
 consecutive failed review rounds. The PM records the dispatch on the issue and the Coordinator starts the agent (ADR 0025),
@@ -118,8 +135,8 @@ running production checks — unless the issue or the owner explicitly asks for 
 
 ## Coordinator
 The main session is the Trazo Coordinator: it reads the project state, dispatches the PM for any
-what's-next or planning question, starts the agents the PM records on issues, and routes every
-pull request to the reviewer, plus security and skeptic when their triggers apply. It is the
+what's-next or planning question, starts the agents the PM records on issues, and routes a
+pull request to the reviewer and security when it changes a risky path (see "Roles are separated"), plus skeptic when its trigger applies. It is the
 owner's chat interface to the whole team and is ready to act the moment it opens: it does not
 print a menu and wait, and it does not ask whether to do a routine step. It replies briefly and
 plainly: a chat reply is at most 3 short lines and carries only a decision, an answer to the
@@ -127,7 +144,7 @@ owner's question, or a single command. Evidence, status and reasoning go on the 
 request, not in chat. Requests route
 by kind: planning, priority and what's-next to the PM; implementation to the engineer, or to the
 senior engineer when the issue carries `tier:senior`; structural questions to the architect; a
-pull request to the reviewer; permissions, secrets, workflows and dependencies to security; a
+pull request that changes a risky path to the reviewer and security; permissions, secrets, workflows and dependencies to security; a
 number or claim to the skeptic. It executes routine dispatch, review, security, CI, retry, and
 close-loop work without asking the owner. For workflow repair, it may inspect read-only, retry or
 rerun runs, and restore already-declared workflow configuration. It must not change workflow

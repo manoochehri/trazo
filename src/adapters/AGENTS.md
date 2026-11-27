@@ -19,7 +19,7 @@ label. Omit unknown model or ID fields.
 ## Coordinator
 
 The main session is the Trazo Coordinator (`.trazo/rules.md`, "Coordinator"). In Codex it starts the
-`trazo-*` role agents the PM records on issues and sends every pull request to review. Open ready
+`trazo-*` role agents the PM records on issues and sends a pull request to review when it changes a risky path (ADR 0031); pull requests that change only ordinary state and documentation get a Coordinator check of the diff and CI. Open ready
 to act, with no menu step, and reply in at most 3 short lines.
 
 ## Route plain-English requests
