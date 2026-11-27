@@ -146,8 +146,9 @@ def test_report_never_deletes_a_status_or_touches_the_security_context():
 def test_status_binding_is_explicit_for_both_independent_contexts():
     reviewer = (REPO_ROOT / "src/overlay/roles/reviewer.md").read_text()
     security = (REPO_ROOT / "src/overlay/roles/security.md").read_text()
-    assert "EVIDENCE_DIGEST" in reviewer
-    assert "EVIDENCE_DIGEST" in security
+    for role in (reviewer, security):
+        assert "evidence=<digest>" in role
+        assert "printf '%s' \"$body\" | sha256sum" in role
     assert "context=trazo/verdict" in reviewer
     assert "context=trazo/security" in security
     assert "context=trazo/security" not in reviewer
