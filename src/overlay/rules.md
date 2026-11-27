@@ -108,13 +108,22 @@ Changes to secrets, permissions, workflow files, dependencies, or infrastructure
 separate security review before merge. A command or skill may route that review but cannot
 be its only trigger.
 
-**Risky paths** are hooks, workflows, settings or permissions, dependencies, rulesets, secrets,
-`CODEOWNERS`, and rules, role and agent-instruction files (ADR 0031). A pull request that changes
-one needs the reviewer and security subagents, each in its own context. A pull request that
-changes only documentation or `.trazo/project/` state is checked by the Coordinator against the
-diff and CI, with no subagent; the Coordinator uses discretion and may still send any pull request
-to the reviewer. If a diff touches both kinds, the risky path rule applies. The skeptic rule and
-every owner-only limit are unchanged.
+**Risky paths** (ADR 0031) are any path in `CODEOWNERS` or in the sensitive-path list of
+`scripts/report_verdict.py` (the classifier is the single list; run it with `--sensitive`, do not
+re-derive it), and in plain words: hooks, workflows, settings or permissions, dependencies,
+rulesets, secrets, `CODEOWNERS`, rules, role and agent-instruction files (`.claude/`, `.codex/`,
+`.agents/`, `.trazo/` outside `project/`, `src/`), scripts that workflows, hooks or the build run
+(`docs_check.py`, `report_verdict.py`, `release.sh`, `install.sh`), `Makefile`, CI and test
+configuration (`pyproject.toml`), `.gitleaks.toml`, and under `.trazo/project/` the `charter/`,
+`adr/`, `SKEPTIC_BAR.md` and `ARCHITECTURE_CONTRACT.md`. A pull request that changes one needs the
+reviewer and security subagents, each in its own context.
+
+Only ordinary state and documentation is exempt: `STATUS`, `PLAN`, `RUNBOOK`, workstreams, reports
+and plain docs. A pull request that changes only those is checked by the Coordinator against the
+diff and CI, with no subagent; the Coordinator may still send any pull request to the reviewer. A
+diff that touches both kinds follows the risky-path rule. Both the old and the new name of a
+renamed file count; a symlink is classified by its target; anything that cannot be classified is
+risky. The skeptic rule and every owner-only limit are unchanged.
 
 Engineering work defaults to `eng`. Route work to `senior-eng` with the `tier:senior` label
 when ADR 0018 path, interface, integration, size, or ambiguity criteria apply, or after 2

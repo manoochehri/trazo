@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-27  **Status:** proposed (becomes accepted when the owner merges this change; it edits `rules.md`)
 
-Raised by the owner on 2026-11-27 and tracked in [#367](https://github.com/manoochehri/trazo/issues/367).
+Narrowed after the security review of PR #368. Raised by the owner on 2026-11-27 and tracked in [#367](https://github.com/manoochehri/trazo/issues/367).
 Supersedes the routing clause of [0029](0029-the-front-door.md): "routes every pull request to the
 reviewer". Everything else in 0029 stands.
 
@@ -16,12 +16,20 @@ then "i approve the change".
 
 ## Decision
 
-The reviewer and security subagents are required only when a pull request changes a risky path:
-hooks, workflows, settings or permissions, dependencies, rulesets, secrets, `CODEOWNERS`, and rules,
-role and agent-instruction files. A pull request that changes only documentation or
-`.trazo/project/` state is checked by the Coordinator against the diff and CI, with no subagent.
-The Coordinator may still send any pull request to review. A diff that touches both kinds follows
-the risky-path rule.
+The reviewer and security subagents are required when a pull request changes a risky path. Risky
+means any path in `CODEOWNERS` or in the sensitive-path list of `scripts/report_verdict.py` (the
+existing classifier, reused by name so the two cannot drift), plus the readable summary: hooks,
+workflows, settings or permissions, dependencies, rulesets, secrets, rules, role and
+agent-instruction files, `.claude/`, `.codex/`, `.agents/`, `.trazo/` outside `project/`, `src/`,
+scripts run by workflows, hooks or the build (`docs_check.py`, `report_verdict.py`, `release.sh`,
+`install.sh`), `Makefile`, `pyproject.toml`, `.gitleaks.toml`, and under `.trazo/project/` the
+`charter/`, `adr/`, `SKEPTIC_BAR.md` and `ARCHITECTURE_CONTRACT.md`.
+
+Only ordinary state and documentation (STATUS, PLAN, RUNBOOK, workstreams, reports, plain docs) is
+exempt; the Coordinator checks such a pull request against the diff and CI with no subagent, and
+may still send any pull request to review. A diff touching both kinds follows the risky rule.
+Tie-breaks: both old and new names of a rename count, a symlink is classified by its target, and
+anything unclassifiable is risky (fail closed).
 
 Unchanged: the skeptic rule, "Roles are separated" for the risky paths, and every owner-only limit
 (`CODEOWNERS`, the stop list, secrets, the charter).
