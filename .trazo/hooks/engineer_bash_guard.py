@@ -87,6 +87,13 @@ OPERATORS = {";", "&", "&&", "|", "||", "|&", "(", ")", "\n", ";;", ";&", ";;&",
 REDIRECTS = {"<", ">", ">>", "<<", "<<<", "<&", ">&", ">|"}
 
 
+# A word that is only a project-relative `.claude/` path: no home prefix, no `..`, no empty or
+# dot component. The project's own `.claude/` is repo content; `Read(~/.claude/**)` is the home
+# directory's. Only this one deny pattern is skipped for such a word (#364).
+PROJECT_CLAUDE = re.compile(r"(\./)?\.claude(/[A-Za-z0-9_][A-Za-z0-9_.-]*)*/?")
+HOME_CLAUDE_GLOB = "~/.claude/**"
+
+
 class Deny(Exception):
     pass
 
@@ -393,7 +400,12 @@ def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Patter
     previous = ""
     for word in argv[1:]:
         if previous not in TEXT_FLAGS and not PLACEHOLDER.search(word):
-            if any(p.search(word) for p in paths):
+            project_claude = PROJECT_CLAUDE.fullmatch(word) is not None
+            if any(
+                p.search(word)
+                for p in paths
+                if not (project_claude and p.pattern == glob_to_regex(HOME_CLAUDE_GLOB).pattern)
+            ):
                 raise Deny(f"{word!r} names a secret path")
         previous = word
 
@@ -438,6 +450,16 @@ STATUS_ENDPOINT = re.compile(r"repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/statuses/[0
 STATUS_STATES = {"success", "failure", "pending", "error"}
 STATUS_FIELDS = {"state", "context", "description", "target_url"}
 SHELL_META = re.compile(r"[`$;&|<>()\\\n\r]")
+# The two read-only substitutions the reviewer and security role files tell their agents to use
+# for the endpoint (#364). Matched exactly and replaced by inert text before the shell-syntax
+# check, so any other `$(...)` still fails it.
+SUBSTITUTIONS = (
+    (re.compile(r"\$\(gh repo view --json nameWithOwner (?:-q|--jq) \.nameWithOwner\)"), "o/r"),
+    (
+        re.compile(r"\$\(gh pr view [0-9]{1,9} --json headRefOid (?:-q|--jq) \.headRefOid\)"),
+        "0" * 40,
+    ),
+)
 
 
 def is_own_status_post(agent: object, command: str) -> bool:
@@ -446,7 +468,11 @@ def is_own_status_post(agent: object, command: str) -> bool:
     context is the caller's (reviewer: trazo/verdict, security: trazo/security), whose fields are
     state, context, description and an optional target_url, with no shell syntax. Anything else,
     or anything unparseable, is False and falls through to the full guard."""
-    if not isinstance(agent, str) or agent not in STATUS_CONTEXT or SHELL_META.search(command):
+    if not isinstance(agent, str) or agent not in STATUS_CONTEXT:
+        return False
+    for pattern, inert in SUBSTITUTIONS:
+        command = pattern.sub(inert, command)
+    if SHELL_META.search(command):
         return False
     try:
         words = shlex.split(command)
