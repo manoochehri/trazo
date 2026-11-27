@@ -29,7 +29,8 @@ GitHub already holds the real limits: the main ruleset, CODEOWNERS and `owner-me
   (`~/.claude/projects/<project>/memory/`) and issue text, through `front_door_guard.py` only. The
   `Read(~/.claude/**)` deny stays and the edit lock on repository files stays. No `allow` entry
   ships in `settings.json`: shipped settings only deny, so they never grant a host permissions
-  (pinned by `tests/test_install.py`). Claude Code's own permission prompt for `~/.claude` memory
+  (pinned by `test_shipped_settings_keep_deny_rules_and_engineer_default` in
+  `tests/test_install.py` and by `tests/test_front_door_guard.py`). Claude Code's own permission prompt for `~/.claude` memory
   writes is therefore configured in the user's own settings, not shipped. The hook also cannot
   name only the current project's directory, since the project slug is not in the payload; it
   allows `~/.claude/projects/*/memory/`.
