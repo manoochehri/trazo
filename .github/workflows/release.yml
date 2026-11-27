@@ -1,0 +1,72 @@
+name: release
+# Cut the release tag from the default branch (#248, #380). The front door (or the owner) dispatches it:
+#
+#   gh workflow run release.yml
+#
+# It runs scripts/release.sh as the builder App, which the owner adds to the tag ruleset `v-create`'s bypass
+# list once with scripts/allow_release_app.py. release.sh still refuses unless: a clean default branch level
+# with origin, .template/VERSION is MAJOR.MINOR.PATCH with a changelog entry, the tag does not exist (a tag is
+# never moved), and the milestone vX.Y.Z has 0 open issues. This workflow adds the rule's last condition: CI
+# green on the commit being tagged. The tag ruleset `v` (no delete, force-move or update) has no bypass.
+#
+# UNVERIFIED on a live run: that the App's installation token may create the tag through the `v-create`
+# bypass (shape in scripts/allow_release_app.py). If the push is refused, release with `make release` as before.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: >-
+      github.actor == github.repository_owner &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: trazo-apps
+    permissions:
+      contents: read
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          # TODO: `app-id` is deprecated in v3.4.0; move to `client-id` later (as in drive.yml).
+          app-id: ${{ secrets.BUILDER_APP_ID }}
+          private-key: ${{ secrets.BUILDER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-issues: read
+          permission-checks: read
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token }}
+      - name: require CI green on this commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          runs=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs" \
+            -q '.check_runs[] | [.name, (.id | tostring), (.conclusion // "pending")] | @tsv' \
+            | sort -t "$(printf '\t')" -k1,1 -k2,2n \
+            | awk -F '\t' '{ latest[$1] = $3 } END { for (name in latest) print latest[name] }')
+          if [[ -z "$runs" ]] || grep -qvxE 'success|skipped' <<<"$runs"; then
+            echo "::error::CI is not green on ${sha}; not tagging."
+            exit 1
+          fi
+      - name: cut the tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          scripts/release.sh
