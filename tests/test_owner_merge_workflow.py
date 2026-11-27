@@ -297,6 +297,23 @@ def test_only_the_latest_run_of_each_check_counts(tmp_path):
     assert result.returncode == 0 and merges == MERGED
 
 
+@pytest.mark.parametrize("path", ["src/harness/scripts/x.py", ".trazo/VERSION"])
+def test_a_risky_path_only_the_extra_check_catches_merges_with_both_successes(tmp_path, path):
+    result, merges = _run(
+        tmp_path, FAKE_FILES=path, FAKE_VERDICT="success", FAKE_SECURITY="success"
+    )
+    assert result.returncode == 0, result.stdout
+    assert merges == MERGED
+
+
+@pytest.mark.parametrize("path", ["src/harness/scripts/x.py", ".trazo/VERSION"])
+def test_that_path_without_security_is_refused_as_risky_not_unclassified(tmp_path, path):
+    result, merges = _run(tmp_path, FAKE_FILES=path, FAKE_VERDICT="success", FAKE_SECURITY="")
+    assert result.returncode != 0 and merges == []
+    assert "risky" in result.stdout or "owner-protected" in result.stdout
+    assert "could not be classified" not in result.stdout
+
+
 def test_a_mixed_diff_counts_as_risky(tmp_path):
     files = "docs/notes.md,.github/workflows/ci.yml"
     result, merges = _run(tmp_path, FAKE_FILES=files, FAKE_VERDICT="")

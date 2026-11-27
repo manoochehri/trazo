@@ -84,7 +84,7 @@ jobs:
           sensitive=$(CHANGED_FILES="$changed" python3 scripts/report_verdict.py --sensitive .github/CODEOWNERS <<<"$files")
           # ADR 0031 also names all of src/ and .trazo/ outside project/ as risky; either name of a rename counts.
           extra=$(tr '\t' '\n' <<<"$files" | { grep -iE '^(src/|\.trazo/)' || true; } | { grep -viE '^\.trazo/project/' || true; })
-          if [[ -n "$extra" ]]; then sensitive=true; fi
+          if [[ -n "$extra" ]]; then sensitive=sensitive=true; fi
           status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/status?per_page=100")
           verdict=$(jq -r '[.statuses[] | select(.context == "trazo/verdict")][0].state // ""' <<<"$status")
           security=$(jq -r '[.statuses[] | select(.context == "trazo/security")][0].state // "none"' <<<"$status")
