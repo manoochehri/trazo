@@ -43,7 +43,7 @@ file that supersedes them. An upgrade never overwrites this state. Everything el
 `.trazo/` is the installed framework and is not hand-edited.
 
 ## The team (subagents in `.claude/agents/`, role commands in `.claude/commands/`)
-Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Role commands (`/pm`, `/eng`, `/senior-eng`) are thin dispatchers: each starts its pinned subagent, so the main session never builds. `/architect` sets the role prompt for that command turn; the model override does not persist to the next turn. `/work` runs in a forked Haiku context. `pm`, `engineer`, `senior-engineer`, `reviewer`, `security`, and `skeptic` are pinned subagents; a hook (`.trazo/hooks/agent_role_guard.py`) blocks any other subagent type. Reviewer/security checks are delegated automatically in `/work` and `/check-pr` or invoked ad hoc.
+Claude Code implements the canonical Trazo roles defined in `.trazo/roles/`. Role commands (`/pm`, `/eng`, `/senior-eng`) are thin dispatchers: each starts its pinned subagent, so the main session never builds. `/architect` sets the role prompt for that command turn; the model override does not persist to the next turn. `/work` runs in a forked Haiku context. `pm`, `engineer`, `senior-engineer`, `reviewer`, `security`, and `skeptic` are pinned subagents; a hook (`.trazo/hooks/agent_role_guard.py`) blocks any other subagent type. Reviewer/security checks are delegated automatically in `/work` and `/check-pr` for risky-path changes (ADR 0031) or invoked ad hoc; docs-only pull requests are checked by the Coordinator against the diff and CI.
 
 | Canonical Role | Claude Implementation | Model | Edits code? |
 |---|---|---|---|
@@ -75,7 +75,7 @@ The owner shouldn't need to remember commands. Map requests to routines:
 | "catch me up", "where are we", "what's next" | the Coordinator acts: dispatch the `pm` subagent, or the `/start` routine for a quick catch-up |
 | "what can I do", "help", "menu" | the Coordinator acts and reports what it is doing: `/trazo` |
 | "work on issue 12", "fix X" | `/work` routine; the commit message carries `Closes #12` |
-| "is this PR ok", "review #15", "can I merge" | `/check-pr` routine (or ask the **reviewer** subagent directly) |
+| "is this PR ok", "review #15", "can I merge" | `/check-pr` routine (or ask the **reviewer** subagent directly for a risky-path change) |
 | "is this secure", "check permissions" | ask the **security** subagent |
 | "is this number real?", "poke holes in this analysis", "what would make this wrong?" | ask the **skeptic** subagent |
 | "should we…", "is this worth it", "plan the next milestone" | `/pm` |

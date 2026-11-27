@@ -61,6 +61,7 @@ work. Follow their linked accepted successor where one exists.
 | [0026](0026-decide-then-tell.md) | Proposed; acceptance is tied to its stated owner review |
 | [0029](0029-the-front-door.md) | Proposed; acceptance is tied to its stated owner review |
 | [0030](0030-drive-halt-clears-itself-once.md) | Proposed; acceptance is tied to its stated owner review |
+| [0031](0031-review-by-path-not-every-pr.md) | Proposed; supersedes 0029's "every pull request" routing clause once the owner merges |
 
 ## Superseded decisions
 
