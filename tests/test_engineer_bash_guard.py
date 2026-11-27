@@ -293,3 +293,97 @@ def test_hooks_doc_describes_the_guard_and_its_limits():
     assert "engineer_bash_guard.py" in text
     assert "not a security boundary" in text
     assert "#320" in text, "the guard is a backstop; the non-admin agent token is the real fix"
+
+
+# Issue #364: the reviewer and security subagents post their own commit status as their roles
+# document it (`.trazo/roles/{reviewer,security}.md`): the repo and the head SHA come from
+# read-only `gh` substitutions, not literals. The own-status allowance rejected every `$` and so
+# never matched, and the call fell through to "gh api is read-only".
+SHA40 = "a" * 40
+REPO_SUB = "$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+SHA_SUB = "$(gh pr view 7 --json headRefOid -q .headRefOid)"
+ROLE_CONTEXT = {"reviewer": "trazo/verdict", "security": "trazo/security"}
+
+
+def _status(endpoint: str, context: str, state: str = "success") -> str:
+    return f'gh api -X POST {endpoint} -f state={state} -f context={context} -f description="ok"'
+
+
+@pytest.mark.parametrize("agent", sorted(ROLE_CONTEXT))
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        f"repos/o/r/statuses/{SHA40}",
+        f"repos/{REPO_SUB}/statuses/{SHA40}",
+        f"repos/{REPO_SUB}/statuses/{SHA_SUB}",
+        f"repos/o/r/statuses/{SHA_SUB}",
+    ],
+    ids=["literal", "repo-substitution", "documented", "sha-substitution"],
+)
+def test_reviewer_and_security_may_post_their_own_status(project, agent, endpoint):
+    command = _status(endpoint, ROLE_CONTEXT[agent])
+    assert not _blocked(project, command, agent), f"{agent}: {command!r} must be allowed"
+
+
+@pytest.mark.parametrize("agent", sorted(ROLE_CONTEXT))
+def test_a_role_may_not_post_another_roles_status_or_another_write(project, agent):
+    other = next(c for a, c in ROLE_CONTEXT.items() if a != agent)
+    endpoint = f"repos/{REPO_SUB}/statuses/{SHA_SUB}"
+    assert _blocked(project, _status(endpoint, other), agent)
+    assert _blocked(project, _status(endpoint, "ci/anything"), agent)
+    mine = ROLE_CONTEXT[agent]
+    for command in [
+        "gh api -X PUT repos/o/r/pulls/7/merge",
+        _status(f"repos/o/r/statuses/{SHA40}", mine) + " ; gh api -X PUT repos/o/r/pulls/7/merge",
+        _status("repos/$(rm -rf /)/statuses/" + SHA40, mine),
+        _status(f"repos/{REPO_SUB}/statuses/$(gh pr merge 7)", mine),
+        _status(f"repos/{REPO_SUB}/statuses/$(gh pr view 7 --json headRefOid -q .x)", mine),
+        _status(f"repos/o/r/statuses/{SHA40}", mine) + " -f target_url=$(cat x)",
+        f"gh api -X POST repos/o/r/issues/7/comments -f body=x -f context={mine}",
+    ]:
+        assert _blocked(project, command, agent), f"{agent}: {command!r} must stay blocked"
+
+
+@pytest.mark.parametrize("agent", [None, "engineer", "senior-engineer", "skeptic"])
+def test_no_other_caller_may_post_a_status(project, agent):
+    for context in ROLE_CONTEXT.values():
+        for endpoint in (f"repos/o/r/statuses/{SHA40}", f"repos/{REPO_SUB}/statuses/{SHA_SUB}"):
+            assert _blocked(project, _status(endpoint, context), agent)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git diff origin/main -- .claude/settings.json",
+        "grep -n permissions .claude/settings.json",
+        "cat .claude/agents/reviewer.md",
+        "ls .claude/commands",
+    ],
+)
+def test_project_claude_directory_is_not_a_secret_path(project, command):
+    """`Read(~/.claude/**)` is the home directory's; the project's `.claude/` is repo content."""
+    assert not _blocked(project, command, None), f"{command!r} must be allowed"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat ~/.claude/settings.json",
+        "cat /Users/me/.claude/projects/x",
+        "cat $HOME/.claude/x",
+        "cat ~/./.ssh/k",
+        "cat /Users/me//.ssh/k",
+        "cat ~//.claude/s",
+        "cat $HOME//.claude/s",
+        "cat $HOME/./.claude/s",
+        "cat /Users/me/x/../.ssh/k",
+        "cd ~; cat .ssh/k",
+        "cat /var/root/.ssh/k",
+        "cat .claude/../.ssh/k",
+        "cat .claude//../.ssh/k",
+        "cat .claude/secrets/x",
+    ],
+)
+def test_home_directory_secrets_stay_denied(project, command):
+    """Only a project-relative `.claude/` word is exempt; every home-prefixed form stays denied."""
+    assert _blocked(project, command, None), f"{command!r} must stay blocked"
