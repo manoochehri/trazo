@@ -12,6 +12,10 @@ changes a sensitive path never gets success from the bot: a person sets the stat
 /check-pr. Anything else is failure, including unreadable input. The reason text is fixed, never
 copied from a review or an exception.
 
+Plan-status mode (`--plan-status`): reads EXISTING_JSON, APP_SLUG, EVIDENCE_DIGEST, STATE and REASON
+from the environment and prints JSON saying whether the App may write trazo/verdict (only over a
+status it wrote itself, or none) and the description to use, capped at 140 characters.
+
 Classify mode (`--sensitive <CODEOWNERS file>`): reads the changed files as tab-separated
 `filename<TAB>previous_filename` lines on stdin and prints `sensitive=true|false`. Both names count,
 so a file renamed out of a sensitive path is still sensitive. The check uses the CODEOWNERS file
@@ -19,6 +23,7 @@ of the base branch, plus the extra paths below. The count of lines must equal CH
 listing is treated as sensitive and the gate fails closed.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -101,6 +106,57 @@ EXTRA_SENSITIVE_BASENAMES = (
 
 def parse_time(value):
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def evidence_digest(body):
+    """Identify the exact PR evidence revision used by a review gate."""
+    if not isinstance(body, str):
+        body = ""
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def status_matches_evidence(description, digest):
+    """Return whether a status description carries the requested evidence digest."""
+    if not isinstance(description, str) or not isinstance(digest, str):
+        return False
+    match = re.search(r"(?:^|\s)evidence=([0-9a-f]{64})(?:\s|$)", description)
+    return bool(match and match.group(1) == digest)
+
+
+STATUS_DESCRIPTION_MAX = 140  # GitHub's cap on a commit status description (UNVERIFIED here)
+LOOKUP_FAILED_REASON = "could not check the head's existing verdict"
+
+
+def status_description(digest, reason):
+    """Build `evidence=<digest> <reason>`, truncated so the status POST cannot exceed the cap."""
+    description = f"evidence={digest} {reason}"
+    if len(description) > STATUS_DESCRIPTION_MAX:
+        description = description[: STATUS_DESCRIPTION_MAX - 3] + "..."
+    return description
+
+
+def plan_status(existing, app_slug, digest, state, reason):
+    """Decide whether the App may write trazo/verdict over `existing`.
+
+    `existing` is the head's latest trazo/verdict status as {state, creator, description}, or
+    anything else when the lookup failed (which forces failure, never success). Only a status the
+    App itself wrote may be superseded: a terminal status from anyone else, such as a reviewer
+    failure, is never replaced, with or without an evidence digest. A pending from anyone else is
+    another review in progress and is left alone.
+    """
+    if not isinstance(existing, dict):
+        state, reason, existing = "failure", LOOKUP_FAILED_REASON, {}
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        state, reason, digest = "failure", "no review evidence digest", ""
+    own = bool(app_slug) and existing.get("creator") == f"{app_slug}[bot]"
+    current = existing.get("state") or ""
+    if current in ("success", "failure"):
+        if status_matches_evidence(existing.get("description"), digest) or not own:
+            return {"post": False, "note": "terminal verdict kept"}
+    elif current == "pending" and not own:
+        return {"post": False, "note": "pending from another writer; leaving it"}
+    description = status_description(digest, reason) if digest else reason[:STATUS_DESCRIPTION_MAX]
+    return {"post": True, "state": state, "description": description, "note": "writing verdict"}
 
 
 def first_line(body):
@@ -299,6 +355,20 @@ def classify_git_diff(diff: bytes, codeowners_text: str) -> bool:
 
 
 def main(argv):
+    if len(argv) == 2 and argv[1] == "--plan-status":
+        try:
+            existing = json.loads(os.environ.get("EXISTING_JSON", ""))
+        except ValueError:
+            existing = None
+        plan = plan_status(
+            existing,
+            os.environ.get("APP_SLUG", ""),
+            os.environ.get("EVIDENCE_DIGEST", ""),
+            os.environ.get("STATE", "failure"),
+            os.environ.get("REASON", ""),
+        )
+        print(json.dumps(plan))
+        return 0
     if len(argv) == 3 and argv[1] == "--sensitive-git-diff":
         with open(argv[2], encoding="utf-8") as handle:
             codeowners_text = handle.read()

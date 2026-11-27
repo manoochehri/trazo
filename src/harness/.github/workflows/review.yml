@@ -15,11 +15,11 @@ jobs:
     # vars.AUTO_REVIEW_ENABLED is the owner's kill switch. Forked PRs never get the key:
     # their diff is untrusted input. Only PRs into the default branch are reviewed: a re-run keeps its
     # original event, so a review started against another base must never run, or a later retarget to
-    # the default branch would turn it into a verdict (#291). `edited` counts only when the base
-    # changed (a retarget starts a fresh review); a title or body edit starts nothing.
+    # the default branch would turn it into a verdict (#291). A base or body edit starts a fresh
+    # review; title-only edits do not change the evidence and do not restart one.
     if: >-
       vars.AUTO_REVIEW_ENABLED == 'true' &&
-      (github.event.action != 'edited' || github.event.changes.base != null) &&
+      (github.event.action != 'edited' || github.event.changes.base != null || github.event.changes.body != null) &&
       github.event.pull_request.base.ref == github.event.repository.default_branch &&
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository
@@ -35,16 +35,37 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BODY: ${{ github.event.pull_request.body || '' }}
         run: |
-          # Reads the trazo/verdict context on this head. Only the reviewer subagent sets it.
-          state=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
-            -q '[.[] | select(.context == "trazo/verdict")][0].state // ""')
-          if [[ "$state" == "success" || "$state" == "failure" ]]; then
+          # A commit status is head-bound by the API, and its description carries the exact PR
+          # evidence revision. A terminal result from an older body must trigger a fresh review.
+          evidence=$(printf '%s' "$BODY" | sha256sum | awk '{print $1}')
+          status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
+            -q '[.[] | select(.context == "trazo/verdict")][0] | {state: (.state // ""), description: (.description // "")}')
+          state=$(jq -r '.state' <<<"$status")
+          description=$(jq -r '.description' <<<"$status")
+          if [[ "$state" == "success" || "$state" == "failure" ]] && \
+             [[ "$description" =~ (^|[[:space:]])evidence=${evidence}([[:space:]]|$) ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Head ${SHA} already has a verdict (${state}); not reviewing again."
+            echo "Head ${SHA} already has a verdict (${state}) for current evidence; not reviewing again."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "No terminal verdict bound to current evidence; starting a fresh review."
           fi
+      - name: capture event-time evidence digest
+        if: steps.gate.outputs.skip == 'false'
+        env:
+          BODY: ${{ github.event.pull_request.body || '' }}
+        run: |
+          printf '%s' "$BODY" | sha256sum | awk '{print $1}' > "$RUNNER_TEMP/evidence-digest"
+      - name: upload event-time evidence digest
+        if: steps.gate.outputs.skip == 'false'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: review-evidence
+          path: ${{ runner.temp }}/evidence-digest
+          if-no-files-found: error
   review:
     needs: gate
     if: needs.gate.outputs.skip == 'false'
