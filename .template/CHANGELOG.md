@@ -1,5 +1,24 @@
 # Trazo changelog
 
+## 0.5.0 (2026-11-27)
+Reviewer and security can post their own status again, review runs only for risky paths, and the owner-merge gate depends on what a pull request changes.
+- #319 A front-door guard hook stops the main session from editing files outside `.trazo/project/`, and in Bash from running `gh pr edit`, `git commit --allow-empty`, `git apply`, `sed -i`, `perl -i`, `tee` or writing to a file by redirection; engineering goes through `/work` (live behavior UNVERIFIED, see below)
+- #359 The review gate counts a verdict or security status only for the current head and the current PR-body evidence; editing the evidence starts a fresh review
+- #364 The engineer Bash guard no longer blocks reviewer and security from posting their own commit status; it allows the two read-only lookups the role files use
+- #371 Reviewer and security role files read the head SHA and evidence digest first, then post their status with one plain call using literal values
+- #367 Reviewer and security run only for risky paths (hooks, workflows, settings and permissions, dependencies, rulesets, secrets, CODEOWNERS, rules and role files). Docs-only and `.trazo/project/` pull requests get a Coordinator check of diff and CI instead (ADR 0031, which supersedes the "every pull request" routing in ADR 0029)
+- #320 (partial) The owner-merge gate depends on path risk. Docs-only pull requests merge on green CI with no reviewer status. Risky pull requests still need reviewer and security success on the current head. Owner-only paths (CODEOWNERS) are unchanged. Only the latest check run per name counts, so a re-run replaces an old failure. Ruleset rollback tooling (`scripts/rollback_ruleset.sh`) restores the saved "protect main" ruleset and refuses when the live copy differs in name.
+- #252 The drive workflow ships switched off (`DRIVE_ENABLED` unset) and is UNVERIFIED on a live run. The supervised first run (#247) is not in this release.
+
+Not in 0.5.0
+- Pinning `trazo/verdict` to the reviewer App. The scratch pin test (`scripts/scratch_pin_test.sh`) ships as a script only; it has not been run and pins nothing.
+- The restricted agent token (#366).
+
+Upgrading from 0.4.2
+- Run `install.sh upgrade v0.5.0` (use `--dry-run` first). `.trazo/` is replaced from the tag; `.trazo/project/` is never touched.
+- The front-door guard hook is new. UNVERIFIED: its input shape has not been checked on a live run. After upgrading, probe it once: ask the main session to edit a file outside `.trazo/project/`; the edit should be refused. The hook fails closed, so a mismatch blocks the action rather than allowing it.
+- Owner merges of docs-only pull requests need no reviewer status; risky pull requests are unchanged.
+
 ## 0.4.2 (2026-11-25)
 Coordinator action loop and canonical architecture baseline.
 - #353 Make the Coordinator action-first and remove routine owner merge handoffs
