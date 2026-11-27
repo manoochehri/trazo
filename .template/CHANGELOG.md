@@ -2,7 +2,7 @@
 
 ## 0.5.0 (2026-11-27)
 Reviewer and security can post their own status again, review runs only for risky paths, and the owner-merge gate depends on what a pull request changes.
-- #319 A front-door guard hook stops the main session from editing files outside `.trazo/project/` or from pushing and merging; engineering goes through `/work` (live behavior UNVERIFIED, see below)
+- #319 A front-door guard hook stops the main session from editing files outside `.trazo/project/`, and in Bash from running `gh pr edit`, `git commit --allow-empty`, `git apply`, `sed -i`, `perl -i`, `tee` or writing to a file by redirection; engineering goes through `/work` (live behavior UNVERIFIED, see below)
 - #359 The review gate counts a verdict or security status only for the current head and the current PR-body evidence; editing the evidence starts a fresh review
 - #364 The engineer Bash guard no longer blocks reviewer and security from posting their own commit status; it allows the two read-only lookups the role files use
 - #371 Reviewer and security role files read the head SHA and evidence digest first, then post their status with one plain call using literal values
