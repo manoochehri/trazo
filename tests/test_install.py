@@ -493,13 +493,15 @@ def test_shipped_settings_keep_deny_rules_and_engineer_default():
     # #279: the one shipped hook is the PM Bash guard, which can only block.
     assert set(perms["hooks"]) == {"PreToolUse"}
     # #326: the second shipped hook allows only the pinned roles to start as subagents.
-    bash_entry, agent_entry = perms["hooks"]["PreToolUse"]
+    bash_entry, agent_entry, door_entry = perms["hooks"]["PreToolUse"]
     assert bash_entry["matcher"] == "Bash"
     assert "pm_bash_guard.py" in bash_entry["hooks"][0]["command"]
     # #330: the engineer Bash guard rides the same matcher, for every caller but pm.
     assert "engineer_bash_guard.py" in bash_entry["hooks"][1]["command"]
     assert agent_entry["matcher"] == "Agent|Task"
     assert "agent_role_guard.py" in agent_entry["hooks"][0]["command"]
+    # #319: the front door guard binds the main session's Bash and edit tools.
+    assert "front_door_guard.py" in door_entry["hooks"][0]["command"]
 
 
 def test_reversed_markers_are_refused(host, source):

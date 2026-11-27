@@ -149,6 +149,37 @@ is `/architect`.
   script is missing.
 - **Not covered.** There is no pinned architect agent (ADR 0021 says none), so `/architect` stays a
   main-session role switch. `/eng` and `/senior-eng` start the pinned `engineer` and `senior-engineer`
-  subagents, so the main session no longer needs to write; a lock on main-session writes is the next
-  step and is not part of this change. A hook binds the session it is registered in, not the agents
+  subagents, so the main session no longer needs to write; the lock on main-session writes is
+  `front_door_guard.py` below (#319). A hook binds the session it is registered in, not the agents
   that session starts.
+
+# The front door does not do engineer work: `front_door_guard.py` (issue #319)
+
+In a v0.3.1 host the front door edited pull request bodies and pushed empty commits to re-run CI
+instead of dispatching an engineer. The role split was prose only. `settings.json` now registers a
+`PreToolUse` hook on `Bash`, `Edit`, `Write`, `MultiEdit` and `NotebookEdit` that blocks the main
+session from doing that work and says to dispatch an engineer (`/work <issue>`, or `/senior-eng`).
+
+- **Who it binds.** The main session: a payload with no `agent_id` and no `agent_type`. A subagent's
+  calls carry both, so the engineer, reviewer and the rest are not bound by it (their own guards
+  are). `/eng` and `/senior-eng` start the pinned engineer subagents, so no role marker is needed
+  and nothing can go stale or be forged.
+- **What it blocks.** Edit, Write, MultiEdit and NotebookEdit on any file outside `.trazo/project/`
+  (the path is resolved first, so `..` and symlinks do not escape; `/decide`, `/wrapup` and
+  `/kickoff` write there from the main session). In Bash: a pull request body or label edit
+  (`gh pr edit`), `git commit --allow-empty`, `git apply`, `sed -i`, `perl -i`, `tee` and a
+  redirection to a file, including inside `bash -c`, `eval` and `$(...)`. Reading, `gh pr
+  create|comment|view`, `gh issue *`, plain commits and pushes, and dispatching `owner-merge.yml`
+  pass through.
+- **Fails closed.** Unparseable input, a missing path, a relative path, an unbalanced quote or a
+  missing script all block (the declared command ends `|| exit 2`).
+- **UNVERIFIED live.** That the main session's payload has neither field, that a forked skill
+  (`/work`) carries them, and the NotebookEdit input shape (`notebook_path`) come from the Claude
+  Code hooks documentation, not a recorded payload. If a forked skill carries neither field its
+  edits are blocked with this message: too strict, never open. Probe the four cases (main
+  session, subagent, `/eng`, `-p`) before relying on it.
+- **A speed bump, not a boundary.** `python -c`, a script the agent writes then runs, shell
+  variables and globs still write files. The CI ratchet and the review gates are the backstop; a
+  hook that derives its path list from `settings.json` is a follow-up on #319.
+- **Existing hosts.** `upgrade` merges the hook entry and places the script in `.trazo/hooks/`;
+  add the entry by hand only if the script is already there.
