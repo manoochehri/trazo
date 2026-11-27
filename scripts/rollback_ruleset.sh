@@ -18,6 +18,13 @@ repo=${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}
 [[ -f "$file" ]] || { echo "no such file: $file" >&2; exit 2; }
 norm='{name,target,enforcement,conditions,rules,bypass_actors}'
 want=$(jq -S "$norm" "$file")
+# Refuse to overwrite a ruleset that is not the one the file was saved from.
+live_name=$(gh api "repos/${repo}/rulesets/${id}" -q .name)
+want_name=$(jq -r .name "$file")
+if [[ "$live_name" != "$want_name" ]]; then
+  echo "refusing: ruleset ${id} is named '${live_name}' but ${file} was saved from '${want_name}'" >&2
+  exit 2
+fi
 printf '%s' "$want" | gh api -X PUT "repos/${repo}/rulesets/${id}" --input - >/dev/null
 got=$(gh api "repos/${repo}/rulesets/${id}" | jq -S "$norm")
 if [[ "$got" == "$want" ]]; then

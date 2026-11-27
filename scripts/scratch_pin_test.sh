@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Scratch-branch test of pinning trazo/verdict to the reviewer App (#320, #212). Run by the owner.
 #
-#   scripts/scratch_pin_test.sh <reviewer-app-id> [<sha-with-app-success>]
+#   scripts/scratch_pin_test.sh <reviewer-app-id>
 #
 # <reviewer-app-id> is the numeric "App ID" on https://github.com/settings/apps/trazo-reviewer.
 # It touches ONLY: two scratch branches (scratch/pin-base, scratch/pin-head), one scratch ruleset
@@ -11,17 +11,13 @@
 #
 # Cases, each printed with its raw output so the result can be pasted on the issue:
 #   A. trazo/verdict=success set by the OWNER login is NOT enough: the pull request stays BLOCKED.
-#   B. (only if <sha-with-app-success> is given) a head whose trazo/verdict success was set by the
-#      reviewer App IS enough: the pull request is not BLOCKED. UNVERIFIED until run; at the time of
-#      writing no commit in this repository carries an App success, only App failures.
 #   C. with the owner (repository Admin role) as bypass actor, the owner's own merge into the scratch
-#      base still works.
+#      base still works. Valid only if the printed current_user_can_bypass is "always".
 #   D. rollback rehearsal: scripts/rollback_ruleset.sh restores the scratch ruleset to the saved
 #      pre-pin JSON and reports an exact match.
 # UNVERIFIED: the Admin role's bypass actor_id 5 (same assumption as scripts/protect_release_tags.py).
 set -euo pipefail
-app_id=${1:?usage: scratch_pin_test.sh <reviewer-app-id> [<sha-with-app-success>]}
-pos_sha=${2:-}
+app_id=${1:?usage: scratch_pin_test.sh <reviewer-app-id>}
 [[ "$app_id" =~ ^[0-9]+$ ]] || { echo "app id must be a number" >&2; exit 2; }
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo=${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}
@@ -30,14 +26,19 @@ work=$(mktemp -d)
 rs_id="" pr=""
 cleanup() {
   set +e
-  [[ -n "$pr" ]] && gh pr close "$pr" -R "$repo" >/dev/null 2>&1
-  [[ -n "$rs_id" ]] && gh api -X DELETE "repos/${repo}/rulesets/${rs_id}" >/dev/null 2>&1
-  gh api -X DELETE "repos/${repo}/git/refs/heads/${head}" >/dev/null 2>&1
-  gh api -X DELETE "repos/${repo}/git/refs/heads/${base}" >/dev/null 2>&1
+  if [[ -n "$pr" ]]; then
+    gh pr close "$pr" -R "$repo" >/dev/null 2>&1 || echo "note: could not close PR ${pr} (already merged or closed?)" >&2
+  fi
+  if [[ -n "$rs_id" ]]; then
+    gh api -X DELETE "repos/${repo}/rulesets/${rs_id}" >/dev/null 2>&1 || echo "WARNING: scratch ruleset ${rs_id} was NOT deleted; delete it by hand" >&2
+  fi
+  gh api -X DELETE "repos/${repo}/git/refs/heads/${head}" >/dev/null 2>&1 || echo "WARNING: branch ${head} was NOT deleted" >&2
+  gh api -X DELETE "repos/${repo}/git/refs/heads/${base}" >/dev/null 2>&1 || echo "WARNING: branch ${base} was NOT deleted" >&2
   rm -rf "$work"
   echo "cleanup done: scratch ruleset ${rs_id:-none}, branches ${base} and ${head}, PR ${pr:-none}"
 }
 trap cleanup EXIT
+[[ -z "${2:-}" ]] || { echo "usage: scratch_pin_test.sh <reviewer-app-id> (no other arguments)" >&2; exit 2; }
 
 main_sha=$(gh api "repos/${repo}/git/ref/heads/main" -q .object.sha)
 gh api -X POST "repos/${repo}/git/refs" -f ref="refs/heads/${base}" -f sha="$main_sha" >/dev/null
@@ -76,21 +77,11 @@ echo "== A. verdict success from the owner login"
 gh api -X POST "repos/${repo}/statuses/${commit}" -f state=success -f context=trazo/verdict -f description="scratch: owner-set" >/dev/null
 sleep 5; echo "mergeStateStatus: $(state)   (expected BLOCKED)"
 
-if [[ -n "$pos_sha" ]]; then
-  echo "== B. head whose verdict success came from the reviewer App: ${pos_sha}"
-  who=$(gh api "repos/${repo}/commits/${pos_sha}/statuses" -q '[.[]|select(.context=="trazo/verdict" and .state=="success")][0].creator.login')
-  echo "success set by: ${who}   (must be the reviewer App bot)"
-  gh api -X PATCH "repos/${repo}/git/refs/heads/${head}" -f sha="$pos_sha" -F force=true >/dev/null
-  sleep 5; echo "mergeStateStatus: $(state)   (expected not BLOCKED)"
-  gh api -X PATCH "repos/${repo}/git/refs/heads/${head}" -f sha="$commit" -F force=true >/dev/null
-else
-  echo "== B. skipped: no <sha-with-app-success> given"
-fi
-
 echo "== C. owner as bypass actor (Admin role), then the owner merges into the scratch base"
 jq '.bypass_actors = [{actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always"}]' "$work/pinned.json" > "$work/bypass.json"
 gh api -X PUT "repos/${repo}/rulesets/${rs_id}" --input "$work/bypass.json" >/dev/null
-gh api "repos/${repo}/rulesets/${rs_id}" -q '{current_user_can_bypass, bypass_actors}'
+can=$(gh api "repos/${repo}/rulesets/${rs_id}" -q .current_user_can_bypass)
+echo "current_user_can_bypass: ${can}   (case C's result below is only valid if this is 'always')"
 gh pr merge "$pr" -R "$repo" --squash --admin && echo "owner merge into ${base}: OK" || echo "owner merge into ${base}: FAILED"
 
 echo "== D. rollback rehearsal on the scratch ruleset"
