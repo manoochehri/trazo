@@ -74,7 +74,7 @@ jobs:
             finish none "no verdict: the head moved since the review; the new head gets its own review"
           fi
           artifact_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
-            -q '[.artifacts[] | select(.name == "review-evidence")][0].id // ""') \
+            -q '[.artifacts[] | select(.name == "review-evidence" and (.expired | not))] | sort_by(.created_at) | last | .id // ""') \
             || finish failure "could not find the review evidence artifact"
           if [[ ! "$artifact_id" =~ ^[0-9]+$ ]]; then
             finish failure "could not find the review evidence artifact"
@@ -132,7 +132,7 @@ jobs:
           result=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
             | python3 scripts/report_verdict.py) \
             || result=$'state=failure\nreason=could not decide from reviews'
-          printf '%s\n' "$result" >> "$GITHUB_OUTPUT"
+          printf '%s\nevidence=%s\n' "$result" "$EVIDENCE_DIGEST" >> "$GITHUB_OUTPUT"
       - name: mint the reviewer App token
         id: app
         if: steps.decide.outputs.state != 'none'
@@ -154,35 +154,20 @@ jobs:
           REASON: ${{ steps.decide.outputs.reason }}
           EVIDENCE_DIGEST: ${{ steps.decide.outputs.evidence }}
         run: |
-          # A terminal status is reusable only when it carries this exact evidence digest. A stale
-          # terminal status may be superseded only now, after this independent review completed.
-          # If the lookup fails, write failure, never success. A pending set by anyone but this App
-          # is another independent review in progress, so it is left alone too.
+          # The App may supersede only a status it wrote itself (scripts/report_verdict.py
+          # --plan-status). A terminal status from anyone else, such as a reviewer failure, is never
+          # replaced, and a pending from anyone else is another review in progress. If the lookup
+          # fails, failure is written, never success.
           existing_json=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/statuses" \
-            -q '[.[] | select(.context == "trazo/verdict")][0] | {state: (.state // ""), creator: (.creator.login // ""), description: (.description // "")}') || {
-            existing_json='{}'
-            STATE=failure
-            REASON="could not check the head's existing verdict"
-          }
-          existing=$(jq -r '.state // ""' <<<"$existing_json")
-          creator=$(jq -r '.creator // ""' <<<"$existing_json")
-          description=$(jq -r '.description // ""' <<<"$existing_json")
-          case "$existing" in
-            success|failure)
-              if [[ "$description" =~ (^|[[:space:]])evidence=${EVIDENCE_DIGEST}([[:space:]]|$) ]]; then
-                echo "trazo/verdict is already ${existing} for this head and evidence; leaving it."
-                exit 0
-              fi
-              echo "Replacing stale terminal verdict for the current evidence after fresh review."
-              ;;
-            pending)
-              if [[ "$creator" != "${APP_SLUG}[bot]" ]]; then
-                echo "trazo/verdict is pending from another writer; leaving it."
-                exit 0
-              fi
-              ;;
-          esac
+            -q '[.[] | select(.context == "trazo/verdict")][0] | {state: (.state // ""), creator: (.creator.login // ""), description: (.description // "")}') \
+            || existing_json=""
+          plan=$(EXISTING_JSON="$existing_json" python3 scripts/report_verdict.py --plan-status) \
+            || plan='{"post": true, "state": "failure", "description": "could not plan the verdict status"}'
+          if [[ "$(jq -r '.post' <<<"$plan")" != "true" ]]; then
+            echo "trazo/verdict left as it is: $(jq -r '.note // ""' <<<"$plan")"
+            exit 0
+          fi
           gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
-            -f state="$STATE" -f context=trazo/verdict \
-            -f description="evidence=${EVIDENCE_DIGEST} ${REASON}" \
+            -f state="$(jq -r '.state' <<<"$plan")" -f context=trazo/verdict \
+            -f description="$(jq -r '.description' <<<"$plan")" \
             -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/$GITHUB_RUN_ID"

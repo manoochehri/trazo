@@ -464,3 +464,100 @@ def test_package_manager_and_submodule_config_is_sensitive():
         if not report_verdict.is_sensitive_path(p, patterns)
     ]
     assert not missed, missed
+
+
+# --- plan_status: who may replace an existing trazo/verdict (issue #359 security finding) ---
+APP = "trazo-reviewer"
+DIGEST = "c" * 64
+STALE = "d" * 64
+
+
+def plan(existing, state="success", reason="bot review on this head says merge", digest=DIGEST):
+    return report_verdict.plan_status(existing, APP, digest, state, reason)
+
+
+def existing(state, creator, description=""):
+    return {"state": state, "creator": creator, "description": description}
+
+
+def test_non_app_failure_with_missing_digest_is_never_replaced_by_success():
+    result = plan(existing("failure", "manoochehri", "don't merge"))
+    assert result["post"] is False
+
+
+def test_non_app_failure_with_stale_digest_is_never_replaced_by_success():
+    result = plan(existing("failure", "manoochehri", f"evidence={STALE} don't merge"))
+    assert result["post"] is False
+
+
+def test_non_app_success_is_left_alone_too():
+    assert plan(existing("success", "someone", ""), state="failure")["post"] is False
+
+
+def test_app_terminal_status_with_stale_digest_is_superseded():
+    result = plan(existing("failure", f"{APP}[bot]", f"evidence={STALE} x"))
+    assert result["post"] is True and result["state"] == "success"
+
+
+def test_app_terminal_status_for_the_current_evidence_is_left_alone():
+    assert plan(existing("success", f"{APP}[bot]", f"evidence={DIGEST} x"))["post"] is False
+
+
+def test_empty_app_slug_never_matches_a_creator():
+    result = report_verdict.plan_status(
+        existing("failure", "[bot]", ""), "", DIGEST, "success", "r"
+    )
+    assert result["post"] is False
+
+
+def test_pending_from_another_writer_is_left_alone_and_own_pending_is_replaced():
+    assert plan(existing("pending", "someone"))["post"] is False
+    assert plan(existing("pending", f"{APP}[bot]"))["post"] is True
+    assert plan(existing("", ""))["post"] is True
+
+
+def test_failed_lookup_writes_failure_never_success():
+    for bad in (None, "", "not json"):
+        result = plan(bad)
+        assert result["post"] is True and result["state"] == "failure"
+
+
+def test_missing_digest_fails_closed():
+    result = plan(existing("pending", f"{APP}[bot]"), digest="")
+    assert result["state"] == "failure" and "evidence" not in result["description"].split()[0]
+
+
+def test_every_description_fits_the_status_cap():
+    longest = "x" * 500
+    reasons = [
+        "no bot review for this head was submitted after the review job started",
+        "could not check the head's existing verdict",
+        longest,
+    ]
+    for reason in reasons:
+        desc = plan(existing("pending", f"{APP}[bot]"), reason=reason)["description"]
+        assert len(desc) <= 140
+        assert report_verdict.status_matches_evidence(desc, DIGEST)
+
+
+def test_plan_status_cli_reads_the_environment():
+    import os
+    import subprocess
+    import sys
+
+    env = {
+        **os.environ,
+        "EXISTING_JSON": json.dumps(existing("failure", "manoochehri", "don't merge")),
+        "APP_SLUG": APP,
+        "EVIDENCE_DIGEST": DIGEST,
+        "STATE": "success",
+        "REASON": "bot review on this head says merge",
+    }
+    out = subprocess.run(  # noqa: S603
+        [sys.executable, str(SCRIPT), "--plan-status"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert json.loads(out)["post"] is False

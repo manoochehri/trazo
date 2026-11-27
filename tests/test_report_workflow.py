@@ -127,12 +127,6 @@ def test_report_keeps_the_head_bound_rules_of_adr_0023_and_0020():
     assert "moved" in t  # a head that moved since the review is never marked
 
 
-def test_report_never_overwrites_a_terminal_verdict():
-    t = text()
-    assert "success|failure)" in t and "leaving it" in t
-    assert "could not check the head's existing verdict" in t
-
-
 def test_terminal_verdict_skip_requires_the_current_evidence_digest():
     review = text("review.yml")
     assert "sha256sum" in review
@@ -143,14 +137,8 @@ def test_terminal_verdict_skip_requires_the_current_evidence_digest():
     assert "upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in review
 
 
-def test_report_replaces_only_a_stale_terminal_verdict_after_fresh_review():
+def test_report_never_deletes_a_status_or_touches_the_security_context():
     report = text()
-    assert "EVIDENCE_DIGEST" in report
-    assert "existing_description" in report or "description=$(jq" in report
-    assert "stale terminal verdict" in report.lower()
-    assert 'name == "review-evidence"' in report
-    assert "current_evidence" in report
-    assert "evidence changed during the review" in report
     assert "-X DELETE" not in report
     assert "trazo/security" not in report
 
@@ -214,13 +202,6 @@ def test_classification_reads_fixed_shas_through_the_compare_endpoint():
     assert "pulls/${PR_NUMBER}/files" not in t
 
 
-def test_status_step_leaves_a_pending_verdict_from_another_writer():
-    step = text().split("- name: set trazo/verdict")[1]
-    assert "creator.login" in step
-    assert "APP_SLUG}[bot]" in step
-    assert "pending from another writer" in step
-
-
 def test_only_pull_requests_against_the_default_branch_get_a_verdict():
     # A commit status is shared by every PR with that head, so a verdict earned against another
     # base would show green on a PR into the default branch (security review of #294).
@@ -277,3 +258,189 @@ def test_adr_0028_does_not_claim_a_verdict_cannot_come_from_another_base():
     ).read_text()
     assert "can only come from a default-base review run" not in adr
     assert "retarget" in adr and "edited" in adr
+
+
+# --- run the real workflow steps against a stub `gh` (issue #359) ---
+import hashlib  # noqa: E402
+import json  # noqa: E402
+import os  # noqa: E402
+import subprocess  # noqa: E402
+import zipfile  # noqa: E402
+
+APP_SLUG = "trazo-reviewer"
+SHA = "a" * 40
+BODY = "PR evidence body"
+DIGEST = hashlib.sha256(BODY.encode()).hexdigest()
+
+# A fake `gh`: POSTs are logged; reads return the first fixture whose key is in the URL, with the
+# call's own `-q` jq filter applied, so the workflow's real filters run.
+STUB = r"""#!/usr/bin/env python3
+import json, os, subprocess, sys
+args = sys.argv[1:]
+d = os.environ["STUB_DIR"]
+if "-X" in args and "POST" in args:
+    with open(os.path.join(d, "posts.log"), "a") as f:
+        f.write(json.dumps(args) + "\n")
+    sys.exit(0)
+url = next(a for a in args[1:] if a.startswith("repos/"))
+q = args[args.index("-q") + 1] if "-q" in args else None
+fixtures = json.load(open(os.path.join(d, "fixtures.json")))
+key = next((k for k in fixtures if k in url), None)
+if key is None:
+    sys.exit(1)
+if key == "/zip":
+    sys.stdout.buffer.write(open(os.path.join(d, "artifact-source.zip"), "rb").read())
+    sys.exit(0)
+val = fixtures[key]
+if q is None:
+    print(json.dumps(val))
+else:
+    out = subprocess.run(["jq", "-r", q], input=json.dumps(val), capture_output=True, text=True)
+    if out.returncode:
+        sys.exit(1)
+    sys.stdout.write(out.stdout)
+"""
+
+
+def step_script(name):
+    steps = load()["jobs"]["report"]["steps"]
+    return next(s for s in steps if s.get("name", "").startswith(name))["run"]
+
+
+def stub_env(tmp_path, fixtures):
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    gh = bindir / "gh"
+    gh.write_text(STUB)
+    gh.chmod(0o755)
+    (tmp_path / "fixtures.json").write_text(json.dumps(fixtures))
+    with zipfile.ZipFile(tmp_path / "artifact-source.zip", "w") as z:
+        z.writestr("evidence-digest", DIGEST + "\n")
+    (tmp_path / "out").write_text("")
+    return {
+        **os.environ,
+        "PATH": f"{bindir}:{os.environ['PATH']}",
+        "STUB_DIR": str(tmp_path),
+        "GITHUB_OUTPUT": str(tmp_path / "out"),
+        "RUNNER_TEMP": str(tmp_path),
+        "GITHUB_REPOSITORY": "o/r",
+        "GITHUB_SERVER_URL": "https://github.com",
+        "GITHUB_RUN_ID": "9",
+    }
+
+
+def run_bash(script, env):
+    return subprocess.run(  # noqa: S603
+        ["/bin/bash", "-c", script], env=env, cwd=REPO_ROOT, capture_output=True, text=True
+    )
+
+
+def test_decide_step_emits_the_digest_on_the_real_success_path(tmp_path):
+    started = "2026-10-13T10:04:00Z"
+    fixtures = {
+        "/commits/": [
+            {
+                "state": "open",
+                "base": {"ref": "main"},
+                "head": {"sha": SHA, "repo": {"full_name": "o/r"}},
+                "number": 5,
+            }
+        ],
+        "/pulls/5/reviews": [
+            {
+                "id": 1,
+                "body": f"merge\n\nReviewed-Head: {SHA}",
+                "commit_id": SHA,
+                "submitted_at": "2026-10-13T10:05:00Z",
+                "user": {"login": "github-actions[bot]"},
+            }
+        ],
+        "/pulls/5": {
+            "head": {"sha": SHA},
+            "base": {"sha": "b" * 40},
+            "changed_files": 1,
+            "body": BODY,
+        },
+        "/zip": "",
+        "/artifacts": {
+            "artifacts": [
+                {"name": "review-evidence", "id": 7, "created_at": "2026-10-13T10:01:00Z"},
+            ]
+        },
+        "/attempts/": {
+            "jobs": [
+                {"name": "gate", "conclusion": "success", "head_sha": SHA, "started_at": started},
+                {"name": "review", "conclusion": "success", "head_sha": SHA, "started_at": started},
+            ]
+        },
+        "/compare/": {"files": [{"filename": "README.md"}]},
+    }
+    env = stub_env(tmp_path, fixtures)
+    env.update(
+        HEAD_SHA=SHA,
+        RUN_ID="1",
+        RUN_ATTEMPT="1",
+        BOT_LOGIN="github-actions[bot]",
+        DEFAULT_BRANCH="main",
+    )
+    r = run_bash(step_script("decide"), env)
+    assert r.returncode == 0, r.stderr
+    lines = (tmp_path / "out").read_text().splitlines()
+    assert "state=success" in lines, lines
+    assert f"evidence={DIGEST}" in lines, lines
+
+
+def run_set_step(tmp_path, existing, state="success", digest=DIGEST):
+    env = stub_env(tmp_path, {"/statuses": [existing] if existing else []})
+    env.update(
+        APP_SLUG=APP_SLUG,
+        SHA=SHA,
+        STATE=state,
+        REASON="bot review on this head says merge",
+        EVIDENCE_DIGEST=digest,
+    )
+    r = run_bash(step_script("set trazo/verdict"), env)
+    assert r.returncode == 0, r.stderr
+    log = tmp_path / "posts.log"
+    return [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+
+
+def status(state, creator, description=""):
+    return {
+        "context": "trazo/verdict",
+        "state": state,
+        "creator": {"login": creator},
+        "description": description,
+    }
+
+
+def test_set_step_leaves_a_non_app_failure_with_missing_digest_in_place(tmp_path):
+    assert run_set_step(tmp_path, status("failure", "manoochehri", "don't merge")) == []
+
+
+def test_set_step_leaves_a_non_app_failure_with_stale_digest_in_place(tmp_path):
+    stale = "e" * 64
+    assert run_set_step(tmp_path, status("failure", "manoochehri", f"evidence={stale} no")) == []
+
+
+def test_set_step_supersedes_a_stale_app_status_and_the_description_fits(tmp_path):
+    stale = "e" * 64
+    posts = run_set_step(tmp_path, status("failure", f"{APP_SLUG}[bot]", f"evidence={stale} old"))
+    assert len(posts) == 1
+    args = posts[0]
+    desc = next(a for a in args if a.startswith("description=") or a.startswith("evidence="))
+    assert len(desc.removeprefix("description=")) <= 140
+    assert f"evidence={DIGEST} " in desc
+    assert "state=success" in args
+
+
+def test_set_step_posts_when_there_is_no_status_yet(tmp_path):
+    assert len(run_set_step(tmp_path, None)) == 1
+
+
+def test_report_selects_the_newest_review_evidence_artifact():
+    assert "sort_by(.created_at)" in step_script("decide")
+
+
+def test_set_step_leaves_a_pending_verdict_from_another_writer(tmp_path):
+    assert run_set_step(tmp_path, status("pending", "someone-else")) == []
