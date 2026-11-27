@@ -2,7 +2,7 @@
 
 **Status:** current
 
-**Updated:** 2026-11-27 by eng (STATUS refresh after v0.4.2)
+**Updated:** 2026-11-27 by eng (STATUS refresh after v0.4.2; PR 361 merged 16:55 UTC)
 **Phase / milestone:** v0.4.2 is released and this repo's install is v0.4.2 ([release PR](https://github.com/manoochehri/trazo/pull/358), [PR 361](https://github.com/manoochehri/trazo/pull/361) merged). Current goal: [v0.5.0](https://github.com/manoochehri/trazo/milestone/10). Milestones [v0.4.0](https://github.com/manoochehri/trazo/milestone/7), [v0.4.1](https://github.com/manoochehri/trazo/milestone/11) and [v0.4.2](https://github.com/manoochehri/trazo/milestone/12) are closed.
 
 ## Running now
