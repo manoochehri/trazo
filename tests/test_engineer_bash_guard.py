@@ -367,7 +367,23 @@ def test_project_claude_directory_is_not_a_secret_path(project, command):
 
 @pytest.mark.parametrize(
     "command",
-    ["cat ~/.claude/settings.json", "cat /Users/me/.claude/projects/x", "cat $HOME/.claude/x"],
+    [
+        "cat ~/.claude/settings.json",
+        "cat /Users/me/.claude/projects/x",
+        "cat $HOME/.claude/x",
+        "cat ~/./.ssh/k",
+        "cat /Users/me//.ssh/k",
+        "cat ~//.claude/s",
+        "cat $HOME//.claude/s",
+        "cat $HOME/./.claude/s",
+        "cat /Users/me/x/../.ssh/k",
+        "cd ~; cat .ssh/k",
+        "cat /var/root/.ssh/k",
+        "cat .claude/../.ssh/k",
+        "cat .claude//../.ssh/k",
+        "cat .claude/secrets/x",
+    ],
 )
-def test_home_claude_directory_stays_a_secret_path(project, command):
+def test_home_directory_secrets_stay_denied(project, command):
+    """Only a project-relative `.claude/` word is exempt; every home-prefixed form stays denied."""
     assert _blocked(project, command, None), f"{command!r} must stay blocked"

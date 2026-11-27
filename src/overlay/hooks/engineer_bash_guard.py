@@ -87,8 +87,11 @@ OPERATORS = {";", "&", "&&", "|", "||", "|&", "(", ")", "\n", ";;", ";&", ";;&",
 REDIRECTS = {"<", ">", ">>", "<<", "<<<", "<&", ">&", ">|"}
 
 
-# Where a `~/...` deny glob can start in a word: `~/`, `$HOME/`, or an absolute home path.
-HOME_PREFIX = r"(^|[=:])(~|\$HOME|\$\{HOME\}|/Users/[^/]+|/home/[^/]+|/root)/"
+# A word that is only a project-relative `.claude/` path: no home prefix, no `..`, no empty or
+# dot component. The project's own `.claude/` is repo content; `Read(~/.claude/**)` is the home
+# directory's. Only this one deny pattern is skipped for such a word (#364).
+PROJECT_CLAUDE = re.compile(r"(\./)?\.claude(/[A-Za-z0-9_][A-Za-z0-9_.-]*)*/?")
+HOME_CLAUDE_GLOB = "~/.claude/**"
 
 
 class Deny(Exception):
@@ -102,7 +105,6 @@ def settings_path() -> Path:
 def glob_to_regex(glob: str) -> re.Pattern[str]:
     """`./**/.env.*` -> a pattern matching a word that names such a file; `secrets/**` -> the
     directory anywhere in a path; `~/.ssh/**` -> that directory."""
-    home = glob.startswith("~/")
     body = glob.removeprefix("./").removeprefix("~/")
     tail = ""
     if body.endswith("/**"):
@@ -121,10 +123,7 @@ def glob_to_regex(glob: str) -> re.Pattern[str]:
         else:
             out += re.escape(body[i])
             i += 1
-    # A home glob names the home directory's file, not any directory of that name: the project's
-    # own `.claude/` is repo content (#364).
-    start = HOME_PREFIX if home else r"(^|[/=:])"
-    return re.compile(start + out + tail, re.IGNORECASE)
+    return re.compile(r"(^|[/=:])" + out + tail, re.IGNORECASE)
 
 
 def load_rules() -> tuple[list[list[str]], list[re.Pattern[str]]]:
@@ -401,7 +400,12 @@ def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Patter
     previous = ""
     for word in argv[1:]:
         if previous not in TEXT_FLAGS and not PLACEHOLDER.search(word):
-            if any(p.search(word) for p in paths):
+            project_claude = PROJECT_CLAUDE.fullmatch(word) is not None
+            if any(
+                p.search(word)
+                for p in paths
+                if not (project_claude and p.pattern == glob_to_regex(HOME_CLAUDE_GLOB).pattern)
+            ):
                 raise Deny(f"{word!r} names a secret path")
         previous = word
 
