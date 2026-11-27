@@ -113,7 +113,8 @@ elif args[:2] == ["pr", "merge"]:
     open(log, "a").write(" ".join(args) + "\n")
 elif args[0] == "api" and any(a.endswith("/files") for a in args):
     for name in env["FAKE_FILES"].split(","):
-        say(name + "\t")
+        new, _, old = name.partition(">")  # "new>old" models a rename
+        say(new + "\t" + old)
 elif args[0] == "api" and any("/commits/" in a and a.endswith("/check-runs") for a in args):
     for run in env.get("FAKE_RUNS", "success,skipped").split(","):
         if run:
@@ -173,9 +174,12 @@ def test_a_green_ordinary_pull_request_is_merged_at_the_head_that_was_checked(tm
 @pytest.mark.parametrize(
     "fake",
     [
-        {"FAKE_VERDICT": ""},
+        {"FAKE_FILES": "scripts/tool.py", "FAKE_VERDICT": ""},
+        {"FAKE_FILES": "scripts/tool.py", "FAKE_VERDICT": "failure"},
+        {"FAKE_FILES": "scripts/tool.py", "FAKE_VERDICT": "pending"},
         {"FAKE_VERDICT": "failure"},
         {"FAKE_VERDICT": "pending"},
+        {"FAKE_VERDICT": "", "FAKE_RUNS": "success,failure"},
         {"FAKE_RUNS": "success,failure"},
         {"FAKE_RUNS": "success,pending"},
         {"FAKE_RUNS": ""},
@@ -208,6 +212,91 @@ def test_a_protected_path_needs_a_passing_security_status_as_well(tmp_path):
     result, merges = _run(tmp_path, FAKE_SECURITY="success", **protected)
     assert result.returncode == 0, result.stderr
     assert merges == [f"pr merge 7 --squash --match-head-commit {SHA}"]
+
+
+# ---- issue #320 / ADR 0031: reviewer status only for risky paths --------------------------------
+
+MERGED = [f"pr merge 7 --squash --match-head-commit {SHA}"]
+
+
+def test_a_routine_pull_request_on_a_risky_path_with_both_successes_merges(tmp_path):
+    result, merges = _run(
+        tmp_path, FAKE_FILES="scripts/tool.py", FAKE_VERDICT="success", FAKE_SECURITY="success"
+    )
+    assert result.returncode == 0, result.stderr
+    assert merges == MERGED
+
+
+@pytest.mark.parametrize("security", ["", "pending", "failure"])
+def test_a_risky_pull_request_without_security_success_is_refused(tmp_path, security):
+    result, merges = _run(
+        tmp_path, FAKE_FILES="scripts/tool.py", FAKE_VERDICT="success", FAKE_SECURITY=security
+    )
+    assert result.returncode != 0 and merges == []
+
+
+def test_a_risky_pull_request_without_a_reviewer_success_is_refused(tmp_path):
+    result, merges = _run(tmp_path, FAKE_FILES="Makefile", FAKE_VERDICT="", FAKE_SECURITY="success")
+    assert result.returncode != 0 and merges == []
+
+
+def test_a_docs_only_pull_request_merges_with_no_reviewer_status(tmp_path):
+    result, merges = _run(
+        tmp_path, FAKE_FILES="docs/notes.md,.trazo/project/STATUS.md", FAKE_VERDICT=""
+    )
+    assert result.returncode == 0, result.stderr
+    assert merges == MERGED
+
+
+@pytest.mark.parametrize("fake", [{"FAKE_RUNS": "success,failure"}, {"FAKE_RUNS": ""}])
+def test_a_docs_only_pull_request_still_needs_green_ci(tmp_path, fake):
+    result, merges = _run(tmp_path, FAKE_FILES="docs/notes.md", FAKE_VERDICT="", **fake)
+    assert result.returncode != 0 and merges == []
+
+
+@pytest.mark.parametrize("verdict", ["failure", "pending"])
+def test_a_reviewer_failure_or_pending_is_never_ignored_on_a_docs_pull_request(tmp_path, verdict):
+    result, merges = _run(tmp_path, FAKE_FILES="docs/notes.md", FAKE_VERDICT=verdict)
+    assert result.returncode != 0 and merges == []
+
+
+def test_a_mixed_diff_counts_as_risky(tmp_path):
+    files = "docs/notes.md,.github/workflows/ci.yml"
+    result, merges = _run(tmp_path, FAKE_FILES=files, FAKE_VERDICT="")
+    assert result.returncode != 0 and merges == []
+    result, merges = _run(tmp_path, FAKE_FILES=files, FAKE_VERDICT="success", FAKE_SECURITY="")
+    assert result.returncode != 0 and merges == []
+    result, merges = _run(
+        tmp_path, FAKE_FILES=files, FAKE_VERDICT="success", FAKE_SECURITY="success"
+    )
+    assert result.returncode == 0 and merges == MERGED
+
+
+def test_a_rename_out_of_a_risky_path_counts_as_risky(tmp_path):
+    result, merges = _run(tmp_path, FAKE_FILES="docs/tool.md>scripts/tool.py", FAKE_VERDICT="")
+    assert result.returncode != 0 and merges == []
+    result, merges = _run(
+        tmp_path,
+        FAKE_FILES="docs/tool.md>scripts/tool.py",
+        FAKE_VERDICT="success",
+        FAKE_SECURITY="success",
+    )
+    assert result.returncode == 0 and merges == MERGED
+
+
+@pytest.mark.parametrize(
+    "path", ["src/harness/scripts/x.py", "src/harness/.github/workflows/x.yml", ".trazo/VERSION"]
+)
+def test_src_and_installed_framework_paths_are_risky_as_the_adr_lists_them(tmp_path, path):
+    """ADR 0031 lists all of src/ and .trazo/ outside project/; the classifier alone misses some."""
+    result, merges = _run(tmp_path, FAKE_FILES=path, FAKE_VERDICT="")
+    assert result.returncode != 0 and merges == []
+
+
+def test_the_workflow_adds_no_input_the_front_door_hook_would_refuse():
+    wf = _load()
+    triggers = wf.get("on", wf.get(True))
+    assert set(triggers["workflow_dispatch"]["inputs"]) == {"pr"}
 
 
 def test_the_fake_statuses_are_valid_json_for_the_script(tmp_path):

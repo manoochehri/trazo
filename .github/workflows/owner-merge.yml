@@ -10,9 +10,17 @@ name: owner-merge
 #
 # It merges only when, at the head commit read at the start:
 #   - the pull request is open, not a draft, not from a fork, and targets the default branch
-#   - trazo/verdict is success on that head and every check run on it is success or skipped
-#   - if it changes an owner-protected path (the classifier shared with review.yml and drive.yml),
-#     trazo/security is also success: the owner starting this run is the owner review CODEOWNERS asks for
+#   - every check run on it is success or skipped (CI green)
+#   - if it changes a risky path (ADR 0031: the classifier shared with review.yml and drive.yml, plus all
+#     of src/ and .trazo/ outside project/, which the ADR lists and the classifier prefixes do not all
+#     reach), trazo/verdict AND trazo/security are success on that head: the owner starting this run is
+#     the owner review CODEOWNERS asks for
+#   - if it changes only non-risky paths (docs, STATUS, PLAN, workstreams, reports), no reviewer status is
+#     needed: this dispatch is the Coordinator's check of the diff and CI (ADR 0031). A reviewer status
+#     of failure or pending on that head still refuses. A diff touching both kinds is risky, and so is a
+#     rename out of a risky path (both names are classified).
+# The shared-account identity gap is NOT closed by this (#366): the reviewer and security statuses are
+# set by the account that dispatches and by the agents it runs, so this gate cannot tell them apart.
 # and it merges with --match-head-commit, so a push after the check cannot slip in. Any error refuses.
 #
 # Only the repository owner's dispatch runs, from the default branch, so a pull request cannot edit the
@@ -71,19 +79,24 @@ jobs:
           # One classifier, shared with review.yml and drive.yml: it sees both sides of a rename and fails
           # closed on a short listing.
           changed=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" -q '.changed_files')
-          sensitive=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" \
-            -q '.[] | [.filename, (.previous_filename // "")] | @tsv' \
-            | CHANGED_FILES="$changed" python3 scripts/report_verdict.py --sensitive .github/CODEOWNERS)
+          files=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" \
+            -q '.[] | [.filename, (.previous_filename // "")] | @tsv')
+          sensitive=$(CHANGED_FILES="$changed" python3 scripts/report_verdict.py --sensitive .github/CODEOWNERS <<<"$files")
+          # ADR 0031 also names all of src/ and .trazo/ outside project/ as risky; either name of a rename counts.
+          extra=$(tr '\t' '\n' <<<"$files" | { grep -iE '^(src/|\.trazo/)' || true; } | { grep -viE '^\.trazo/project/' || true; })
+          if [[ -n "$extra" ]]; then sensitive=true; fi
           status=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/status?per_page=100")
           verdict=$(jq -r '[.statuses[] | select(.context == "trazo/verdict")][0].state // ""' <<<"$status")
           security=$(jq -r '[.statuses[] | select(.context == "trazo/security")][0].state // "none"' <<<"$status")
           runs=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs" -q '.check_runs[] | .conclusion // "pending"')
           if [[ -n "$runs" ]] && ! grep -qvxE 'success|skipped' <<<"$runs"; then ci=success; else ci=pending; fi
-          [[ "$verdict" == "success" ]] || refuse "trazo/verdict is ${verdict:-missing} on this head"
           [[ "$ci" == "success" ]] || refuse "the checks are not all green on this head"
           case "$sensitive" in
-            sensitive=false) ;;
+            sensitive=false)
+              # Non-risky only: the dispatch is the Coordinator's check. A recorded reviewer objection stands.
+              [[ -z "$verdict" || "$verdict" == "success" ]] || refuse "trazo/verdict is ${verdict} on this head" ;;
             sensitive=true)
+              [[ "$verdict" == "success" ]] || refuse "it changes risky paths and trazo/verdict is ${verdict:-missing} on this head"
               [[ "$security" == "success" ]] || refuse "it changes owner-protected paths and trazo/security is ${security} on this head" ;;
             *) refuse "the changed files could not be classified" ;;
           esac
