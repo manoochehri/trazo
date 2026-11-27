@@ -1,0 +1,9 @@
+{
+  "deny": [],
+  "hooks": [
+    [
+      "Bash|Edit|Write|MultiEdit|NotebookEdit",
+      "python3 \"${CLAUDE_PROJECT_DIR:-.}/.trazo/hooks/front_door_guard.py\" || exit 2"
+    ]
+  ]
+}
