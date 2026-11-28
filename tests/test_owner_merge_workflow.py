@@ -74,7 +74,7 @@ def test_permissions_are_the_least_that_can_merge():
         "pull-requests": "write",
         "statuses": "read",
         "checks": "read",
-        "issues": "read",
+        "issues": "write",
     }
 
 
@@ -105,12 +105,18 @@ def say(text):
     sys.stdout.write(text if text.endswith("\n") or not text else text + "\n")
 
 
-if args[:2] == ["pr", "view"]:
+if args[:2] == ["pr", "view"] and "closingIssuesReferences" in args:
+    say(env.get("FAKE_CLOSING", '{{"closingIssuesReferences": []}}'))
+elif args[:2] == ["pr", "view"]:
     say("\t".join([env.get("FAKE_STATE", "OPEN"), env.get("FAKE_DRAFT", "false"),
                    env.get("FAKE_CROSS", "false"), env.get("FAKE_BASE", "main"),
                    env.get("FAKE_SHA", "{sha}")]))
 elif args[:2] == ["pr", "merge"]:
     open(log, "a").write(" ".join(args) + "\n")
+elif args[:2] == ["issue", "view"]:
+    say(env.get("FAKE_ISSUE_STATE", "OPEN"))
+elif args[:2] == ["issue", "close"]:
+    open(log, "a").write(" ".join(args[:3]) + "\n")
 elif args[0] == "api" and any(a.endswith("/files") for a in args):
     for name in env["FAKE_FILES"].split(","):
         new, _, old = name.partition(">")  # "new>old" models a rename
@@ -358,3 +364,46 @@ def test_the_fake_statuses_are_valid_json_for_the_script(tmp_path):
     result, merges = _run(tmp_path, FAKE_SECURITY="success")
     assert result.returncode == 0 and len(merges) == 1
     assert json.loads('{"statuses": []}') == {"statuses": []}
+
+
+# ---- issue #391: a merge by github.token did not close the issue the PR named ----------------
+# Evidence: PR #382 ("Closes #380" first line of the squash commit on main) was merged by
+# github-actions[bot] through this workflow and left #380 open; PRs #357 and #350 (same merger)
+# left #356 and #346 open, while #378, #379, #367 and #319 closed on a merge by the owner's own
+# account. UNVERIFIED: why GitHub skips the keyword for a github.token merge (no GitHub
+# documentation found); the workflow closes the issues itself instead.
+
+
+def _closing(*numbers: int, repo: tuple[str, str] = ("o", "r")) -> str:
+    refs = [
+        {"number": n, "repository": {"name": repo[1], "owner": {"login": repo[0]}}} for n in numbers
+    ]
+    return json.dumps({"closingIssuesReferences": refs})
+
+
+def test_a_merged_pull_request_closes_the_issues_it_names_with_a_closing_keyword(tmp_path):
+    result, log = _run(tmp_path, FAKE_CLOSING=_closing(380, 12))
+    assert result.returncode == 0, result.stderr
+    assert log == [
+        f"pr merge 7 --squash --match-head-commit {SHA}",
+        "issue close 380",
+        "issue close 12",
+    ]
+
+
+def test_an_issue_that_is_already_closed_is_left_alone(tmp_path):
+    result, log = _run(tmp_path, FAKE_CLOSING=_closing(380), FAKE_ISSUE_STATE="CLOSED")
+    assert result.returncode == 0, result.stderr
+    assert log == [f"pr merge 7 --squash --match-head-commit {SHA}"]
+
+
+def test_an_issue_in_another_repository_is_never_closed(tmp_path):
+    result, log = _run(tmp_path, FAKE_CLOSING=_closing(5, repo=("x", "other")))
+    assert result.returncode == 0, result.stderr
+    assert log == [f"pr merge 7 --squash --match-head-commit {SHA}"]
+
+
+def test_a_refused_merge_closes_nothing(tmp_path):
+    result, log = _run(tmp_path, FAKE_CLOSING=_closing(380), FAKE_RUNS="success,failure")
+    assert result.returncode != 0
+    assert log == []
