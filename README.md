@@ -2,65 +2,52 @@
 
 # Trazo
 
-Trazo is an overlay of rules, roles and checks that you mount on any repo. It makes AI coding agents work to written rules instead of improvising.
+**Your GitHub repo and VS Code, run like a well-managed engineering team.**
 
-## The problem
+Trazo turns your GitHub repository and your VS Code experience into a well-managed engineering team. Your coding agents get jobs (engineer, reviewer, security, project manager and more), work through issues and pull requests, and are checked by separate agents. You keep what only a person should decide: money, secrets, settings and releases. It works with Claude Code (in [VS Code](https://code.claude.com/docs/en/vs-code) or a terminal), Codex, and any agent that reads `AGENTS.md`; Codex in VS Code and Antigravity are UNVERIFIED. It is not an editor extension and not a build service.
 
-- Agents forget. Chat context resets, and decisions made in chat are lost.
-- Copy-paste glue. Moving notes between chats by hand loses information.
-- Secrets leak into `.env` files, logs, commits or chat.
-- No project record: no charter, no milestones, no reason for a decision.
-- Results look better than they are, because agents grade their own work.
-- Safety limits drift when an agent loosens a threshold nobody approved.
+## What you get
+
+- Seven agent job descriptions in `.trazo/roles/`. The reviewer, security and skeptic agents are subagent-only and run in their own sessions, so none of them grades work it wrote. `/pm` and `/eng` start the project manager and engineer agents.
+- Merge rules enforced by a GitHub workflow that the main chat agent starts once the checks pass: documentation-only changes need green CI, and risky ones also need a reviewer pass and a security pass.
+- 32 numbered decision records and a charter with a stop rule. The skeptic checks every number, and each number carries its sample size.
+
+As of 2026-11-28 the project has 9 tagged releases, more than 180 merged pull requests since 2026-09-27, and 65 test files. The [Home page](handbook/index.md) walks one real pull request, #329, through the checks.
 
 ## Install
 
-Run this from the root of your repo. It needs `git`, `curl` and the [GitHub CLI](https://cli.github.com/). The version is the current release, v0.6.0.
+Run this from the root of your repo. It needs `git`, `curl` and the [GitHub CLI](https://cli.github.com/).
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.6.0/scripts/install.sh -o install.sh
-bash install.sh install v0.6.0
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o install.sh
+bash install.sh install latest
 ```
 
-Then read [Install, upgrade and uninstall](handbook/install.md). It covers the options, the upgrade and the owner-only steps.
+Then run `/kickoff` in your agent. To remove Trazo, run `bash install.sh uninstall`. The details are in [Install, upgrade and uninstall](handbook/install.md).
 
 Or paste one of these prompts into your agent (Claude Code, Codex or any agent that reads `AGENTS.md`):
 
-> **Install:** Install Trazo v0.6.0 into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.6.0/scripts/install.sh`, run `bash install.sh install v0.6.0`, then delete `install.sh`. Tell me what it placed and the owner-only steps it printed. Do not set secrets or variables.
+> **Install:** Install Trazo into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh`, run `bash install.sh install latest`, then delete `install.sh`. Tell me what it placed and the owner-only steps it printed. Do not set secrets or variables.
 
-> **Upgrade:** Upgrade Trazo to v0.6.0 in this repo. Download the installer from the v0.6.0 tag and run `bash install.sh upgrade v0.6.0 --dry-run`. Show me the diff. Then run it without `--dry-run`, and delete `install.sh`. List any deny rule the upgrade removed from `.claude/settings.json`. Do not touch `.trazo/project/`.
+> **Upgrade:** Upgrade Trazo in this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` and run `bash install.sh upgrade latest --dry-run`. Show me the diff. Then run it without `--dry-run`, and delete `install.sh`. List any deny rule the upgrade removed from `.claude/settings.json`. Do not touch `.trazo/project/`.
 
-> **Uninstall:** Remove Trazo from this repo. Download the installer from the v0.6.0 tag, run `bash install.sh uninstall` (this keeps `.trazo/project/`), then delete `install.sh`. Do not use `--purge` unless I say so.
+> **Uninstall:** Remove Trazo from this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh`, run `bash install.sh uninstall` (this keeps `.trazo/project/`), then delete `install.sh`. Do not use `--purge` unless I say so.
 
-Your repo needs one command that runs its tests hermetically from a fresh checkout. Docker, nix, devcontainers or a `Makefile` all work. Your code, build and deploy setup stay yours.
+Your repo needs one command that runs its tests hermetically from a fresh checkout. Docker, nix, devcontainers or a `Makefile` all work.
 
-## Status
+## Where Trazo stands today
 
-Early. Trazo was distilled from one real project, so expect rough edges. Current release: v0.6.0.
+Trazo is early: about two months old and built from one project, this one. Each of these is UNVERIFIED or open:
 
-UNVERIFIED, not yet proven on a live run:
+- Every interactive agent acts through one GitHub account, so review status is only as trustworthy as that account until [#366](https://github.com/manoochehri/trazo/issues/366) lands.
+- The unattended drive (`drive.yml`) is on in this repository and off by default in yours. It was triggered on a schedule from 2026-10-31 but only ran for real from 2026-11-23, when it was switched on here, and opened one pull request, #312, which was closed unmerged. A watched run on 2026-11-28 made no change and exposed a bug ([#399](https://github.com/manoochehri/trazo/issues/399)); [#247](https://github.com/manoochehri/trazo/issues/247) tracks the verification.
+- The front-door hook that blocks the main session from editing files has not been checked on every live input.
+- Release automation (`release.yml`) is Trazo's own and has not run live.
 
-- The drive workflow. Its first live run failed to produce a change ([#399](https://github.com/manoochehri/trazo/issues/399)). It ships switched off.
-- The front-door hook payload shape.
-- Release automation (`release.yml`, `merge-audit.yml`).
-
-Details: [Guardrails and limits](handbook/guardrails.md).
+See [Guardrails and limits](handbook/guardrails.md). Released versions are on the [tags page](https://github.com/manoochehri/trazo/tags), and what changed is in the [changelog](handbook/changelog.md).
 
 ## Read next
 
-- [Index](handbook/index.md): what Trazo is and the problems it addresses.
-- [How it works](handbook/how-it-works.md): the loop, the roles, the merge gate and the guards.
-- [In your repo](handbook/in-your-repo.md): what `.trazo/` contains and what stays yours.
-- [Install, upgrade and uninstall](handbook/install.md).
-- [Guardrails and limits](handbook/guardrails.md): what agents do freely, and what is yours alone.
-- [Day to day](handbook/day-to-day.md): how to ask for work and what needs you.
+[Home](handbook/index.md) · [How it works](handbook/how-it-works.md) · [In your repo](handbook/in-your-repo.md) · [Install](handbook/install.md) · [Guardrails](handbook/guardrails.md) · [Day to day](handbook/day-to-day.md) · site: https://manoochehri.github.io/trazo/
 
-Published site: https://manoochehri.github.io/trazo/
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## License
-
-[MIT](LICENSE)
+Contributing: [CONTRIBUTING.md](CONTRIBUTING.md). License: [MIT](LICENSE).

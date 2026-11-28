@@ -148,6 +148,14 @@ Each row names its source. A row marked UNVERIFIED has not been run live.
 
 The status lines of these four ADR files still read "proposed" on `main`, although `rules.md` already applies the rules they describe. This page does not change their status. Other pages cite these ADRs the same way.
 
+## Why these rules exist
+
+Each rule above answers something that went wrong in this project.
+
+- **An agent did the wrong role's job.** In a host repository, the main chat session edited pull requests and pushed empty commits itself, and said nothing stopped it ([#319](https://github.com/manoochehri/trazo/issues/319)). A hook that blocks those edits now ships; its behavior on every live input is UNVERIFIED.
+- **One account could set the approval.** Every interactive agent acts through one GitHub account, so any of them can set the status that says a review passed. Of the 22 merged pull requests #316 to #358, the reviewer's own GitHub App wrote a status on 14, and every one was a failure (a placeholder asking a person to set the status). Every success on all 22 came from the shared account ([#366](https://github.com/manoochehri/trazo/issues/366), [#44](https://github.com/manoochehri/trazo/issues/44), both open).
+- **Guards missed a route, then blocked the wrong agent.** An engineer agent could still merge and read `.env` through `gh api` and `cat` ([#330](https://github.com/manoochehri/trazo/issues/330)). The guard added for that then blocked the reviewer and security agents from posting their own status ([#347](https://github.com/manoochehri/trazo/issues/347), [#364](https://github.com/manoochehri/trazo/issues/364)).
+
 ## Related pages
 
 - [How it works](how-it-works.md): the loop, the roles, the merge gate and the drive workflow these limits apply to.
