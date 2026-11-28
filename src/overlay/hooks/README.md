@@ -120,8 +120,9 @@ with no refspec and `git push --force origin HEAD` are denied.
 
 Also denied: a `gh api` short-flag cluster is read flag by flag (`-iX PUT` is a PUT), a `#fragment`
 on an endpoint is dropped as gh does, a backslash-newline pair joins the words around it, and a
-`git` subcommand built by a variable. A bare variable as the whole last segment of a `milestones`
-or `issues` write (`milestones/$N`) is allowed; any other computed path part is a known false
+`git` subcommand built by a variable. A write endpoint is percent-decoded to a fixed point first
+(GitHub decodes `%252f` twice) and denied if `%`, `#` or `?` is still there. A bare variable as the whole last segment of a `milestones`
+or `issues` PATCH (`milestones/$N`) is allowed; any other computed path part is a known false
 denial (`issues/$N/comments`).
 
 Known gaps: a `git push` refspec built by a variable (`X=main; git push origin $X`) is not judged

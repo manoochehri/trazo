@@ -529,7 +529,15 @@ def check_gh_api_write(
     endpoint: str, effective: str, fields: list[tuple[str, str]], has_input: bool
 ) -> None:
     _readonly_spans(endpoint)
-    path = unquote(re.split(r"[?#]", endpoint, maxsplit=1)[0]).strip().lower()
+    path = re.split(r"[?#]", endpoint, maxsplit=1)[0]
+    for _ in range(8):  # GitHub decodes more than once (`%252f` is a slash): to a fixed point
+        decoded = unquote(path)
+        if decoded == path:
+            break
+        path = decoded
+    if re.search(r"[%#?]", path):
+        raise Deny("`gh api` write endpoint carries an encoded or hidden `%`, `#` or `?`")
+    path = path.strip().lower()
     path = re.sub(r"\{(owner|repo)\}", "x", path)
     path = DYN.sub(MARK, path)
     segs = [s for s in path.strip("/").split("/") if s]
@@ -557,7 +565,9 @@ def check_gh_api_write(
                 "statuses, milestones or labels collection"
             )
         after = segs[coll + 1 :]
-        number_only = segs[coll] in {"milestones", "issues"} and after == [MARK]
+        number_only = (
+            segs[coll] in {"milestones", "issues"} and after == [MARK] and effective == "PATCH"
+        )
         if (
             any(MARK in x for x in after)
             and not number_only

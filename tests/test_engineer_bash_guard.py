@@ -586,3 +586,23 @@ ROUND3_DENIED = [
 @pytest.mark.parametrize("agent", [None, "engineer"])
 def test_round3_probes_stay_denied(project, command, agent):
     assert _blocked(project, command, agent), f"{command!r} must be blocked (agent={agent})"
+
+
+ROUND4_DENIED = [
+    "gh api -X PUT repos/o/r/pulls/5%252fmerge",
+    "gh api -X PUT repos/o/r/pulls/5%25252fmerge",
+    "gh api -X PUT repos/o/r/pulls/5%252Fmerge",
+    "gh api -X PUT repos/o/r/pulls/5/merge%23x",
+    "gh api -X PUT repos/o/r/pulls/5/merge%3f",
+    "gh api -X PUT repos/o/r/pulls/5%2fmerge",
+    "gh api -X PATCH repos/o/r/branches/main%252fprotection",
+    "gh api -X POST repos/o/r/statuses%252fabc -f state=success -f context=trazo/verdict",
+    "gh api -X DELETE repos/o/r/milestones/$N",
+    "gh api -X PUT repos/o/r/issues/$N -f state=closed",
+]
+
+
+@pytest.mark.parametrize("command", ROUND4_DENIED)
+@pytest.mark.parametrize("agent", [None, "engineer"])
+def test_round4_probes_stay_denied(project, command, agent):
+    assert _blocked(project, command, agent), f"{command!r} must be blocked (agent={agent})"
