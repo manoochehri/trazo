@@ -263,7 +263,7 @@ def scan(command: str) -> tuple[str, list[str]]:
             i = j + 1
             continue
         if c == "\\":
-            emit(" " if command[i : i + 2] == "\\\n" else command[i : i + 2])
+            emit("" if command[i : i + 2] == "\\\n" else command[i : i + 2])
             i += 2
             continue
         if c == '"':
@@ -467,11 +467,13 @@ def parse_gh_api(args: list[str]) -> tuple[str, str | None, list[tuple[str, str]
                 value = ""
             flag = name
         elif a.startswith("-") and len(a) > 1:
-            flag = a[:2]
-            if flag not in GH_API_VALUED:
+            # a cluster such as `-iX PUT` or `-iXPUT`: the first valued letter takes the rest
+            pos = next((k for k in range(1, len(a)) if "-" + a[k] in GH_API_VALUED), None)
+            if pos is None:
                 continue
-            if len(a) > 2:
-                value = a[2:].lstrip("=") if flag == "-X" else a[2:]
+            flag, rest = "-" + a[pos], a[pos + 1 :]
+            if rest:
+                value = rest.lstrip("=") if flag == "-X" else rest
             elif i < len(args):
                 value, i = args[i], i + 1
             else:
@@ -527,7 +529,7 @@ def check_gh_api_write(
     endpoint: str, effective: str, fields: list[tuple[str, str]], has_input: bool
 ) -> None:
     _readonly_spans(endpoint)
-    path = unquote(endpoint.split("?", 1)[0]).strip().lower()
+    path = unquote(re.split(r"[?#]", endpoint, maxsplit=1)[0]).strip().lower()
     path = re.sub(r"\{(owner|repo)\}", "x", path)
     path = DYN.sub(MARK, path)
     segs = [s for s in path.strip("/").split("/") if s]
@@ -555,7 +557,12 @@ def check_gh_api_write(
                 "statuses, milestones or labels collection"
             )
         after = segs[coll + 1 :]
-        if any(MARK in x for x in after) and not (segs[coll] == "statuses" and len(after) == 1):
+        number_only = segs[coll] in {"milestones", "issues"} and after == [MARK]
+        if (
+            any(MARK in x for x in after)
+            and not number_only
+            and not (segs[coll] == "statuses" and len(after) == 1)
+        ):
             raise Deny(
                 "a `gh api` write may not compute any part of its path after the collection "
                 "(a variable can spell `5/merge`); write the path out"
@@ -730,6 +737,8 @@ def check_git(argv: list[str]) -> None:
         else:
             sub = args[i]
             break
+    if sub is not None and "$" in sub:
+        raise Deny("a `git` subcommand named by a variable or substitution cannot be checked")
     if sub != "push":
         return
     rest = args[i + 1 :]

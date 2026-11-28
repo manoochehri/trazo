@@ -195,6 +195,9 @@ ALLOWED = [
     "gh api -X PATCH repos/o/r/issues/5 -f state=closed",
     "gh api -X POST repos/o/r/issues/5/comments -f body=x",
     "gh api -X POST repos/o/r/labels -f name=x -f color=ffffff",
+    "gh api -X PATCH repos/o/r/milestones/$N -f state=closed",
+    "gh api -X PATCH repos/o/r/issues/$N -f state=closed",
+    "gh api -i repos/o/r/pulls/5",
     "gh api -X PATCH repos/o/r/pulls/5 -f state=closed",
     "gh api -X DELETE repos/o/r/git/refs/heads/eng-330",
     "gh api -X POST repos/o/r/git/refs -f ref=refs/heads/eng-330 -f sha=abc",
@@ -563,3 +566,23 @@ def test_a_newline_is_a_command_separator_but_a_continuation_is_not(project):
     assert not _blocked(project, "git status\ngit diff", None)
     assert not _blocked(project, "git log \\\n  --oneline", None)
     assert _blocked(project, "git status\ngh pr merge 5", None)
+
+
+# Security review of #384, round 3 (probes against the second head).
+ROUND3_DENIED = [
+    "gh api -iX PUT repos/o/r/pulls/5/merge",
+    "gh api -iXPUT repos/o/r/pulls/5/merge",
+    "gh api repos/o/r/pulls/5/merge#x -X PUT",
+    "gh api -X PUT repos/o/r/pulls/5/merge#x",
+    "gh pr mer\\\nge 5",
+    "git push origin ma\\\nin",
+    "X=push; git $X origin main",
+    "gh api -X PATCH repos/o/r/milestones/$N/merge -f state=closed",
+    "gh api -X PATCH repos/o/r/pulls/$N -f state=closed",
+]
+
+
+@pytest.mark.parametrize("command", ROUND3_DENIED)
+@pytest.mark.parametrize("agent", [None, "engineer"])
+def test_round3_probes_stay_denied(project, command, agent):
+    assert _blocked(project, command, agent), f"{command!r} must be blocked (agent={agent})"

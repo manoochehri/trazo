@@ -118,7 +118,14 @@ as the named path, `xargs` may not build `gh`, `git` or shell arguments (and not
 named `needs-decision` or `drive-halt`. A force-push must name its branch: `git push -f`
 with no refspec and `git push --force origin HEAD` are denied.
 
-Known gaps: the working directory is not tracked (`cd .claude && echo x > y`); an endpoint or
+Also denied: a `gh api` short-flag cluster is read flag by flag (`-iX PUT` is a PUT), a `#fragment`
+on an endpoint is dropped as gh does, a backslash-newline pair joins the words around it, and a
+`git` subcommand built by a variable. A bare variable as the whole last segment of a `milestones`
+or `issues` write (`milestones/$N`) is allowed; any other computed path part is a known false
+denial (`issues/$N/comments`).
+
+Known gaps: a `git push` refspec built by a variable (`X=main; git push origin $X`) is not judged
+(the ruleset rejects the push); the working directory is not tracked (`cd .claude && echo x > y`); an endpoint or
 path built by a variable cannot be judged; a plain `git push` or `git push origin HEAD` (no force)
 while `main` is checked out is not judged, because the branch is unknown to the parser (the ruleset
 rejects it); and `gh api -X DELETE` on an issue, comment or other non-blocklisted object passes.
