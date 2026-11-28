@@ -173,6 +173,9 @@ session from doing that work and says to dispatch an engineer (`/work <issue>`, 
   redirection to a file, including inside `bash -c`, `eval` and `$(...)`. Reading, `gh pr
   create|comment|view`, `gh issue *`, plain commits and pushes, and dispatching `owner-merge.yml`
   pass through.
+- **Memory notes.** The session's memory directory (`~/.claude/projects/*/memory/`) is
+  writable too (ADR 0032). `settings.json` ships no `allow` entry: Claude Code's own permission
+  prompt for those writes is configured in the user's own settings, not shipped.
 - **Fails closed.** Unparseable input, a missing path, a relative path, an unbalanced quote or a
   missing script all block (the declared command ends `|| exit 2`).
 - **UNVERIFIED live.** That the main session's payload has neither field, that a forked skill

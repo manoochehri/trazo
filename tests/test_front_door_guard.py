@@ -240,3 +240,51 @@ def test_readme_documents_the_guard_and_its_unverified_parts():
     text = HOOKS_DOC.read_text(encoding="utf-8")
     assert "front_door_guard.py" in text and "#319" in text
     assert "UNVERIFIED" in text[text.index("front_door_guard.py") :]
+
+
+MEMORY = Path.home() / ".claude" / "projects" / "-some-project" / "memory"
+
+
+def test_main_session_may_write_its_memory_notes(project):
+    assert _edit(project, str(MEMORY / "note.md"), "Write").returncode == 0
+    assert _bash(project, f"echo note >> {MEMORY}/note.md").returncode == 0
+
+
+@pytest.mark.parametrize(
+    "rel",
+    [
+        ".claude/settings.json",
+        ".claude/projects/-some-project/settings.json",
+        ".claude/projects/-some-project/memory/../settings.json",
+        ".claude/projects/memory/note.md",
+    ],
+)
+def test_memory_allowance_is_narrow(project, rel):
+    assert _edit(project, str(Path.home() / rel), "Write").returncode == 2
+
+
+def test_repo_files_stay_locked_and_issue_text_is_open(project):
+    assert _edit(project, str(project / "src" / "x.py"), "Write").returncode == 2
+    assert _bash(project, "echo hi > src/x.py").returncode == 2
+    assert _bash(project, 'gh issue comment 5 --body "$(date)"').returncode == 0
+
+
+def test_settings_ship_no_allow_and_keep_the_claude_read_deny():
+    perms = json.loads(SETTINGS.read_text(encoding="utf-8"))["permissions"]
+    assert set(perms) == {"deny"}
+    assert "Read(~/.claude/**)" in perms["deny"]
+
+
+def test_roles_state_the_permissive_policy_and_drop_the_old_construct_ban():
+    root = Path(__file__).resolve().parents[1] / "src"
+    for role in ("reviewer", "security"):
+        text = (root / "overlay/roles" / f"{role}.md").read_text(encoding="utf-8")
+        assert "Use no `$(...)`" not in text and "no heredocs" not in text
+        assert "ADR 0032" in text
+    pm = (root / "adapters/claude/agents/pm.md").read_text(encoding="utf-8")
+    assert "close and reopen" in pm and "add or remove labels" in pm
+    assert "never remove `needs-decision` or `drive-halt`" in pm
+    rules = (root / "overlay/rules.md").read_text(encoding="utf-8")
+    assert "never removes `needs-decision` or `drive-halt`" in rules
+    assert "win over this section" in rules
+    assert "## Permissive by default" in (root / "overlay/rules.md").read_text(encoding="utf-8")

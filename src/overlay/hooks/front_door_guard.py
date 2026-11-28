@@ -16,7 +16,9 @@ What the front door may not do (everything else passes through):
 
 - `Edit`, `Write`, `MultiEdit`, `NotebookEdit` on any file outside `.trazo/project/` (decision
   records, STATUS, workstreams: the files `/decide`, `/wrapup` and `/kickoff` write from the main
-  session). The path is resolved first, so `..` and symlinks out of that directory are denied.
+  session) and outside the session's memory directory (`~/.claude/projects/<project>/memory/`,
+  ADR 0032). Issue and comment text goes through `gh issue`, which this guard does not touch.
+  The path is resolved first, so `..` and symlinks out of those directories are denied.
 - `Bash`: `gh pr edit`, `git commit --allow-empty`, `git apply`, `sed -i` / `perl -i`, `tee`, and a
   redirection to a file. Also `bash -c`, `eval` and `$(...)` bodies, which are read the same way.
 
@@ -44,7 +46,8 @@ from pathlib import Path
 REASON = (
     "front door guard: {why}. The front door does not edit code, commit or rewrite pull "
     "requests; dispatch an engineer: `/work <issue>` (or `/senior-eng <issue>` for a "
-    "tier:senior issue). It may write only under .trazo/project/ (issue #319)."
+    "tier:senior issue). It may write only under .trazo/project/ and its memory directory "
+    "(issues #319, #379)."
 )
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
@@ -72,6 +75,16 @@ def _roots(payload: dict) -> list[Path]:
     return roots
 
 
+def _in_memory_dir(real: Path) -> bool:
+    """The session's memory notes: ~/.claude/projects/<project>/memory/ and below (ADR 0032)."""
+    base = Path.home().resolve() / ".claude" / "projects"
+    try:
+        rel = real.relative_to(base)
+    except ValueError:
+        return False
+    return len(rel.parts) >= 3 and rel.parts[1] == "memory"
+
+
 def _check_path(payload: dict, tool_input: dict) -> None:
     raw = tool_input.get("file_path", tool_input.get("notebook_path"))
     if not isinstance(raw, str) or not raw.strip():
@@ -80,6 +93,8 @@ def _check_path(payload: dict, tool_input: dict) -> None:
     if not path.is_absolute():
         raise Deny(f"{raw!r} is not an absolute path")
     real = path.resolve()
+    if _in_memory_dir(real):
+        return
     for root in _roots(payload):
         allowed = root / ".trazo" / "project"
         if real == allowed or allowed in real.parents:
@@ -182,6 +197,8 @@ def _check_command(command: str) -> None:
             elif re.fullmatch(r"[0-9]*>>?", word) and word.strip("0123456789") in {">", ">>"}:
                 target = words[i + 1] if i + 1 < len(words) else ""
             if target is not None and target not in SAFE_TARGETS and not target.startswith("&"):
+                if target and _in_memory_dir(Path(os.path.expanduser(target)).resolve()):
+                    continue
                 raise Deny(f"a redirection writes {target!r}")
         _check_segment(words)
 
