@@ -1,51 +1,35 @@
 # Install, upgrade and uninstall
 
-This page is the one place for installing, upgrading and removing Trazo, and for the owner-only setup.
-
-The current release is **v0.6.0** (see `.template/VERSION`). The commands below use it. For a newer release, replace `v0.6.0` with the latest tag from the repository's tag list.
-
-Trazo is installed from a release tag, by one script. Nothing is copied from a template repository, and nothing is fetched from a moving branch.
-
-## Or hand it to your coding agent
-
-Paste one of these into Claude Code, Codex or any coding agent, from the root of your repository. The agent works out the rest. Each uses the current release, `v0.6.0`.
-
-**Install:**
-
-> Install Trazo v0.6.0 into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.6.0/scripts/install.sh`, run `bash install.sh install v0.6.0`, then delete `install.sh`. Tell me what it placed and the owner-only steps it printed. Do not set secrets or variables.
-
-**Upgrade:**
-
-> Upgrade Trazo to v0.6.0 in this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.6.0/scripts/install.sh`, run `bash install.sh upgrade v0.6.0 --dry-run`, and show me the diff. Then run it without `--dry-run` and delete `install.sh`. Do not touch `.trazo/project/`. The upgrade merges new deny rules and hook entries into `.claude/settings.json` and keeps a `.bak` copy: tell me about any deny rule it removes so I can review it. Then remind me to open a fresh session so the new hooks load.
-
-**Uninstall:**
-
-> Remove Trazo from this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.6.0/scripts/install.sh`, run `bash install.sh uninstall` (this keeps `.trazo/project/`), then delete `install.sh`. Do not use `--purge` unless I say so.
-
-## Before you start
-
-- A git repository with a clean working tree. Commit or stash your changes first.
-- `git`, `curl` and `bash`.
-- The [GitHub CLI](https://cli.github.com/), signed in with `gh auth login`. You need it for the owner-only setup.
-- Your default branch should be named `main`. The GitHub Apps script refuses any other name, and the unattended driver runs only from the default branch.
+**How do I get Trazo into my repository?** Run the command below at the root of a git repository, then open your agent and run `/kickoff`. The rest of this page covers the upgrade, removal and the owner-only setup.
 
 ## Install
 
-Run these from the root of your repository:
+You need a git repository with a clean working tree, plus `git`, `curl`, `bash` and the [GitHub CLI](https://cli.github.com/) signed in with `gh auth login`. Commit or stash your changes first.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.6.0/scripts/install.sh -o install.sh
-bash install.sh install v0.6.0
-rm install.sh
+T=$(mktemp -d)
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o "$T/install.sh"
+bash "$T/install.sh" install latest
 ```
 
-Then:
+The installer goes into a temporary directory, not into your repository, so it does not overwrite a file of yours named `install.sh`. `latest` means the highest release tag. The Trazo files themselves come from that release tag, and never from a moving branch.
 
-1. Read what the script printed. It lists every file it placed and the owner-only steps.
+Or paste this into Claude Code, Codex or any coding agent, from the root of your repository:
+
+> Install Trazo into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` into a new temporary directory outside the repository (`mktemp -d`), never into the repository, run `bash` on that file with `install latest`, and leave the repository's own files alone. Tell me what it placed and the owner-only steps it printed. Do not set secrets or variables.
+
+### What you get
+
+The script prints every file it placed and the owner-only steps. In your repository you now have a `.trazo/` folder with the rules and agent job descriptions, an adapter for your agent (`CLAUDE.md`, `AGENTS.md`, `.claude/`, `.codex/`), GitHub workflows, and a blank `.trazo/project/` that is yours. [In your repo](in-your-repo.md) lists each path.
+
+### What to do first
+
+1. Read what the script printed.
 2. Commit the new files on a branch and open a pull request.
-3. In your agent, run `/kickoff` and answer its questions. Kickoff writes the charter and plan. It shows them to you before anything is built.
+3. In your agent, run `/kickoff` and answer its questions. Kickoff writes the charter and plan, and shows them to you before anything is built.
+4. Start a new agent session after the install, because Claude Code loads hooks and settings only when a session starts.
 
-The tag is required. With no tag, the script refuses. `latest` is also accepted. It resolves to the highest `vMAJOR.MINOR.PATCH` tag, never to a branch.
+Everything else, such as automatic review and the unattended drive, is optional. The [owner setup](#owner-setup) below covers it.
 
 ### Options
 
@@ -54,6 +38,7 @@ The tag is required. With no tag, the script refuses. `latest` is also accepted.
 | `--adapter claude\|agents\|codex\|both` | Which tool adapter to install. Default `both`: Claude Code and the generic `AGENTS.md` adapter. Use `codex` for Codex project agents and skills. Use `claude` or `agents` for only that one. |
 | `--source <path-or-url>` | Where to fetch the release from. Default is `$TRAZO_SOURCE`, then the public repository. The script prints the source it uses. |
 | `--sha <commit>` | A full 40-character commit the tag must point to. The script refuses on a mismatch, so you can detect a moved tag. |
+
 
 ## What the installer changes
 
@@ -72,20 +57,24 @@ The script refuses to run if `.trazo/` exists without `INSTALLED` (an older layo
 
 **Start a new session after install or upgrade.** Claude Code loads hooks and settings when a session starts. A session that was already open keeps the old ones.
 
+## Check which version you have
+
+The file `.trazo/VERSION` in your repository records the release you installed and its commit. It can be older than the newest release. The newest release is the highest tag on the [tags page](https://github.com/manoochehri/trazo/tags), and what changed is in the [changelog](changelog.md).
+
 ## Upgrade
 
 Preview first. This prints the diff of `.trazo/` and changes nothing:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/v0.6.0/scripts/install.sh -o install.sh
-bash install.sh upgrade v0.6.0 --dry-run
+T=$(mktemp -d)
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o "$T/install.sh"
+bash "$T/install.sh" upgrade latest --dry-run
 ```
 
-Then apply it:
+Then apply it, in the same terminal so that `$T` is still set:
 
 ```sh
-bash install.sh upgrade v0.6.0
-rm install.sh
+bash "$T/install.sh" upgrade latest
 ```
 
 Commit the result on a branch and open a pull request. Then start a new session.
@@ -95,25 +84,25 @@ Commit the result on a branch and open a pull request. Then start a new session.
 - A file in `.trazo/INSTALLED` that you have edited since it was placed is skipped with a warning. On upgrade the script prints the diff so you can merge it by hand.
 - Read the printed `- removed` lines in `.claude/settings.json` changes. The `.bak` file has the old version.
 
+To hand the upgrade to your agent, paste: "Upgrade Trazo in this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` into a new temporary directory outside the repository (`mktemp -d`), never into the repository. Run `bash` on that file with `upgrade latest --dry-run` and show me the diff. Then run it without `--dry-run`. List any deny rule the upgrade removed from `.claude/settings.json`. Do not touch `.trazo/project/`."
+
+### If the upgrade reports a script out of step
+
+Some files Trazo places must move together: a workflow and the scripts it calls, such as `scripts/report_verdict.py`. If the installer says that a script you edited is older than its workflow, compare your copy with the same file at the release tag and update it in a pull request. Issue [#435](https://github.com/manoochehri/trazo/issues/435) is making the installer say this itself.
+
 ## Uninstall
 
 ```sh
-bash install.sh uninstall
+T=$(mktemp -d)
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o "$T/install.sh"
+bash "$T/install.sh" uninstall
 ```
 
-This keeps `.trazo/project/`. It removes the framework under `.trazo/`, the adapter and harness files listed in `.trazo/INSTALLED` that you have not edited, and the marked blocks in `AGENTS.md` and `CLAUDE.md`. A file that held only the block is deleted. Your own files stay, including your `.claude/` files, your `.codex/` agents, your `CODEOWNERS`, and `.trazo/project/`.
+This keeps `.trazo/project/`. It removes the framework under `.trazo/`, the adapter and harness files listed in `.trazo/INSTALLED` that you have not edited, and the marked blocks in `AGENTS.md` and `CLAUDE.md`. A file that held only the block is deleted. Your own files stay, including your `.claude/` files, your `.codex/` agents, your `CODEOWNERS` and `.trazo/project/`.
 
-To remove `.trazo/project/` as well:
+To remove `.trazo/project/` as well, add `--purge`. It refuses if `.trazo/project/` has uncommitted, untracked or ignored files, so commit or move them first. Only if you accept losing them, add `--force` too.
 
-```sh
-bash install.sh uninstall --purge
-```
-
-`--purge` refuses if `.trazo/project/` has uncommitted, untracked or ignored files. Commit or move them first. Only if you accept losing them, add `--force`:
-
-```sh
-bash install.sh uninstall --purge --force
-```
+To hand the removal to your agent, paste: "Remove Trazo from this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` into a new temporary directory outside the repository (`mktemp -d`), never into the repository, and run `bash` on that file with `uninstall` (this keeps `.trazo/project/`). Do not use `--purge` unless I say so."
 
 ## Owner setup
 
@@ -152,12 +141,12 @@ Trazo uses two GitHub Apps. Each one has its own ID and private key:
 
 Both keys are stored as secrets of a GitHub environment named `trazo-apps`. That environment allows only the `main` branch, so only a job running from `main` can read the keys.
 
-The script that creates them is not installed in your repository. Run it from a clone of Trazo, checked out at the tag you installed (v0.6.0 today). You need admin rights on your repository:
+The script that creates them is not installed in your repository. Run it from a clone of Trazo, checked out at the tag in the first line of your `.trazo/VERSION` (written as `TAG` below). You need admin rights on your repository:
 
 ```sh
 git clone https://github.com/manoochehri/trazo.git
 cd trazo
-git checkout v0.6.0
+git checkout TAG
 zsh scripts/setup_github_apps.zsh --dry-run --repo owner/name
 zsh scripts/setup_github_apps.zsh --repo owner/name
 ```
@@ -190,7 +179,7 @@ The review workflow is described in [ADR 0017](https://github.com/manoochehri/tr
 
 The driver runs `drive.yml` every 30 minutes. It picks the top ready issue. An agent edits a copy of the code. A script with no AI opens the pull request. A merge job merges it only after a passing review verdict for that exact commit, passing checks, and no change to an owner-protected path. See [ADR 0024](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0024-unattended-drive-workflow.md).
 
-**The driver is UNVERIFIED.** Its first two live runs failed. One run did not record a `needs-pm` label on its issue ([#399](https://github.com/manoochehri/trazo/issues/399)). Another picked an issue and produced no pull request ([#401](https://github.com/manoochehri/trazo/issues/401)). The fix for #399 is in progress. Treat the driver as unproven until one full unattended run opens and merges a pull request. Live verification is tracked in [#247](https://github.com/manoochehri/trazo/issues/247).
+**The driver is UNVERIFIED.** It was triggered on a schedule from 2026-10-31 but only ran for real from 2026-11-23, when it was switched on in the Trazo repository, and it opened one pull request, #312, which was closed unmerged. A watched run on 2026-11-28 made no change and exposed a bug ([#399](https://github.com/manoochehri/trazo/issues/399)). Treat the driver as unproven until one full unattended run opens and merges a pull request. Live verification is tracked in [#247](https://github.com/manoochehri/trazo/issues/247).
 
 Leave it off until you can watch a run:
 
