@@ -394,13 +394,17 @@ def bare_words(args: list[str]) -> list[str]:
 
 
 OWNER_MERGE = re.compile(r"owner-merge\.yml")
+BARE_DISPATCH = frozenset({"drive.yml", "release.yml"})  # dispatched with no flag (#397)
+BARE_SEEN: list[str] = []  # bare dispatches the current call contains (#397)
 PR_FIELD = re.compile(r"pr=[0-9]{1,9}")
 
 
 def check_gh_workflow(argv: list[str], words: list[str]) -> None:
     """`gh workflow`: an allowlist (#333). The one dispatch an agent may run is exactly
-    `gh workflow run owner-merge.yml -f pr=<digits>` (or `--field`): no `--ref`, no other flag,
-    no other workflow name, ID, display name or path. The check reads the raw words, so a flag
+    `gh workflow run owner-merge.yml -f pr=<digits>` (or `--field`), or (#397) exactly
+    `gh workflow run drive.yml` or `gh workflow run release.yml` with no flag at all and as the
+    whole command (main() enforces that): no `--ref`, no `-f`, no other flag, no other workflow
+    name, ID, display name or path. The check reads the raw words, so a flag
     placed anywhere (`gh -R x workflow run`, `--ref b owner-merge.yml`) fails the exact match."""
     sub = words[1] if len(words) > 1 else ""
     if sub in {"list", "view"}:
@@ -412,9 +416,13 @@ def check_gh_workflow(argv: list[str], words: list[str]) -> None:
         and argv[4] in {"-f", "--field"}
         and PR_FIELD.fullmatch(argv[5])
     )
-    if not exact:
+    bare = len(argv) == 4 and argv[1:3] == ["workflow", "run"] and argv[3] in BARE_DISPATCH
+    if bare:
+        BARE_SEEN.append(argv[3])
+    if not (exact or bare):
         raise Deny(
-            "`gh workflow` may only run exactly `gh workflow run owner-merge.yml -f pr=<n>` "
+            "`gh workflow` may only run exactly `gh workflow run owner-merge.yml -f pr=<n>`, "
+            "`gh workflow run drive.yml` or `gh workflow run release.yml` with no flags "
             "(or list/view); any other dispatch, flag, `--ref` or workflow is denied"
         )
 
@@ -877,6 +885,9 @@ def main(argv: list[str]) -> int:
         _CALLER[0] = payload.get("agent_type")
         prefixes, paths = load_rules()
         check(command, prefixes, paths)
+        if BARE_SEEN and command.strip() not in {f"gh workflow run {w}" for w in BARE_DISPATCH}:
+            # the dispatch must be the whole command: no chain, pipe, redirect or wrapper
+            raise Deny("`gh workflow run drive.yml` and `release.yml` must be the entire command")
     except Deny as why:
         print(REASON.format(why=why), file=sys.stderr)
         return 2

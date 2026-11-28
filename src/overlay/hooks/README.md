@@ -40,7 +40,7 @@ conversation and to subagents, and they win over any hook's `allow`.
 
 | Rule | Why |
 |---|---|
-| `Bash(gh workflow run ...)` | Not a prefix rule: `engineer_bash_guard.py` allows only exactly `gh workflow run owner-merge.yml -f pr=<digits>` (or `--field`), no `--ref` or other flag, no other workflow; it also denies `gh api` to `dispatches` and `actions/workflows` endpoints (#333) |
+| `Bash(gh workflow run ...)` | Not a prefix rule: `engineer_bash_guard.py` allows only exactly `gh workflow run owner-merge.yml -f pr=<digits>` (or `--field`), plus `gh workflow run drive.yml` and `gh workflow run release.yml` with no flag at all (#397; `release.yml` refuses unless its own owner, branch, changelog and milestone checks pass), no `--ref` or other flag, no other workflow; it also denies `gh api` to `dispatches` and `actions/workflows` endpoints (#333) |
 | `Bash(gh pr merge *)` | Merging goes through the gated workflows (`drive.yml`, `owner-merge.yml`), not a direct session merge |
 | `Bash(fly *)`, `Bash(flyctl *)` | Production hosting |
 | `Bash(clasp push *)`, `Bash(clasp deploy *)` | Apps Script deploys |
