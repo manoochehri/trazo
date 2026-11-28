@@ -17,6 +17,8 @@ The workflow gathers facts with `gh`; the decisions live here so they can be tes
                       prints the daily digest comment
   placeholders DIR    prints, NUL-separated, the new (untracked) files in the git checkout DIR that
                       are empty and named like a package-manager or submodule config file (#315)
+  denials FILE        reads the agent's execution file and prints the tool calls it was denied: the
+                      tool name and, for a file tool, the path. Never a command or file content.
 """
 
 import json
@@ -253,6 +255,41 @@ def gather_halt():
     return halt_status(issues, owner, app)
 
 
+def _safe(text, limit=200):
+    """Plain characters only, so a path in the job summary carries no markup or control codes."""
+    return re.sub(r"[^A-Za-z0-9_./ -]", "?", str(text))[:limit]
+
+
+def denials(raw):
+    """Markdown naming each tool call the agent was denied (#399), from the action's execution file.
+
+    The file is a JSON list of messages; the result message carries permission_denials. Only the
+    tool name and a file path are printed: a command or file content could hold
+    anything the agent saw.
+    """
+    try:
+        messages = json.loads(raw)
+        found = [
+            d
+            for m in messages
+            if isinstance(m, dict) and m.get("type") == "result"
+            for d in m.get("permission_denials") or []
+        ]
+    except (ValueError, TypeError):
+        return "Agent permission denials: execution file unreadable."
+    if not found:
+        return "Agent permission denials: none."
+    lines = [f"Agent permission denials: {len(found)}"]
+    for d in found:
+        d = d if isinstance(d, dict) else {}
+        tool_input = d.get("tool_input")
+        path = tool_input.get("file_path") if isinstance(tool_input, dict) else None
+        lines.append(
+            f"- {_safe(d.get('tool_name', '?'), 60)}" + (f" on {_safe(path)}" if path else "")
+        )
+    return "\n".join(lines)
+
+
 def main(argv):
     cmd = argv[1] if len(argv) > 1 else ""
     if cmd == "limit" and len(argv) == 4:
@@ -294,6 +331,13 @@ def main(argv):
         return 0
     if cmd == "placeholders" and len(argv) == 3:
         sys.stdout.write("".join(p + "\0" for p in untracked_placeholders(argv[2])))
+        return 0
+    if cmd == "denials" and len(argv) == 3:
+        try:
+            with open(argv[2], encoding="utf-8") as f:
+                print(denials(f.read()))
+        except OSError:
+            print("Agent permission denials: execution file missing.")
         return 0
     print(__doc__, file=sys.stderr)
     return 2
