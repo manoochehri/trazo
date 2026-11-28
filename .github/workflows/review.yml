@@ -102,7 +102,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: review (reviewer subagent, fresh context)
-        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc
+        uses: anthropics/claude-code-action@4411a9e9b0283becf4b924f7bce360fd7756c78c
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
