@@ -58,7 +58,7 @@ def test_roles_are_described_correctly() -> None:
         assert not re.search(rf"[`\"']{re.escape(command)}[`\"',]", text), (
             f"{command} is listed as a command; it is subagent-only"
         )
-    roles_page = _handbook("how-it-works.md") + _handbook("day-to-day.md")
+    roles_page = _handbook("how-it-works.md") + _handbook("use-it.md")
     assert re.search(r"subagent-only", roles_page, re.IGNORECASE), (
         "the handbook must say which agents are subagent-only, not just drop them"
     )
@@ -218,5 +218,5 @@ def test_readme_links_resolve() -> None:
 
 
 def test_the_handbook_pages_the_readme_names_exist() -> None:
-    for name in ("index", "how-it-works", "in-your-repo", "install", "guardrails", "day-to-day"):
+    for name in ("index", "how-it-works", "in-your-repo", "install", "guardrails", "use-it"):
         assert (HANDBOOK / f"{name}.md").exists(), f"handbook/{name}.md is missing"

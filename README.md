@@ -48,6 +48,6 @@ See [Guardrails and limits](handbook/guardrails.md). Released versions are on th
 
 ## Read next
 
-[Home](handbook/index.md) · [How it works](handbook/how-it-works.md) · [In your repo](handbook/in-your-repo.md) · [Install](handbook/install.md) · [Guardrails](handbook/guardrails.md) · [Day to day](handbook/day-to-day.md) · site: https://manoochehri.github.io/trazo/
+[Home](handbook/index.md) · [How it works](handbook/how-it-works.md) · [In your repo](handbook/in-your-repo.md) · [Install](handbook/install.md) · [Guardrails](handbook/guardrails.md) · [Use it](handbook/use-it.md) · site: https://manoochehri.github.io/trazo/
 
 Contributing: [CONTRIBUTING.md](CONTRIBUTING.md). License: [MIT](LICENSE).

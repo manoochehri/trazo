@@ -46,7 +46,7 @@ PUBLISHED = (
     "how-it-works.md",
     "install.md",
     "in-your-repo.md",
-    "day-to-day.md",
+    "use-it.md",
     "guardrails.md",
 )
 
@@ -133,7 +133,7 @@ def test_nav_is_the_new_layout_and_every_entry_exists() -> None:
         ("How it works", "how-it-works.md"),
         ("Install and upgrade", "install.md"),
         ("In your repo", "in-your-repo.md"),
-        ("Day to day", "day-to-day.md"),
+        ("Use it", "use-it.md"),
         ("Guardrails and limits", "guardrails.md"),
         ("Changelog", "changelog.md"),
         ("Contributing", "contributing.md"),
@@ -165,7 +165,7 @@ def test_the_home_page_links_the_pages_it_promises() -> None:
         "how-it-works.md",
         "in-your-repo.md",
         "install.md",
-        "day-to-day.md",
+        "use-it.md",
         "guardrails.md",
     ):
         assert f"]({page})" in index, f"the home page does not link {page}"

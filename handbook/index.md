@@ -84,4 +84,4 @@ Run the two commands above at the root of a git repository (you need `git`, `cur
 
 **Can I remove it?** Run `bash install.sh uninstall`. It keeps `.trazo/project/`.
 
-Next: [install it](install.md), then see [how it works](how-it-works.md), [day to day](day-to-day.md) and [guardrails and limits](guardrails.md).
+Next: [install it](install.md), then see [how it works](how-it-works.md), [use it](use-it.md) and [guardrails and limits](guardrails.md).
