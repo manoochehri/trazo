@@ -6,6 +6,21 @@ Trazo is for developers who already use Claude Code (in a terminal or in VS Code
 
 It works with any language or framework, because it governs how the agent behaves and not what the code is built with. It asks one thing of your repository: a single command that builds and tests it from a fresh checkout. Docker, nix, a devcontainer or a `Makefile` all satisfy that. Your code, build and deploy setup stay as they are.
 
+## Where it runs and which agents it works with
+
+Trazo runs through the chat or agent you already use, in VS Code or in a terminal, and through GitHub: pull requests, commit statuses and GitHub Actions. There is no new application to open. It works with agents that read `AGENTS.md` or that run Claude Code or Codex. It does not work with every tool that runs in VS Code, so check the table.
+
+| Agent | What you get | Evidence |
+|---|---|---|
+| Claude Code | The rules, the role commands such as `/work` and `/pm`, and hooks that block risky commands | `.claude/settings.json` registers the hooks in `src/overlay/hooks/` |
+| Codex | The rules and agent definitions for each role (`.codex/agents/`, `.agents/skills/`). No hooks. | Tested once by the author; see [in your repo](in-your-repo.md) for the build tested |
+| Any other agent that reads `AGENTS.md` | The rules reach it through `AGENTS.md`. The hooks do not apply, because they are Claude Code settings. | `src/adapters/AGENTS.md` |
+| Antigravity | UNVERIFIED. A session of it worked on this repository (its worktrees appear in `git worktree list`), but nothing in the repository documents or tests it, so it is not listed as supported. | none |
+
+## How does Trazo work with AGENTS.md?
+
+`AGENTS.md` says how to work in your repository: how to build, how to test and which conventions to follow. Trazo says whether an action is allowed at all, such as merging, spending money or reading a secret. The two do not replace each other. The installer adds one block between `<!-- trazo:begin -->` and `<!-- trazo:end -->` to `AGENTS.md` and to `CLAUDE.md`, creates the file if it is missing, and never touches anything outside those markers. When the two files disagree about what is permitted, Trazo's rules win ([`rules.md`](https://github.com/manoochehri/trazo/blob/main/src/overlay/rules.md), "`AGENTS.md` is how; Trazo is whether"). Ordinary edits to your own `AGENTS.md` need no approval.
+
 ## What goes wrong when AI agents work in a real codebase
 
 Each of these happened in the project Trazo was built from. The issue numbers are public, so you can read the original reports.
