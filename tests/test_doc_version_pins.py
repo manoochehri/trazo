@@ -64,5 +64,18 @@ def test_files_argument_limits_scan(tmp_path: Path) -> None:
     assert MOD.find_stale_pins(root, ["handbook/old.md"])
 
 
+def test_symlink_outside_root_and_bad_files_are_handled(tmp_path: Path) -> None:
+    outside = tmp_path / "outside.md"
+    outside.write_text("install v0.1.0\n", encoding="utf-8")
+    (tmp_path / "repo").mkdir()
+    root = tree(tmp_path / "repo", handbook__bad="ok")
+    (root / "handbook" / "bad.md").write_bytes(b"\xff\xfe install v0.1.0")
+    (root / "handbook" / "link.md").symlink_to(outside)
+    problems = MOD.find_stale_pins(root)
+    assert len(problems) == 1 and "bad.md" in problems[0] and "UTF-8" in problems[0]
+    escaped = MOD.find_stale_pins(root, ["../outside.md"])
+    assert len(escaped) == 1 and "outside the repository root" in escaped[0]
+
+
 def test_clean_pages_hard_code_no_release() -> None:
     assert MOD.find_stale_pins(ROOT, CLEAN_PAGES) == []

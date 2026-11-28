@@ -31,11 +31,22 @@ def find_stale_pins(root: Path, files: list[str] | None = None) -> list[str]:
     else:
         paths = [root / name for name in files]
     problems: list[str] = []
+    base = root.resolve()
     for path in paths:
-        if path.name in EXEMPT or not path.is_file():
+        if path.name in EXEMPT or path.is_symlink():
+            continue
+        if base not in path.resolve().parents:
+            problems.append(f"{path}: outside the repository root, not scanned")
+            continue
+        if not path.is_file():
             continue
         rel = path.relative_to(root)
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError) as error:
+            problems.append(f"{rel}: cannot read as UTF-8 text ({error.__class__.__name__})")
+            continue
+        for number, line in enumerate(lines, 1):
             text = ALLOWED_URL.sub("", line)
             found = V_PIN.findall(text)
             if CONTEXT.search(text):
