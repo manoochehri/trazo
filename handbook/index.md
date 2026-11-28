@@ -30,18 +30,12 @@ This is [#329](https://github.com/manoochehri/trazo/pull/329), which limited the
     Fail-first output: 38 errors, the guard script does not exist on main
     ```
 
-2. The security agent read the first commit in its own session and passed it. One suggestion became [#330](https://github.com/manoochehri/trazo/issues/330).
+2. The security agent read the first commit in its own session and passed it. One suggestion became a follow-up issue.
 3. The reviewer returned `merge after fixes` with `Reviewed-Head: 6126ffb`, because the block message named four of the six allowed agents.
 4. The engineer pushed `0dd084a` with a test that fails on the old message, and the reviewer wrote `merge`.
 5. On `0dd084a` the statuses `trazo/verdict` and `trazo/security` were `success`, CI was green, and it merged on 2026-11-25.
 
 The merge workflow merges with `--match-head-commit`, so a later push cannot slip in. When a check is missing it stops with `it changes risky paths and trazo/verdict is missing on this head; not merging.` (the workflow's wording, not output from #329).
-
-## Built from real failures
-
-- An agent did the wrong role's job, editing pull requests and pushing empty commits itself ([#319](https://github.com/manoochehri/trazo/issues/319)).
-- One shared GitHub account could set the status that says a review passed ([#366](https://github.com/manoochehri/trazo/issues/366)).
-- Guards missed a route to merging and to `.env`, then blocked the wrong agent ([#330](https://github.com/manoochehri/trazo/issues/330), [#364](https://github.com/manoochehri/trazo/issues/364)).
 
 ## What you get
 
