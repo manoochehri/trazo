@@ -159,5 +159,5 @@ Each rule above answers something that went wrong in this project.
 ## Related pages
 
 - [How it works](how-it-works.md): the loop, the roles, the merge gate and the drive workflow these limits apply to.
-- [Day to day](day-to-day.md): what to do when a limit stops you.
+- [Use it](use-it.md): what to do when a limit stops you.
 - [Install and upgrade](install.md): the owner-only setup that creates the GitHub-side limits.

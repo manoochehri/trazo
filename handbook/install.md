@@ -227,4 +227,4 @@ Trazo ships no deploy target. Your build and your cloud are yours. Record the de
 - [In your repo](in-your-repo.md): what the install adds and what stays yours.
 - [How it works](how-it-works.md): what the installed rules, roles and checks do.
 - [Guardrails and limits](guardrails.md): which limits the owner-only setup creates.
-- [Day to day](day-to-day.md): running the repository once it is installed.
+- [Use it](use-it.md): running the repository once it is installed.

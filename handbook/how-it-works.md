@@ -125,5 +125,5 @@ Anything on the stop list in `rules.md`: the charter, `CODEOWNERS` paths, agent 
 ## Related pages
 
 - [Guardrails and limits](guardrails.md): every limit, how GitHub and the hooks enforce it, and where enforcement can fail.
-- [Day to day](day-to-day.md): what you do each day and what to do when something is stuck.
+- [Use it](use-it.md): what you do each day and what to do when something is stuck.
 - [In your repo](in-your-repo.md): what Trazo adds to your repository and what stays yours.
