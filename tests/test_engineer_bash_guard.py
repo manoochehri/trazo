@@ -80,7 +80,6 @@ DENIED = [
     "gh api repos/o/r/statuses/abc123 -f state=success -f context=trazo/verdict",
     "gh api repos/o/r/statuses/abc123 --input status.json",
     # other gh api writes
-    "gh api -X DELETE repos/o/r/git/refs/heads/x",
     "gh api -X PATCH repos/o/r/branches/main/protection",
     "gh api -X POST repos/o/r/dispatches -f event_type=x",
     "gh api graphql -f query='mutation { mergePullRequest(input:{}) { clientMutationId } }'",
@@ -189,6 +188,37 @@ ALLOWED = [
     "gh issue comment 330 --body 'Decided: x'",
     "gh issue edit 330 --add-label needs-pm",
     "gh issue create --title t --body b",
+    "gh issue close 330",
+    'gh issue close 330 --comment "done"',
+    "gh issue reopen 330",
+    "gh api -X PATCH repos/o/r/milestones/3 -f state=closed",
+    "gh api -X PATCH repos/o/r/issues/5 -f state=closed",
+    "gh api -X POST repos/o/r/issues/5/comments -f body=x",
+    "gh api -X POST repos/o/r/labels -f name=x -f color=ffffff",
+    "gh api -X PATCH repos/o/r/milestones/$N -f state=closed",
+    "gh api -X PATCH repos/o/r/issues/$N -f state=closed",
+    "gh api -i repos/o/r/pulls/5",
+    "gh api -X PATCH repos/o/r/pulls/5 -f state=closed",
+    "gh api -X DELETE repos/o/r/git/refs/heads/eng-330",
+    "gh api -X POST repos/o/r/git/refs -f ref=refs/heads/eng-330 -f sha=abc",
+    'gh pr create --title t --body "$(cat /tmp/body.md)"',
+    "gh pr create --title t --body-file /tmp/body.md",
+    'gh issue comment 5 --body "built $(date)"',
+    "gh issue comment 5 --body-file /tmp/note.md",
+    "cat > /tmp/b.md <<'EOF'\nuses $(foo) and `gh pr merge 5`; gh pr merge 5\nEOF\ngh pr create --body-file /tmp/b.md",  # noqa: E501
+    "cat > /tmp/b.md <<EOF\nbuilt $(date) today\nEOF",
+    "gh pr create --title t --body \"$(cat <<'EOF'\nmentions $(rm x); gh pr merge 5\nEOF\n)\"",
+    "echo hi > /tmp/x",
+    "make test 2>&1 | tail -5",
+    "uv run pytest &> /tmp/out.txt",
+    "SHA=$(git rev-parse HEAD); git log $SHA",
+    "# a comment with a quote: don't\ngit status",
+    'echo "see ~/.claude/settings.json for the mention"',
+    "grep -rn .claude src",
+    "echo note > ~/.claude/projects/-Users-me-proj/memory/note.md",
+    "echo x > .trazo/project/notes",
+    "cp .claude/settings.json /tmp/s.json",
+    "git add .claude/settings.json",
     "gh api repos/o/r/pulls/5",
     "gh api repos/o/r/pulls/5/merge",
     "gh api -X GET repos/o/r/commits/abc/statuses",
@@ -210,6 +240,9 @@ ALLOWED = [
     "git push -u origin HEAD",
     "git push origin HEAD:eng-330",
     "git push",
+    "git push --force origin eng-330",
+    "git push -f origin HEAD:eng-330",
+    "git push --force-with-lease origin eng-330",
     "git push origin feature/main-fix",
     "git log --oneline -3 main",
     "git commit -m \"$(cat <<'EOF'\nCloses #330: x\n\nbody\nEOF\n)\"",
@@ -337,9 +370,6 @@ def test_a_role_may_not_post_another_roles_status_or_another_write(project, agen
         _status(f"repos/o/r/statuses/{SHA40}", mine) + " ; gh api -X PUT repos/o/r/pulls/7/merge",
         _status("repos/$(rm -rf /)/statuses/" + SHA40, mine),
         _status(f"repos/{REPO_SUB}/statuses/$(gh pr merge 7)", mine),
-        _status(f"repos/{REPO_SUB}/statuses/$(gh pr view 7 --json headRefOid -q .x)", mine),
-        _status(f"repos/o/r/statuses/{SHA40}", mine) + " -f target_url=$(cat x)",
-        f"gh api -X POST repos/o/r/issues/7/comments -f body=x -f context={mine}",
     ]:
         assert _blocked(project, command, agent), f"{agent}: {command!r} must stay blocked"
 
@@ -387,3 +417,192 @@ def test_project_claude_directory_is_not_a_secret_path(project, command):
 def test_home_directory_secrets_stay_denied(project, command):
     """Only a project-relative `.claude/` word is exempt; every home-prefixed form stays denied."""
     assert _blocked(project, command, None), f"{command!r} must stay blocked"
+
+
+NEW_DENIED = [
+    # api writes on the blocklist
+    "gh api -X POST repos/o/r/rulesets -f name=x",
+    "gh api -X PUT repos/o/r/rulesets/1",
+    "gh api -X DELETE repos/o/r/branches/main/protection",
+    "gh api -X PUT repos/o/r/actions/secrets/KEY -f encrypted_value=x",
+    "gh api -X PATCH repos/o/r/actions/variables/V -f value=x",
+    "gh api -X POST repos/o/r/keys -f key=x",
+    "gh api -X POST user/keys -f key=x",
+    "gh api -X PUT repos/o/r/collaborators/u",
+    "gh api -X POST repos/o/r/releases -f tag_name=v1",
+    "gh api -X POST repos/o/r/git/refs -f ref=refs/tags/v1 -f sha=abc",
+    "gh api -X POST repos/o/r/git/refs -f ref=refs/heads/main -f sha=abc",
+    "gh api -X PATCH repos/o/r/git/refs/heads/main -f sha=abc",
+    "gh api -X DELETE repos/o/r/git/refs/tags/v1",
+    "gh api -X DELETE repos/o/r/git/refs/heads/$B",
+    "gh api -X PATCH repos/o/r -f name=x",
+    "gh api -X POST repos/o/r/merges -f base=main -f head=x",
+    "gh api -X PUT repos/o/r/contents/f.txt -f message=m -f content=Yg==",
+    "gh api -X PUT repos/o/r/contents/f.txt -f message=m -f branch=main",
+    "gh api -X PATCH orgs/o -f x=y",
+    "gh api -X PUT repos/o/r/pulls/5/merge",
+    "gh api -X PATCH $E -f x=y",
+    "gh api -X PUT repos/o/$R/rulesets/1",
+    "gh api -X PUT repos/$A/rulesets",
+    "gh api -X POST repos/o/r/statuses/$S -f state=success -f context=trazo/verdict",
+    "gh api -X POST repos/o/r/issues/$(rm -rf x)/comments -f body=x",
+    # gh and git on the blocklist
+    "gh repo edit --visibility public",
+    "gh repo delete o/r --yes",
+    "gh repo archive o/r",
+    "gh auth status --show-token",
+    "gh $V pr merge 5",
+    "gh pr $(echo merge) 5",
+    "gh pr `echo merge` 5",
+    "git push --tags",
+    "git push origin refs/tags/v1",
+    "git push origin tag v1",
+    "git push --follow-tags origin eng-330",
+    "git push --force origin HEAD:main",
+    "git push -f",
+    "git push --force origin",
+    "git push --force-with-lease origin HEAD",
+    # governance writes
+    "echo x > .claude/settings.json",
+    "echo x >> .claude/agents/pm.md",
+    "echo x &> .claude/settings.json",
+    "echo x | tee .trazo/rules.md",
+    "sed -i s/a/b/ .claude/settings.json",
+    "cp /tmp/x .trazo/hooks/engineer_bash_guard.py",
+    "mv /tmp/x .claude/commands/c.md",
+    "rm .trazo/roles/pm.md",
+    "touch ./.claude/x",
+    "echo x > .trazo/project/../rules.md",
+    "echo x > .trazo/project/charter/charter.md",
+    "cat > .claude/hooks/x <<'EOF'\nx\nEOF",
+    "echo x > ~/.claude/settings.json",
+    "echo x > ~/.claude/projects/p/memory/../../settings.json",
+    # still-denied reads and eval forms
+    "cat ~/.claude/settings.json",
+    'eval "$(cat x)"',
+    'bash -c "$(cat x)"',
+    "cat <<EOF | bash\ngh pr merge 5\nEOF",
+    "cat <<EOF\n$(gh pr merge 5)\nEOF",
+    "cat <<EOF\n$(cat .env)\nEOF",
+]
+
+
+@pytest.mark.parametrize("command", NEW_DENIED)
+@pytest.mark.parametrize("agent", [None, "engineer"])
+def test_loosened_guard_still_denies_the_blocklist(project, command, agent):
+    assert _blocked(project, command, agent), f"{command!r} must stay blocked (agent={agent})"
+
+
+@pytest.mark.parametrize("agent", sorted(ROLE_CONTEXT))
+def test_role_status_post_with_variables_and_unquoted_substitutions(project, agent):
+    mine = ROLE_CONTEXT[agent]
+    for command in [
+        f"REPO={REPO_SUB}; SHA={SHA_SUB}; "
+        f"gh api -X POST repos/$REPO/statuses/$SHA -f state=success -f context={mine}",
+        f"gh api repos/{REPO_SUB}/statuses/{SHA_SUB} -f state=failure -f context={mine} "
+        f'-f description="$(date)"',
+        f'gh api -X POST "repos/${{REPO}}/statuses/${{SHA}}" -f state=success -f context={mine}',
+    ]:
+        assert not _blocked(project, command, agent), f"{agent}: {command!r} must be allowed"
+    other = next(c for a, c in ROLE_CONTEXT.items() if a != agent)
+    for command in [
+        f"gh api -X POST repos/$REPO/statuses/$SHA -f state=success -f context={other}",
+        f"gh api -X POST repos/$REPO/statuses/$SHA -f state=success -f context={mine} -f x=y",
+        f"gh api -X PATCH repos/$REPO/statuses/$SHA -f state=success -f context={mine}",
+    ]:
+        assert _blocked(project, command, agent), f"{agent}: {command!r} must stay blocked"
+
+
+# Security review of #384 (probes run against the first head): every route below was newly allowed
+# by the loosened guard and is denied again.
+PROBE_DENIED = [
+    # (1) a computed part of a write path after the collection reaches the merge endpoint
+    "X=merge; gh api -X PUT repos/o/r/pulls/5/$X",
+    "X=5/merge; gh api -X PUT repos/o/r/pulls/$X",
+    "X=5/merge; gh api -X PUT repos/o/r/pulls/${X}",
+    "gh api -X POST repos/o/r/issues/$N/comments -f body=x",
+    # (2) a request body file can create a tag ref
+    "gh api -X POST repos/o/r/git/refs --input body.json",
+    "gh api -X POST repos/o/r/git/refs --input -",
+    "gh api -X POST repos/o/r/issues/5/comments --input body.json",
+    # (3) an @file field value reads a file into a public comment
+    "gh api -X POST repos/o/r/issues/5/comments -F body=@.env",
+    "gh api -X POST repos/o/r/issues/5/comments -f body=@.env",
+    "gh api -X POST repos/o/r/issues/5/comments --field body=@.env",
+    "gh api -X POST repos/o/r/issues/5/comments -Fbody=@.env",
+    "gh api -X POST repos/o/r/issues/5/comments -F body=@secrets/x",
+    "gh api -X POST repos/o/r/issues/5/comments -F body=@.config/gh/hosts.yml",
+    # (4) a heredoc or here-string turns into the arguments of gh through xargs
+    "cat <<'EOF' | xargs gh\npr merge 5\nEOF",
+    "xargs gh <<< 'pr merge 5'",
+    "echo pr merge 5 | xargs gh",
+    # (6) a newline separates commands
+    "true\ngh pr merge 5",
+    "true\ngit push origin main",
+    "true\ngh release create v1",
+    "true\ngit push --tags",
+    # risky gh api write segments
+    "gh api -X PATCH user -f name=x",
+    "gh api -X POST user/emails -f emails=x",
+    "gh api -X POST repos/o/r/branches/x/rename -f new_name=y",
+    "gh api -X PUT repos/o/r/rules/branches/main",
+    "gh api -X PUT repos/o/r/topics -f names=x",
+    "gh api -X POST repos/o/r/pages -f x=y",
+    "gh api -X POST repos/o/r/forks",
+    "gh api -X POST repos/o/r/check-runs -f name=x -f head_sha=abc",
+    "gh api -X PUT repos/o/r/vulnerability-alerts",
+    "gh api -X PUT repos/o/r/interaction-limits -f limit=collaborators_only",
+    "gh api -X POST repos/o/r/pulls/5/reviews -f event=APPROVE",
+]
+
+
+@pytest.mark.parametrize("command", PROBE_DENIED)
+@pytest.mark.parametrize("agent", [None, "engineer"])
+def test_security_probes_stay_denied(project, command, agent):
+    assert _blocked(project, command, agent), f"{command!r} must be blocked (agent={agent})"
+
+
+def test_a_newline_is_a_command_separator_but_a_continuation_is_not(project):
+    assert not _blocked(project, "git status\ngit diff", None)
+    assert not _blocked(project, "git log \\\n  --oneline", None)
+    assert _blocked(project, "git status\ngh pr merge 5", None)
+
+
+# Security review of #384, round 3 (probes against the second head).
+ROUND3_DENIED = [
+    "gh api -iX PUT repos/o/r/pulls/5/merge",
+    "gh api -iXPUT repos/o/r/pulls/5/merge",
+    "gh api repos/o/r/pulls/5/merge#x -X PUT",
+    "gh api -X PUT repos/o/r/pulls/5/merge#x",
+    "gh pr mer\\\nge 5",
+    "git push origin ma\\\nin",
+    "X=push; git $X origin main",
+    "gh api -X PATCH repos/o/r/milestones/$N/merge -f state=closed",
+    "gh api -X PATCH repos/o/r/pulls/$N -f state=closed",
+]
+
+
+@pytest.mark.parametrize("command", ROUND3_DENIED)
+@pytest.mark.parametrize("agent", [None, "engineer"])
+def test_round3_probes_stay_denied(project, command, agent):
+    assert _blocked(project, command, agent), f"{command!r} must be blocked (agent={agent})"
+
+
+ROUND4_DENIED = [
+    "gh api -X PUT repos/o/r/pulls/5%252fmerge",
+    "gh api -X PUT repos/o/r/pulls/5%25252fmerge",
+    "gh api -X PUT repos/o/r/pulls/5%252Fmerge",
+    "gh api -X PUT repos/o/r/pulls/5/merge%23x",
+    "gh api -X PUT repos/o/r/pulls/5/merge%3f",
+    "gh api -X PUT repos/o/r/pulls/5%2fmerge",
+    "gh api -X PATCH repos/o/r/branches/main%252fprotection",
+    "gh api -X POST repos/o/r/statuses%252fabc -f state=success -f context=trazo/verdict",
+    "gh api -X DELETE repos/o/r/milestones/$N",
+    "gh api -X PUT repos/o/r/issues/$N -f state=closed",
+]
+
+
+@pytest.mark.parametrize("command", ROUND4_DENIED)
+@pytest.mark.parametrize("agent", [None, "engineer"])
+def test_round4_probes_stay_denied(project, command, agent):
+    assert _blocked(project, command, agent), f"{command!r} must be blocked (agent={agent})"
