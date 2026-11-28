@@ -40,3 +40,18 @@ def test_the_upgrade_section_explains_a_script_out_of_step() -> None:
     assert "If the upgrade reports a script out of step" in text
     assert "scripts/report_verdict.py" in text
     assert "#435" in text
+
+
+def test_the_page_states_what_the_installer_really_does() -> None:
+    """The skeptic ran scripts/install.sh on #438 and found four statements that were false.
+    Each is pinned here to the corrected wording."""
+    text = _text()
+    assert "for `--adapter codex` only" in text, "Codex files are placed only for the codex adapter"
+    assert "with the Claude adapter, that is `claude` or `both`" in text
+    assert "`.trazo/INSTALLED` lists every adapter and harness file" in text
+    assert "never overwritten or removed" in text
+    assert "Works with `upgrade` only. Never pass it to `install`" in text
+    assert "does not remove `.github/CODEOWNERS`" in text
+    assert "`DRIVE_BUILDER_APP_LOGIN`" in text
+    assert "The script prints every file it placed" not in text
+    assert "is never read or written" not in text

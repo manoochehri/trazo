@@ -4,7 +4,7 @@
 
 ## Install
 
-You need a git repository with a clean working tree, plus `git`, `curl`, `bash` and the [GitHub CLI](https://cli.github.com/) signed in with `gh auth login`. Commit or stash your changes first.
+You need a git repository, which should have a clean working tree so the changes are easy to review, plus `git`, `curl`, `bash` and the [GitHub CLI](https://cli.github.com/) signed in with `gh auth login`.
 
 ```sh
 T=$(mktemp -d)
@@ -16,11 +16,11 @@ The installer goes into a temporary directory, not into your repository, so it d
 
 Or paste this into Claude Code, Codex or any coding agent, from the root of your repository:
 
-> Install Trazo into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` into a new temporary directory outside the repository (`mktemp -d`), never into the repository, run `bash` on that file with `install latest`, and leave the repository's own files alone. Tell me what it placed and the owner-only steps it printed. Do not set secrets or variables.
+> Install Trazo into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` into a new temporary directory outside the repository (`mktemp -d`), never into the repository, run `bash` on that file with `install latest`, and leave the repository's own files alone. Tell me what it created or changed, read `.trazo/INSTALLED` for the full list of files it placed, and give me the owner-only steps it printed. Do not set secrets or variables.
 
 ### What you get
 
-The script prints every file it placed and the owner-only steps. In your repository you now have a `.trazo/` folder with the rules and agent job descriptions, an adapter for your agent (`CLAUDE.md`, `AGENTS.md`, `.claude/`, `.codex/`), GitHub workflows, and a blank `.trazo/project/` that is yours. [In your repo](in-your-repo.md) lists each path.
+The script prints what it created or changed, any clash or kept file, and the owner-only steps. `.trazo/INSTALLED` lists every adapter and harness file it placed, with its hash. In your repository you now have a `.trazo/` folder with the rules and agent job descriptions, an adapter for your agent (`CLAUDE.md`, `AGENTS.md`, `.claude/`, and `.codex/` only with `--adapter codex`), GitHub workflows, and a blank `.trazo/project/` that is yours. [In your repo](in-your-repo.md) lists each path.
 
 ### What to do first
 
@@ -35,25 +35,26 @@ Everything else, such as automatic review and the unattended drive, is optional.
 
 | Option | Meaning |
 |---|---|
-| `--adapter claude\|agents\|codex\|both` | Which tool adapter to install. Default `both`: Claude Code and the generic `AGENTS.md` adapter. Use `codex` for Codex project agents and skills. Use `claude` or `agents` for only that one. |
+| `--adapter claude\|agents\|codex\|both` | Which tool adapter to install. Default `both`: Claude Code and the generic `AGENTS.md` adapter, with no Codex agents or skills. Use `codex` for `AGENTS.md` plus Codex project agents and skills. Use `claude` or `agents` for only that one. |
 | `--source <path-or-url>` | Where to fetch the release from. Default is `$TRAZO_SOURCE`, then the public repository. The script prints the source it uses. |
 | `--sha <commit>` | A full 40-character commit the tag must point to. The script refuses on a mismatch, so you can detect a moved tag. |
+| `--dry-run` | Works with `upgrade` only. Never pass it to `install`: the option is ignored there and the install runs for real. |
 
 
 ## What the installer changes
 
 The script changes only the paths below. It never touches your code, your build or your pipeline.
 
-- **`.trazo/`** is replaced from the tag. `.trazo/VERSION` records the tag and its commit. `.trazo/INSTALLED` lists each adapter file the script placed, with its hash.
-- **`.trazo/project/`** is created from blank templates, but only if it does not exist. It is yours. No install or upgrade overwrites it.
+- **`.trazo/`** is replaced from the tag. `.trazo/VERSION` records the tag and its commit. `.trazo/INSTALLED` lists each adapter and harness file the script placed, with its hash.
+- **`.trazo/project/`** is created from blank templates. It is yours. Your files in it are never overwritten or removed, and a missing blank template file, such as `ARCHITECTURE_CONTRACT.md`, is created again.
 - **`AGENTS.md` and `CLAUDE.md`** get one block, between `<!-- trazo:begin -->` and `<!-- trazo:end -->`. Everything outside those markers is left as it was. If a file does not exist, the script creates it.
 - **`.claude/agents/` and `.claude/commands/`** get the Trazo files. If a file of the same name is already yours, the Trazo file is installed as `trazo-<name>.md`, and the script says so.
 - **`.claude/settings.json`** is installed only if you have none. On upgrade, the script adds the shipped deny rules and hook entries to yours. It writes a `.bak` copy first. Your own entries and your `model` setting are kept. The script prints each change, including any rule it removes.
-- **`.codex/agents/` and `.agents/skills/`** get the Codex files, for `--adapter codex` or `both`. Names are prefixed with `trazo-`.
-- **The harness** (CI and gates): workflow files under `.github/workflows/` (`ci.yml`, `review.yml`, `report.yml`, `drive.yml`, `owner-merge.yml`, `status.yml`), the pull request template, `scripts/` helpers, `.env.example` with placeholders, a `.gitleaks.toml`, and a placeholder `Dockerfile`. A file you already have is never overwritten.
+- **`.codex/agents/` and `.agents/skills/`** get the Codex files, for `--adapter codex` only. Names are prefixed with `trazo-`.
+- **The harness** (CI and gates): workflow files under `.github/workflows/` (`ci.yml` always, and `review.yml`, `report.yml`, `drive.yml`, `owner-merge.yml` and `status.yml` with the Claude adapter, that is `claude` or `both`), the pull request template, `scripts/` helpers, `.env.example` with placeholders, a `.gitleaks.toml`, and a placeholder `Dockerfile`. A file you already have is never overwritten.
 - **`.github/CODEOWNERS`** is written only if you have none. If you have one, the script prints lines to add and leaves yours alone. A safety limit counts only once you have reviewed it.
 
-The script refuses to run if `.trazo/` exists without `INSTALLED` (an older layout), or if the markers in `AGENTS.md` or `CLAUDE.md` are unbalanced. Fix those by hand, then run it again.
+The script refuses to run if `.trazo/` holds anything besides `project/` and has no `INSTALLED` file (an older layout), or if the markers in `AGENTS.md` or `CLAUDE.md` are unbalanced. Fix those by hand, then run it again.
 
 **Start a new session after install or upgrade.** Claude Code loads hooks and settings when a session starts. A session that was already open keeps the old ones.
 
@@ -79,8 +80,8 @@ bash "$T/install.sh" upgrade latest
 
 Commit the result on a branch and open a pull request. Then start a new session.
 
-- Framework files are replaced. Files the new release dropped are removed.
-- `.trazo/project/` is never read or written.
+- Framework files under `.trazo/` are replaced, and any the new release dropped are removed.
+- Your files in `.trazo/project/` are never overwritten or removed. A missing blank template file is created again.
 - A file in `.trazo/INSTALLED` that you have edited since it was placed is skipped with a warning. On upgrade the script prints the diff so you can merge it by hand.
 - Read the printed `- removed` lines in `.claude/settings.json` changes. The `.bak` file has the old version.
 
@@ -98,7 +99,7 @@ curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/inst
 bash "$T/install.sh" uninstall
 ```
 
-This keeps `.trazo/project/`. It removes the framework under `.trazo/`, the adapter and harness files listed in `.trazo/INSTALLED` that you have not edited, and the marked blocks in `AGENTS.md` and `CLAUDE.md`. A file that held only the block is deleted. Your own files stay, including your `.claude/` files, your `.codex/` agents, your `CODEOWNERS` and `.trazo/project/`.
+This keeps `.trazo/project/`. It removes the framework under `.trazo/`, the adapter and harness files listed in `.trazo/INSTALLED` that you have not edited, and the marked blocks in `AGENTS.md` and `CLAUDE.md`. A file that held only the block is deleted. Your own files stay, including your `.claude/` files, your `.codex/` agents and `.trazo/project/`. The installer does not remove `.github/CODEOWNERS`, even one it created.
 
 To remove `.trazo/project/` as well, add `--purge`. It refuses if `.trazo/project/` has uncommitted, untracked or ignored files, so commit or move them first. Only if you accept losing them, add `--force` too.
 
@@ -201,7 +202,7 @@ Optional limits are repository variables. Each has a default, and a bad value fa
 | `DRIVE_MAX_RUNS_PER_DAY` | 4 | Agent runs per UTC day. |
 | `DRIVE_MAX_USD_PER_RUN` | 2 | Dollar budget for one agent run, in whole dollars. |
 
-An open issue labeled `drive-halt` stops work and merging. The driver opens one after two failures in a row. It clears itself once, after the fix merges and CI is green ([ADR 0030](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0030-drive-halt-clears-itself-once.md)). The limits are described in [ADR 0027](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0027-drive-spend-cap-and-runaway-guardrails.md).
+An open issue labeled `drive-halt` stops work and merging. The driver opens one after two failures in a row. It can clear itself once, after the fix merges and CI is green ([ADR 0030](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0030-drive-halt-clears-itself-once.md), which is still proposed). The self-clear also needs the repository variable `DRIVE_BUILDER_APP_LOGIN` set to the builder App's login, for example `name[bot]`. Without it the halt waits for you to close it. The limits are described in [ADR 0027](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0027-drive-spend-cap-and-runaway-guardrails.md).
 
 ### 5. Code owners
 
