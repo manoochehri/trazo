@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/inst
 bash "$T/install.sh" install latest
 ```
 
-Then run `/kickoff` in your agent. To remove Trazo, run the same downloaded script with `uninstall`. The details are in [Install, upgrade and uninstall](handbook/install.md).
+Then run `/kickoff` in your agent. To remove Trazo, run `bash "$T/install.sh" uninstall` in the same terminal, or download the installer to a new temporary directory as above and run it with `uninstall`. The details are in [Install, upgrade and uninstall](handbook/install.md).
 
 Or paste one of these prompts into your agent (Claude Code, Codex or any agent that reads `AGENTS.md`):
 
