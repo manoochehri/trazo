@@ -58,11 +58,11 @@ def test_roles_are_described_correctly() -> None:
         assert not re.search(rf"[`\"']{re.escape(command)}[`\"',]", text), (
             f"{command} is listed as a command; it is subagent-only"
         )
-    roles_page = _handbook("guide.md") + _handbook("playbook.md")
+    roles_page = _handbook("how-it-works.md") + _handbook("day-to-day.md")
     assert re.search(r"subagent-only", roles_page, re.IGNORECASE), (
         "the handbook must say which agents are subagent-only, not just drop them"
     )
-    team = _handbook("team.md")
+    team = _handbook("how-it-works.md")
     for command in ("/pm", "/eng"):
         assert f"`{command}`" in team, f"{command} is a role command and must be listed"
 
@@ -70,10 +70,10 @@ def test_roles_are_described_correctly() -> None:
 def test_the_documented_layout_matches_the_real_one() -> None:
     """A layout description is a claim about the repo. The old README block listed `docs/`
     as the charter and `.template/` as 'the template's own memory', both wrong after #50.
-    The layout now lives in the overlay page; it must name the entries and they must exist."""
-    overlay = _handbook("overlay.md")
+    The layout now lives in the in-your-repo page; it must name the entries and they must exist."""
+    overlay = _handbook("in-your-repo.md")
     for entry in ("rules.md", "charter/", "adr/", "workstreams/"):
-        assert entry in overlay, f"the overlay page omits {entry}"
+        assert entry in overlay, f"the in-your-repo page omits {entry}"
     for rel in (".trazo/rules.md", ".claude/commands", ".template/CHANGELOG.md"):
         assert (REPO_ROOT / rel).exists(), f"{rel} is documented but does not exist"
 

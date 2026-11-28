@@ -2,7 +2,7 @@
 
 Trazo is a set of rules, roles and checks that sit in a repository next to the code. Agents build the work. GitHub holds the state and the limits. The owner decides only what the rules reserve for the owner.
 
-This page describes release v0.6.0 ([`.template/VERSION`](https://github.com/manoochehri/trazo/blob/main/.template/VERSION)). A claim that has not been proven on a live run is marked UNVERIFIED in its sentence.
+This page describes release v0.6.0 ([`.template/VERSION`](https://github.com/manoochehri/trazo/blob/main/.template/VERSION)). A claim that has not been proven on a live run is marked UNVERIFIED in its sentence. The status lines of ADR 0029, 0031 and 0032 still read proposed on `main`; the rules they describe are in `rules.md` and apply.
 
 ## The loop
 
@@ -43,11 +43,15 @@ Each role is defined once in [`.trazo/roles/`](https://github.com/manoochehri/tr
 | Coordinator (front door) | The main session. Reads project state, dispatches the PM, starts the agents the PM records, routes pull requests to review, dispatches `owner-merge.yml`. | Edit repository files outside `.trazo/project/`, commit, or edit pull requests ([ADR 0029](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0029-the-front-door.md), [front_door_guard.py](https://github.com/manoochehri/trazo/blob/main/src/overlay/hooks/front_door_guard.py)). |
 | PM | Plans, prioritizes, triages issues, writes issues, may close and reopen issues and edit labels ([ADR 0032](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0032-permissive-by-default.md)). | Start agents, merge, push, dispatch workflows, or remove `needs-decision` or `drive-halt` ([pm_bash_guard.py](https://github.com/manoochehri/trazo/blob/main/src/overlay/hooks/pm_bash_guard.py)). |
 | Engineer | Builds the default issue: code, tests, commits, pull request. | Merge, set `trazo/verdict` or `trazo/security`, edit the charter, or decide scope and priority (it hands those to the PM with `needs-pm`). |
-| Senior engineer | The same role on a stronger model, for issues labeled `tier:senior`: listed risky paths, large or ambiguous work, or after 2 failed review rounds ([ADR 0016](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0016-senior-engineer-tier.md), [ADR 0018](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0018-senior-tier-routing-accepted.md)). | Review its own work or ordinary pull requests, merge, or set a verdict ([senior-engineer.md](https://github.com/manoochehri/trazo/blob/main/.trazo/roles/senior-engineer.md)). |
+| Senior engineer | Started with `/senior-eng`. The same role on a stronger model, for issues labeled `tier:senior`: listed risky paths, large or ambiguous work, or after 2 failed review rounds ([ADR 0016](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0016-senior-engineer-tier.md), [ADR 0018](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0018-senior-tier-routing-accepted.md)). | Review its own work or ordinary pull requests, merge, or set a verdict ([senior-engineer.md](https://github.com/manoochehri/trazo/blob/main/.trazo/roles/senior-engineer.md)). |
 | Reviewer | Reads a pull request in its own context, posts a review, and sets `trazo/verdict` for the head it read. | Edit files, or set any status except its own ([reviewer.md](https://github.com/manoochehri/trazo/blob/main/.trazo/roles/reviewer.md)). |
 | Security | Checks secrets, permissions, workflows and dependencies, and sets `trazo/security`. | Edit files, or set any status except its own ([security.md](https://github.com/manoochehri/trazo/blob/main/.trazo/roles/security.md)). |
 | Skeptic | Tries to break a numeric or empirical result against `SKEPTIC_BAR.md` before anyone acts on it. | Edit files or build the thing it checks ([skeptic.md](https://github.com/manoochehri/trazo/blob/main/.trazo/roles/skeptic.md)). |
 | Architect | Advises on structure and ADRs, and may block a change that breaks a design invariant. Runs on demand in the main session, with no pinned subagent ([ADR 0021](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0021-architect-role.md)). | Write code or configuration ([architect.md](https://github.com/manoochehri/trazo/blob/main/.trazo/roles/architect.md)). |
+
+The role commands are `/pm`, `/eng`, `/senior-eng` and `/architect`. Reviewer, security and skeptic are subagent-only: the Coordinator starts each in its own context, and there is no command for them ([CLAUDE.md](https://github.com/manoochehri/trazo/blob/main/CLAUDE.md)).
+
+Role-authored issue descriptions and GitHub comments end with a role attribution footer under the shared rules ([rules.md, "Attribute role-authored GitHub posts"](https://github.com/manoochehri/trazo/blob/main/.trazo/rules.md)). Claude Code and Codex use their own adapters; other tools use the `AGENTS.md` adapter. The footer carries the model and an agent or session ID only when the role's context reports them, and omits unknown fields. GitHub still shows the shared account as the author, so the footer is self-reported attribution, not an independently verified identity.
 
 Reviewer, security and skeptic run in their own contexts, never in the conversation that produced the work ([rules.md, "Roles are separated"](https://github.com/manoochehri/trazo/blob/main/.trazo/rules.md)).
 
@@ -117,3 +121,9 @@ A halt is closed by the owner, or once automatically after a fix merges and CI i
 ## What the owner still decides
 
 Anything on the stop list in `rules.md`: the charter, `CODEOWNERS` paths, agent rules and role files, workflows and build configuration, secrets, spend, production, permissions and repository settings, and scope or priority. An agent that reaches one stops and labels the issue `needs-pm`; the PM escalates to `needs-decision` when the choice is the owner's ([rules.md, "Ask before guessing"](https://github.com/manoochehri/trazo/blob/main/.trazo/rules.md)).
+
+## Related pages
+
+- [Guardrails and limits](guardrails.md): every limit, how GitHub and the hooks enforce it, and where enforcement can fail.
+- [Day to day](day-to-day.md): what you do each day and what to do when something is stuck.
+- [In your repo](in-your-repo.md): what Trazo adds to your repository and what stays yours.

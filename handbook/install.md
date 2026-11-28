@@ -6,6 +6,22 @@ The current release is **v0.6.0** (see `.template/VERSION`). The commands below 
 
 Trazo is installed from a release tag, by one script. Nothing is copied from a template repository, and nothing is fetched from a moving branch.
 
+## Or hand it to your coding agent
+
+Paste one of these into Claude Code, Codex or any coding agent, from the root of your repository. The agent works out the rest. Each uses the current release, `v0.6.0`.
+
+**Install:**
+
+> Install Trazo v0.6.0 into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.6.0/scripts/install.sh`, run `bash install.sh install v0.6.0`, then delete `install.sh`. Tell me what it placed and the owner-only steps it printed. Do not set secrets or variables.
+
+**Upgrade:**
+
+> Upgrade Trazo to v0.6.0 in this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.6.0/scripts/install.sh`, run `bash install.sh upgrade v0.6.0 --dry-run`, and show me the diff. Then run it without `--dry-run` and delete `install.sh`. Do not touch `.trazo/project/`. The upgrade merges new deny rules and hook entries into `.claude/settings.json` and keeps a `.bak` copy: tell me about any deny rule it removes so I can review it. Then remind me to open a fresh session so the new hooks load.
+
+**Uninstall:**
+
+> Remove Trazo from this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/v0.6.0/scripts/install.sh`, run `bash install.sh uninstall` (this keeps `.trazo/project/`), then delete `install.sh`. Do not use `--purge` unless I say so.
+
 ## Before you start
 
 - A git repository with a clean working tree. Commit or stash your changes first.
@@ -205,3 +221,10 @@ Open `.github/CODEOWNERS`. The installer guesses your handle from `origin`. Repl
 ## Deploying
 
 Trazo ships no deploy target. Your build and your cloud are yours. Record the deploy, rollback and teardown commands in `.trazo/project/RUNBOOK.md`. If you deploy from CI, gate the deploy on a GitHub environment that needs your approval.
+
+## Related pages
+
+- [In your repo](in-your-repo.md): what the install adds and what stays yours.
+- [How it works](how-it-works.md): what the installed rules, roles and checks do.
+- [Guardrails and limits](guardrails.md): which limits the owner-only setup creates.
+- [Day to day](day-to-day.md): running the repository once it is installed.

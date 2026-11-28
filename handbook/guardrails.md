@@ -146,4 +146,10 @@ Each row names its source. A row marked UNVERIFIED has not been run live.
 - [ADR 0031](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0031-review-by-path-not-every-pr.md): review by path, not every pull request.
 - [ADR 0032](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0032-permissive-by-default.md): agents are permissive by default; GitHub holds the irreversible limits.
 
-Each of these files still reads "proposed" on `main`. This page does not change their status.
+The status lines of these four ADR files still read "proposed" on `main`, although `rules.md` already applies the rules they describe. This page does not change their status. Other pages cite these ADRs the same way.
+
+## Related pages
+
+- [How it works](how-it-works.md): the loop, the roles, the merge gate and the drive workflow these limits apply to.
+- [Day to day](day-to-day.md): what to do when a limit stops you.
+- [Install and upgrade](install.md): the owner-only setup that creates the GitHub-side limits.

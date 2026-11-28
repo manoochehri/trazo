@@ -35,7 +35,7 @@ Not built yet: pinning `trazo/verdict` to the reviewer App ([#366](https://githu
 ## Read next
 
 - [Install, upgrade and uninstall](install.md): put Trazo in a repository and keep it current.
-- How it works (page pending): the loop from issue to merge, the roles and the merge gate.
-- Guardrails and limits (page pending): what agents do freely, what is yours alone, known gaps.
-
-What `.trazo/` contains is in [What is `.trazo/`](overlay.md).
+- [How it works](how-it-works.md): the loop from issue to merge, the roles and the merge gate.
+- [In your repo](in-your-repo.md): what `.trazo/` contains, what stays yours, and which file wins.
+- [Day to day](day-to-day.md): what you do each day, and what to do when something is stuck.
+- [Guardrails and limits](guardrails.md): what agents do freely, what is yours alone, known gaps.

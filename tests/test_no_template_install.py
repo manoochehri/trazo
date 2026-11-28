@@ -16,7 +16,7 @@ DOCS = [
     *sorted(str(p.relative_to(REPO_ROOT)) for p in (REPO_ROOT / "handbook").glob("*.md")),
 ]
 # Historical records describe the old path; they are not instructions.
-EXEMPT = {"handbook/changelog.md", "handbook/lessons.md"}
+EXEMPT = {"handbook/changelog.md"}
 
 # `[^\n]*` would stop at a `\` line continuation; allow continuations explicitly.
 TEMPLATE_CMD = re.compile(r"gh repo create(?:[^\n]|\\\n)*--template")
@@ -63,7 +63,10 @@ def test_retired_template_tooling_is_gone() -> None:
     assert not (REPO_ROOT / "scripts" / "publish_template.sh").exists()
 
 
-def test_guide_has_no_cloud_specific_remnants() -> None:
-    guide = (REPO_ROOT / "handbook" / "guide.md").read_text(encoding="utf-8")
-    assert "OIDC" not in guide
-    assert "fly secrets" not in guide
+def test_handbook_has_no_cloud_specific_remnants() -> None:
+    for page in sorted((REPO_ROOT / "handbook").glob("*.md")):
+        if page.name == "changelog.md":
+            continue
+        text = page.read_text(encoding="utf-8")
+        assert "OIDC" not in text, page.name
+        assert "fly secrets" not in text, page.name

@@ -5,9 +5,9 @@ mount-time contract two lines later — *"Do **not** mandate a particular tool f
 mounted repo."* Naming `.claude/` as part of the overlay **is** mandating one.
 
 The error propagated instead of being invented twice: `handbook/index.md` and
-`handbook/guide.md` both told people to copy "`.trazo/` and `.claude/`". A Cline or
-Cursor user reading that either installs files they do not need, or concludes Trazo
-does not support their tool. ADR 0007 supersedes the clause; these tests keep the
+`handbook/guide.md` (retired in #411) both told people to copy "`.trazo/` and
+`.claude/`". A Cline or Cursor user reading that either installs files they do not need,
+or concludes Trazo does not support their tool. ADR 0007 supersedes the clause; these tests keep the
 corrected instructions from decaying back.
 
 Prose is exactly the kind of thing that drifts, so the claim is pinned mechanically.
@@ -18,7 +18,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-MOUNT_DOCS = ("handbook/index.md", "handbook/guide.md", "README.md")
+MOUNT_DOCS = ("handbook/index.md", "handbook/install.md", "handbook/in-your-repo.md", "README.md")
 
 # A sentence that names `.claude/` as part of what you copy, or alongside `.trazo/` as
 # though both were required. The scoping words matter: "copy `.trazo/` and `.claude/`" and

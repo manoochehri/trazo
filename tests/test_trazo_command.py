@@ -96,6 +96,6 @@ def test_the_plain_english_route_points_at_the_new_command() -> None:
 def test_the_handbook_documents_the_new_command() -> None:
     """The handbook is the published docs; a command that exists but is undocumented is
     effectively private."""
-    for rel in ("handbook/guide.md", "handbook/team.md"):
+    for rel in ("handbook/index.md", "handbook/day-to-day.md"):
         text = (REPO_ROOT / rel).read_text(encoding="utf-8")
         assert NEW_COMMAND in text, f"{rel} does not mention {NEW_COMMAND}"
