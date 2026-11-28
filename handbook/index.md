@@ -1,6 +1,6 @@
 # Trazo
 
-**Let AI coding agents write the code. Keep control of what ships.**
+**AI agents write the code. A second agent reviews it. You decide what merges.**
 
 Trazo is a set of rules you add to a git repository so AI coding agents work like a small team: one agent writes the code, a separate agent reviews it, and you keep the decisions that cannot be undone. It is not an editor extension and not a build service.
 
