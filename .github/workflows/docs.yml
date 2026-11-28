@@ -3,6 +3,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # owner-merge.yml starts this after a merge: a merge made with github.token raises no push event (#419).
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
