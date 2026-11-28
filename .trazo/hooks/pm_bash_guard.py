@@ -13,8 +13,9 @@ and stderr is the reason. Any error blocks: the hook fails closed.
     pm_bash_guard.py --agent pm   enforce only when agent_type == "pm" (the settings.json hook,
                                   which also runs in `-p` sessions and under a trusted parent)
 
-Allowed: read-only `git` and `gh` with known flags, `gh issue create|comment|edit` with a fixed
-flag set, and stdin-only filters after a pipe. No file arguments to filters, no `--body-file`
+Allowed: read-only `git` and `gh` with known flags, `gh issue create|comment|edit|close|reopen`
+and `gh label create|edit` with a fixed flag set (#378), and stdin-only
+filters after a pipe. No file arguments to filters, no `--body-file`
 (the PM has no file-write tool, so any path is a secret or repo content), no `gh auth`, no
 `gh api` beyond `repos/<o>/<r>/...`, no glob characters, no absolute or `..` paths for git.
 """
@@ -24,7 +25,8 @@ import re
 import sys
 
 REASON = (
-    "pm hook: {why}. The PM may run read-only git and gh, and `gh issue create|comment|edit`. "
+    "pm hook: {why}. The PM may run read-only git and gh, `gh issue create|comment|edit|close|"
+    "reopen` and `gh label create|edit`. "
     "Deploys, merges, pushes and secrets are not its to run (issue #279)."
 )
 
@@ -92,6 +94,10 @@ GH_WRITE = {
         set(),
     ),
     ("issue", "comment"): ({"--body", "-b"}, set()),
+    ("issue", "close"): ({"--comment", "-c", "--reason", "-r"}, set()),
+    ("issue", "reopen"): ({"--comment", "-c"}, set()),
+    ("label", "create"): ({"--color", "-c", "--description", "-d"}, {"--force", "-f"}),
+    ("label", "edit"): ({"--color", "-c", "--description", "-d", "--name", "-n"}, set()),
     ("issue", "edit"): (
         {"--add-label", "--remove-label", "--add-assignee", "--remove-assignee", "--milestone",
          "--title", "-t", "--body", "-b"},
@@ -234,6 +240,8 @@ def check_gh_write(key: tuple[str, str], args: list[str]) -> None:
         a = args[i]
         i += 1
         if not a.startswith("-"):
+            if key[0] == "label" and a.strip().lower() in STOP_LABELS:
+                raise Deny(f"the PM may not redefine {a!r}; only the owner changes the stop labels")
             if a.startswith(("/", "~")) or ".." in a.split("/"):
                 raise Deny("gh argument is not a plain issue number or URL")
             continue
@@ -249,6 +257,8 @@ def check_gh_write(key: tuple[str, str], args: list[str]) -> None:
             i += 1
         else:
             raise Deny(f"{name} needs a value")
+        if key[0] == "label" and name in {"--name", "-n"} and value.strip().lower() in STOP_LABELS:
+            raise Deny(f"the PM may not rename a label to {value!r}")
         if name == "--remove-label":
             lifted = {v.strip().lower() for v in value.split(",")} & STOP_LABELS
             if lifted:
