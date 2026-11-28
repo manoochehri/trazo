@@ -51,7 +51,7 @@ jobs:
       pull-requests: write
       statuses: read
       checks: read
-      issues: read
+      issues: write
     steps:
       # The default branch supplies .github/CODEOWNERS and scripts/report_verdict.py.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -106,5 +106,23 @@ jobs:
               [[ "$security" == "success" ]] || refuse "it changes owner-protected paths and trazo/security is ${security} on this head" ;;
             *) refuse "the changed files could not be classified" ;;
           esac
+          # Issues the pull request closes by keyword, as GitHub itself parsed them (same repository only).
+          # Read before the merge; closed after it (issue #391, see the comment below).
+          closing=$(gh pr view "$PR" --json closingIssuesReferences \
+            | jq -r --arg repo "$GITHUB_REPOSITORY" \
+              '.closingIssuesReferences[] | select((.repository.owner.login + "/" + .repository.name) == $repo) | .number')
           gh pr merge "$PR" --squash --match-head-commit "$sha"
           echo "Merged PR #${PR} at ${sha}."
+          # A merge made with github.token did not close the issue the pull request named (#382 left #380
+          # open; #357 and #350 likewise), while merges by the owner's own account did. UNVERIFIED: why
+          # GitHub skips the keyword here. So close, after a successful merge, exactly the issues GitHub
+          # lists as closed by this pull request, if they are still open. Never any other issue.
+          failed=0
+          for issue in $closing; do
+            [[ "$issue" =~ ^[0-9]+$ ]] || continue
+            if [[ "$(gh issue view "$issue" --json state -q .state)" == "OPEN" ]]; then
+              gh issue close "$issue" --reason completed --comment "Closed by pull request #${PR}, merged at ${sha}." \
+                || { echo "::error::merged, but could not close issue #${issue}"; failed=1; }
+            fi
+          done
+          [[ "$failed" == "0" ]] || exit 1
