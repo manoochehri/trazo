@@ -1,5 +1,34 @@
 # Trazo changelog
 
+## 0.6.0 (2026-11-27)
+Agents are permissive by default: the engineer's shell guard is now a short blocklist, the PM may close and reopen issues and edit labels, and the owner-merge gate treats src/ and .trazo/ changes as risky. That gate change has a typo that makes it refuse those changes until a follow-up fixes it (see below).
+- #378 The engineer Bash guard is a short blocklist of irreversible routes: merges, commit statuses other than the reviewer's and security's own, release and tag writes, ruleset, protection and secret edits, workflow dispatch, pushes to the default branch, secret reads, and writes to `.claude/` and `.trazo/` outside `.trazo/project/`. Shell constructs (`$(...)`, heredocs, redirects, pipes) no longer block, and a mention of the config directory no longer blocks. Issue, milestone and label operations are allowed.
+- #378 The PM may close and reopen issues and edit labels. It still may not remove `needs-decision` or `drive-halt`; the owner clears those.
+- #379 Role text and `rules.md` gain "Permissive by default" (ADR 0032): agents act freely on reversible repository work and the owner stays out of the routine loop. The stop list and the owner-only limits (CODEOWNERS, rulesets, secrets, production) do not change and win over this section.
+- #320 (partial) The owner-merge gate classifies changes to src/ and .trazo/ outside .trazo/project/ as risky, so they need trazo/verdict and trazo/security success. KNOWN DEFECT: a typo in the gate (`sensitive=sensitive=true`) makes it refuse every such pull request with "the changed files could not be classified" until a follow-up fixes it. The refusal is fail-closed, so nothing merges unreviewed, but these changes cannot be merged through the gate in 0.6.0. UNVERIFIED on a live run.
+
+Trazo's own tooling, not shipped to hosts
+- #380 Trazo's own merges and releases need less owner action. `.github/workflows/release.yml` cuts the release tag as the builder App, after `scripts/release.sh` and a CI check pass.
+- `.github/workflows/merge-audit.yml` and `scripts/audit_merges.py` re-apply the owner-merge gate to recently merged pull requests each day and open an issue for any that did not meet it. They merge and revert nothing.
+- `scripts/ci_green.sh` is the CI check the release workflow uses.
+- `scripts/allow_release_app.py` and `scripts/drop_verdict_check.sh` are one-time owner scripts. `scripts/scratch_drop_verdict_test.sh` tests the second against a scratch ruleset.
+
+Not in 0.6.0
+- Pinning `trazo/verdict` to the reviewer App (#366).
+- The restricted agent token.
+- The live run of the drive workflow (#247).
+- Guard gaps still open: the ones listed in the hooks README (shell variables and globs, `python -c`, `node -e`, and HTTP clients that use the token). Variable-built refspecs and working-directory tricks are not covered and are not yet listed there.
+
+Upgrading from 0.5.0
+- Run `install.sh upgrade v0.6.0` (use `--dry-run` first). `.trazo/` is replaced from the tag; `.trazo/project/` is never touched.
+- No settings change: the deny rules and hook entries in `.claude/settings.json` are the same as in 0.5.0, so the upgrade adds nothing to it.
+- Expect the engineer guard to allow more than before. It still blocks merges, commit statuses, secret reads, and writes to `.claude/` and `.trazo/`.
+- Hosts that use the owner-merge workflow should expect it to refuse pull requests that change src/ or .trazo/ outside `.trazo/project/` until the next release fixes the typo.
+
+One-time owner commands (this repository only; hosts skip these)
+- `python3 scripts/allow_release_app.py ID --dry-run`, then the same command without `--dry-run`, with ID set to the builder App's numeric ID. This lets `release.yml` push tags. Without it, cut the release with `make release`.
+- `scripts/drop_verdict_check.sh --dry-run`, then `scripts/drop_verdict_check.sh`, to stop requiring `trazo/verdict` in the protect-main ruleset. Roll back with `scripts/rollback_ruleset.sh`.
+
 ## 0.5.0 (2026-11-27)
 Reviewer and security can post their own status again, review runs only for risky paths, and the owner-merge gate depends on what a pull request changes.
 - #319 A front-door guard hook stops the main session from editing files outside `.trazo/project/`, and in Bash from running `gh pr edit`, `git commit --allow-empty`, `git apply`, `sed -i`, `perl -i`, `tee` or writing to a file by redirection; engineering goes through `/work` (live behavior UNVERIFIED, see below)
