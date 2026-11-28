@@ -1,15 +1,15 @@
 # Trazo
 
-**AI agents write the code. A second agent reviews it. Nothing merges until the checks pass.**
+**Your GitHub repo and VS Code, run like a well-managed engineering team.**
 
-Trazo is a set of rules you add to a git repository so AI coding agents work like a small team: one agent writes the code, a separate agent reviews it, and you keep the decisions that cannot be undone: money, secrets, settings and releases. It is not an editor extension and not a build service.
+Trazo turns your GitHub repository and your VS Code experience into a well-managed engineering team. Your coding agents get jobs (engineer, reviewer, security, project manager and more), work through issues and pull requests, and are checked by separate agents. You keep what only a person should decide: money, secrets, settings and releases.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o install.sh
 bash install.sh install latest
 ```
 
-The [install page](install.md) has the details. Works with Claude Code, Codex and any agent that reads `AGENTS.md`, in VS Code or a terminal, with your GitHub repository. Antigravity is UNVERIFIED ([#433](https://github.com/manoochehri/trazo/issues/433)).
+The [install page](install.md) has the details. Trazo works with Claude Code (which runs in [VS Code](https://code.claude.com/docs/en/vs-code) or a terminal), with Codex, and with any agent that reads `AGENTS.md`. Codex inside VS Code and Antigravity are UNVERIFIED ([#433](https://github.com/manoochehri/trazo/issues/433)). It is not an editor extension and not a build service.
 
 ## Why teams add it
 
@@ -23,19 +23,21 @@ The [install page](install.md) has the details. Works with Claude Code, Codex an
 
 This is [#329](https://github.com/manoochehri/trazo/pull/329), which limited the agents the main chat session may start to six named ones.
 
-1. The body carries test evidence on lines that CI reads literally:
+1. The body carries test evidence on lines that CI reads (shortened):
 
     ```text
     Review rounds: 0
-    Fail-first output: 38 errors, the guard script does not exist on main
+    Defects found and fixed: none
+    Fail-first output:
+    New tests/test_agent_role_guard.py run against unchanged origin/main (38 errors, the guard script does not exist there):
     ```
 
 2. The security agent read the first commit in its own session and passed it. One suggestion became a follow-up issue.
 3. The reviewer returned `merge after fixes` with `Reviewed-Head: 6126ffb`, because the block message named four of the six allowed agents.
-4. The engineer pushed `0dd084a` with a test that fails on the old message, and the reviewer wrote `merge`.
-5. On `0dd084a` the statuses `trazo/verdict` and `trazo/security` were `success`, CI was green, and it merged on 2026-11-25.
+4. The author pushed `0dd084a` with a test that fails on the old message, and the reviewer wrote `merge`.
+5. On `0dd084a` the statuses `trazo/verdict` and `trazo/security` were `success` and CI was green. The owner merged it by hand on 2026-11-25, because the merge workflow was added later that day.
 
-The merge workflow merges with `--match-head-commit`, so a later push cannot slip in. When a check is missing it stops with `it changes risky paths and trazo/verdict is missing on this head; not merging.` (the workflow's wording, not output from #329).
+Today that workflow, `owner-merge.yml`, merges with `--match-head-commit`, so a later push cannot slip in. When a check is missing it stops with `it changes risky paths and trazo/verdict is missing on this head; not merging.` (the workflow's wording, not output from #329).
 
 ## What you get
 
@@ -43,12 +45,12 @@ The merge workflow merges with `--match-head-commit`, so a later push cannot sli
 |---|---|---|
 | Seven agent job descriptions | `.trazo/roles/` | Architect, engineer, senior engineer, project manager, reviewer, security and skeptic each have a defined job. |
 | Rules in one file | `.trazo/rules.md` | Claude Code and Codex read the same rules. |
-| Merge rules | `owner-merge.yml`, a GitHub workflow | Documentation changes need green CI; sensitive files also need reviewer and security passes ([ADR 0031](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0031-review-by-path-not-every-pr.md)). |
+| Merge rules | `owner-merge.yml`, a GitHub workflow | Documentation-only changes need green CI and no failing or pending review status. Anything in `src/` or `.trazo/` outside `project/` is risky and also needs reviewer and security passes ([ADR 0031](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0031-review-by-path-not-every-pr.md)). |
 | Decision records | `.trazo/project/adr/` | This project has 32, ADR 0001 to 0032. |
-| A charter | `.trazo/project/charter/` | Goal, budget and stop rule, written first. |
+| A charter | `.trazo/project/charter/` | Goal, budget and a stop rule, written first. |
 | Hooks for Claude Code | `.claude/settings.json` | They block risky commands. See [what changes in your files](in-your-repo.md), where the folder is called the overlay. |
 
-As of 2026-11-28 the project has 9 tagged releases, 178 merged pull requests since 2026-09-27, and 65 test files in `tests/`.
+As of 2026-11-28 the project has 9 tagged releases, 181 merged pull requests since 2026-09-27, and 65 test files in `tests/`.
 
 ## Install with one command
 
@@ -57,8 +59,8 @@ Run the two commands above at the root of a git repository (you need `git`, `cur
 ## Honest status
 
 - Trazo is early: about two months old, built from one project, this one.
-- Every agent acts through one GitHub account, so review status is only as trustworthy as that account ([#366](https://github.com/manoochehri/trazo/issues/366)).
-- The unattended drive is on in this repository and off by default in yours. Its first live run on 2026-11-28 made no change ([#399](https://github.com/manoochehri/trazo/issues/399), [#247](https://github.com/manoochehri/trazo/issues/247)).
+- Every interactive agent acts through one GitHub account, so review status is only as trustworthy as that account ([#366](https://github.com/manoochehri/trazo/issues/366)).
+- The unattended drive is on in this repository and off by default in yours. It has run on a schedule since 2026-11-02 and opened one pull request, #312, which was closed unmerged. A watched run on 2026-11-28 made no change and exposed a bug ([#399](https://github.com/manoochehri/trazo/issues/399)); [#247](https://github.com/manoochehri/trazo/issues/247) tracks that verification.
 - The hooks are a backstop, not a guarantee ([known gaps](https://github.com/manoochehri/trazo/blob/main/src/overlay/hooks/README.md)).
 
 ## Common questions about Trazo

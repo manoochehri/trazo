@@ -2,28 +2,19 @@
 
 # Trazo
 
-**Trazo is a set of rules you add to a git repository so AI coding agents work like a small team: one agent writes the code, a separate agent reviews it, and you keep the decisions that cannot be undone: money, secrets, settings and releases.**
+**Your GitHub repo and VS Code, run like a well-managed engineering team.**
 
-It is for developers who already use Claude Code (in a terminal or in VS Code) or OpenAI Codex on a real repository and want to stay in charge of what it does. Trazo is not an editor extension and not a build service. The rules are a folder named `.trazo/` and a few instruction files that you copy into the repository, and your agent reads them at the start of every session. It works with any language or framework, and your code, build and deploy setup stay as they are.
+Trazo turns your GitHub repository and your VS Code experience into a well-managed engineering team. Your coding agents get jobs (engineer, reviewer, security, project manager and more), work through issues and pull requests, and are checked by separate agents. You keep what only a person should decide: money, secrets, settings and releases. It works with Claude Code (in [VS Code](https://code.claude.com/docs/en/vs-code) or a terminal), Codex, and any agent that reads `AGENTS.md`; Codex in VS Code and Antigravity are UNVERIFIED. It is not an editor extension and not a build service.
 
-## What goes wrong when AI agents work in a real codebase
+## What you get
 
-Each of these happened in this project, which Trazo was built from. The issue numbers are public.
+- Seven agent job descriptions in `.trazo/roles/`. The reviewer, security and skeptic agents are subagent-only and run in their own sessions, so none of them grades work it wrote. `/pm` and `/eng` start the project manager and engineer agents.
+- Merge rules enforced by a GitHub workflow: documentation-only changes need green CI, and risky ones also need a reviewer pass and a security pass.
+- 32 numbered decision records and a charter with a stop rule. The skeptic checks every number, and each number carries its sample size.
 
-- **The agent that builds the change also declares it done.** The main chat session edited pull request bodies and pushed empty commits itself instead of handing the work to an engineer agent, and said that nothing stopped it ([#319](https://github.com/manoochehri/trazo/issues/319)). A hook that blocks this now ships; its behavior on every live input is UNVERIFIED.
-- **Approval that can be forged or goes stale.** All agents act through one GitHub account, so any of them can set the status that says a review passed. On 14 merged pull requests the reviewer's own GitHub App wrote only failures ([#366](https://github.com/manoochehri/trazo/issues/366), [#44](https://github.com/manoochehri/trazo/issues/44), both open).
-- **Guardrails that miss a route, or block the wrong person.** An engineer agent could still merge and read `.env` through `gh api` and `cat` ([#330](https://github.com/manoochehri/trazo/issues/330)), and the guard added for that then blocked the reviewer from posting its own status ([#347](https://github.com/manoochehri/trazo/issues/347)).
-- **Decisions made in chat disappear.** Trazo keeps plans and decisions as files and issues in the repository, where the next session reads them.
+As of 2026-11-28 the project has 9 tagged releases, 181 merged pull requests since 2026-09-27, and 65 test files. The [Home page](handbook/index.md) walks one real pull request, #329, through the checks.
 
-## One pull request, start to finish
-
-[Pull request #329](https://github.com/manoochehri/trazo/pull/329) limited which agents the main session may start. It carried its test evidence in the body, the security agent and the reviewer each read it in their own context, and the reviewer returned `merge after fixes` for one commit and `merge` for the next. On that latest commit the statuses `trazo/verdict` and `trazo/security` were both `success`, CI was green, and a workflow merged it. The [Home page](handbook/index.md) shows the real excerpts.
-
-## What you get when you add it
-
-Seven agent job descriptions (the reviewer, security and skeptic agents run in their own sessions), merge rules that need a reviewer pass and a security pass on the latest commit for changes to sensitive files, and 32 numbered decision records, a charter with a stop rule, and a skeptic that checks every number, which must carry its sample size. Rules live in `.trazo/rules.md`; `/pm` and `/eng` start the project manager and engineer agents, while the reviewer, security and skeptic are subagent-only.
-
-## Try it on your repository
+## Install
 
 Run this from the root of your repo. It needs `git`, `curl` and the [GitHub CLI](https://cli.github.com/).
 
@@ -46,14 +37,14 @@ Your repo needs one command that runs its tests hermetically from a fresh checko
 
 ## Where Trazo stands today
 
-Trazo is early: about two months old and distilled from one project, this one. Each of these is UNVERIFIED or open:
+Trazo is early: about two months old and built from one project, this one. Each of these is UNVERIFIED or open:
 
-- The review status is only as trustworthy as the one shared GitHub account until [#366](https://github.com/manoochehri/trazo/issues/366) lands.
-- The unattended drive (`drive.yml`) is on in this repository and off by default in yours. Its first live run on 2026-11-28 produced no change ([#399](https://github.com/manoochehri/trazo/issues/399)).
+- Every interactive agent acts through one GitHub account, so review status is only as trustworthy as that account until [#366](https://github.com/manoochehri/trazo/issues/366) lands.
+- The unattended drive (`drive.yml`) is on in this repository and off by default in yours. A watched run on 2026-11-28 made no change ([#399](https://github.com/manoochehri/trazo/issues/399)); [#247](https://github.com/manoochehri/trazo/issues/247) tracks the verification.
 - The front-door hook that blocks the main session from editing files has not been checked on every live input.
 - Release automation (`release.yml`) is Trazo's own and has not run live.
 
-See [Guardrails and limits](handbook/guardrails.md). The current release is on the [changelog](handbook/changelog.md) and the [releases page](https://github.com/manoochehri/trazo/releases).
+See [Guardrails and limits](handbook/guardrails.md). Released versions are on the [tags page](https://github.com/manoochehri/trazo/tags), and what changed is in the [changelog](handbook/changelog.md).
 
 ## Read next
 

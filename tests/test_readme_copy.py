@@ -131,11 +131,14 @@ def test_the_readme_leads_with_what_it_adds_not_a_starter_template() -> None:
     already have (#0005), and #428 requires the opening to say what it does and for whom. The
     judgment layer is named on the index page, which the README links first."""
     text = _text()
-    lead = next((ln for ln in text.splitlines() if ln.startswith("**Trazo is a set of rules")), "")
-    assert lead, "README has no bold opening sentence that starts 'Trazo is a set of rules'"
+    opening = "Trazo turns your GitHub repository"
+    lead = next((ln for ln in text.splitlines() if ln.startswith(opening)), "")
+    assert lead, f"README has no opening sentence that starts {opening!r}"
     assert "template for starting" not in text.lower(), "that is the pre-pivot pitch"
     assert "starter template" not in lead.lower()
-    assert "AI coding agents" in lead, "the opening must say whose agent it governs"
+    assert "well-managed engineering team" in lead, (
+        "the opening must state the outcome: a well-managed engineering team"
+    )
     assert "not an editor extension and not a build service" in text, (
         "the README must say what Trazo is not"
     )
