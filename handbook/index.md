@@ -1,108 +1,91 @@
 # Trazo
 
-**Trazo is a set of rules you add to a git repository so AI coding agents work like a small team: one agent writes the code, a separate agent reviews it, and you keep the decisions that cannot be undone, such as merging, spending money and changing settings.**
+**Let AI coding agents write the code. Keep control of what ships.**
 
-Trazo is for developers who already use Claude Code (in a terminal or in VS Code) or OpenAI Codex on a real repository and want to stay in charge of what it does. It runs through the chat or agent you already use, in VS Code or in a terminal, and through GitHub; there is no new application to open. It is not an editor extension and not a build service. The rules are a folder named `.trazo/` and a few instruction files that you copy into the repository, and your agent reads them at the start of every session. An optional GitHub workflow merges a pull request only after the required checks have passed. Trazo calls this folder, with its adapter files, the overlay; [what it contains](in-your-repo.md) is on its own page.
-
-It works with any language or framework, because it governs how the agent behaves and not what the code is built with. It asks one thing of your repository: a single command that builds and tests it from a fresh checkout. Docker, nix, a devcontainer or a `Makefile` all satisfy that. Your code, build and deploy setup stay as they are.
-
-## What goes wrong when AI agents work in a real codebase
-
-Each of these happened in the project Trazo was built from. The issue numbers are public, so you can read the original reports.
-
-**The agent that builds the change also declares it done.** In a repository running an early release, the main chat session edited pull request bodies and pushed empty commits to restart CI instead of handing the work to an engineer agent. Asked why, it said it had put speed ahead of the rule and that nothing stopped it ([#319](https://github.com/manoochehri/trazo/issues/319)). A hook that blocks these edits now ships. Whether it behaves on every live input is UNVERIFIED, as the [changelog](changelog.md) says.
-
-**Approval that can be forged or goes stale.** Every agent in this project acts through one GitHub account, so any of them can set the status that says a review passed ([#44](https://github.com/manoochehri/trazo/issues/44) and [#366](https://github.com/manoochehri/trazo/issues/366), both open). On 14 merged pull requests, #316 to #358, the reviewer's own GitHub App wrote only failures, and every success came from the shared account. The opposite failure also occurred: an old failed verdict kept blocking pull request #358 after its evidence had changed ([#359](https://github.com/manoochehri/trazo/issues/359)). A verdict now counts only for the latest commit and the current evidence.
-
-**Guardrails that miss a route, or block the wrong person.** The security review of pull request #329 found that an engineer agent could still merge, set a status and read `.env` through `gh api` and `cat`, routes the deny rules did not cover ([#330](https://github.com/manoochehri/trazo/issues/330)). The guard added in response then blocked the reviewer and security agents from posting their own status, on pull requests #343, #360 and #361 ([#347](https://github.com/manoochehri/trazo/issues/347), [#364](https://github.com/manoochehri/trazo/issues/364)). The changelog calls that guard a speed bump, not a security boundary.
-
-**Decisions made in chat disappear.** A plan or a decision reached in a chat window is gone when the session ends, so the next session repeats it or contradicts it. Trazo keeps plans and decisions as files and issues in the repository, where every new session reads them first ([`rules.md`](https://github.com/manoochehri/trazo/blob/main/src/overlay/rules.md), "The repo is the memory").
-
-## One pull request, start to finish
-
-The pull request is #329, which limited the agents that the main chat session may start to six named ones. The excerpts are real and shortened.
-
-1. The pull request body carries its evidence on lines that CI reads literally:
-
-    ```text
-    Review rounds: 0
-    Defects found and fixed: none
-    Fail-first output:
-    New tests/test_agent_role_guard.py run against unchanged origin/main (38 errors, the guard script does not exist there):
-    ERROR tests/test_agent_role_guard.py::test_generic_agents_are_blocked[general-purpose]
-    ```
-
-2. The security agent read the first commit in its own context and passed it with suggestions. One became #330, the issue above.
-
-3. The reviewer, also in its own context, returned this:
-
-    ```text
-    merge after fixes
-    Reviewed-Head: 6126ffb5bc46e5ecec3a1517e6996dcf88c4c56c
-    Must-fix: src/overlay/hooks/agent_role_guard.py:25 (REASON) ... list only pm, reviewer, security, skeptic, but engineer and senior-engineer are allowed too.
-    ```
-
-4. The engineer pushed a second commit with a test that fails on the old message. The reviewer wrote `merge` for `0dd084a`, and security passed it.
-5. On `0dd084a` the commit statuses `trazo/verdict` and `trazo/security` were both `success`, and the CI checks (build, test, docker, secrets-scan and the others) were green. The pull request merged on 2026-11-25.
-
-The merge workflow, `owner-merge.yml`, merges with `--match-head-commit`, so a push after the check cannot slip in. When a check is missing it stops with a line of this form (the workflow's own wording, not output from #329):
-
-```text
-PR #329: it changes risky paths and trazo/verdict is missing on this head; not merging.
-```
-
-## What you get when you add it
-
-- Seven agent job descriptions in `.trazo/roles/`: architect, engineer, senior engineer, project manager, reviewer, security and skeptic. The reviewer, security and skeptic agents run in their own sessions, so none of them grades work it produced.
-- Merge rules, enforced by a GitHub workflow. Documentation-only changes need green CI. Changes to sensitive files also need a reviewer pass and a security pass on the latest commit ([ADR 0031](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0031-review-by-path-not-every-pr.md)).
-- Numbered decision records. This project has 32, ADR 0001 to 0032, in `.trazo/project/adr/`.
-- A charter with a stop rule written before any results exist, and a skeptic that checks every number against a written bar before it is acted on. Each number carries its sample size.
-- One rules file, `.trazo/rules.md`, that the Claude Code and Codex adapters both point at.
-
-As of 2026-11-28 the project has 9 tagged releases, the first on 2026-10-08, and 178 merged pull requests since 2026-09-27. Its `tests/` directory holds 65 test files. The share that passes has not been measured for this page, so none is quoted.
-
-## Try it on your repository
-
-Run this in a terminal at the root of a git repository (you need `git`, `curl` and the [GitHub CLI](https://cli.github.com/)):
+Trazo is a set of rules you add to a git repository so AI coding agents work like a small team: one agent writes the code, a separate agent reviews it, and you keep the decisions that cannot be undone. It is not an editor extension and not a build service.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o install.sh
 bash install.sh install latest
 ```
 
-Or paste this into your agent: "Install Trazo into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh`, run `bash install.sh install latest`, then delete `install.sh`. Tell me what it placed. Do not set secrets or variables."
+The [install page](install.md) has the details. Works with Claude Code, Codex and any agent that reads `AGENTS.md`, in VS Code or a terminal, with your GitHub repository. Antigravity is UNVERIFIED ([#433](https://github.com/manoochehri/trazo/issues/433)).
 
-Then run `/kickoff` in your agent. It interviews you and writes the charter and first issues. To remove Trazo, run `bash install.sh uninstall`. The [install page](install.md) has the details.
+## Why teams add it
 
-## Where Trazo stands today
+**A different agent reviews the work.** The reviewer, security and skeptic agents run in their own sessions, so none of them grades work it wrote. The skeptic checks every number against a written bar, and each number carries its sample size.
 
-- Trazo is early. The first commit is from 2026-09-27, about two months ago, and it was distilled from one project, this one. The repository records no use by anyone other than its author.
-- Every agent acts through one GitHub account, so the review status is only as trustworthy as that account. This is the open issue [#366](https://github.com/manoochehri/trazo/issues/366). It closes when the reviewer's own GitHub App writes the verdicts and the status is pinned to it.
-- The unattended drive, `drive.yml`, picks the next ready issue and builds it with nobody watching. It is on in this repository and off by default in yours. Its first live run on 2026-11-28 produced no change and exposed a bug ([#399](https://github.com/manoochehri/trazo/issues/399)). Issue [#247](https://github.com/manoochehri/trazo/issues/247) stays open until a run merges a pull request.
-- The hooks that block agent commands are a backstop, not a guarantee. Their known gaps are in the [hooks README](https://github.com/manoochehri/trazo/blob/main/src/overlay/hooks/README.md).
-- The charter's goal, that a new VS Code user ships a feature with no manual coding, has not been tried. Token cost has not been measured.
+**You decide what cannot be undone.** Merging, spending money, secrets, settings and releases stay with you. Agents handle everything a pull request can undo, and a stop rule written before any results exist says when to quit.
+
+**Nothing is lost between sessions.** Plans and decisions are files and issues in your repository, not chat history. The next session reads them first ([`rules.md`](https://github.com/manoochehri/trazo/blob/main/src/overlay/rules.md), "The repo is the memory").
+
+## See one pull request go through
+
+This is [#329](https://github.com/manoochehri/trazo/pull/329), which limited the agents the main chat session may start to six named ones.
+
+1. The body carries test evidence on lines that CI reads literally:
+
+    ```text
+    Review rounds: 0
+    Fail-first output: 38 errors, the guard script does not exist on main
+    ```
+
+2. The security agent read the first commit in its own session and passed it. One suggestion became [#330](https://github.com/manoochehri/trazo/issues/330).
+3. The reviewer returned `merge after fixes` with `Reviewed-Head: 6126ffb`, because the block message named four of the six allowed agents.
+4. The engineer pushed `0dd084a` with a test that fails on the old message, and the reviewer wrote `merge`.
+5. On `0dd084a` the statuses `trazo/verdict` and `trazo/security` were `success`, CI was green, and it merged on 2026-11-25.
+
+The merge workflow merges with `--match-head-commit`, so a later push cannot slip in. When a check is missing it stops with `it changes risky paths and trazo/verdict is missing on this head; not merging.` (the workflow's wording, not output from #329).
+
+## Built from real failures
+
+- An agent did the wrong role's job, editing pull requests and pushing empty commits itself ([#319](https://github.com/manoochehri/trazo/issues/319)).
+- One shared GitHub account could set the status that says a review passed ([#366](https://github.com/manoochehri/trazo/issues/366)).
+- Guards missed a route to merging and to `.env`, then blocked the wrong agent ([#330](https://github.com/manoochehri/trazo/issues/330), [#364](https://github.com/manoochehri/trazo/issues/364)).
+
+## What you get
+
+| What | Where it lives | Why |
+|---|---|---|
+| Seven agent job descriptions | `.trazo/roles/` | Architect, engineer, senior engineer, project manager, reviewer, security and skeptic each have a defined job. |
+| Rules in one file | `.trazo/rules.md` | Claude Code and Codex read the same rules. |
+| Merge rules | `owner-merge.yml`, a GitHub workflow | Documentation changes need green CI; sensitive files also need reviewer and security passes ([ADR 0031](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0031-review-by-path-not-every-pr.md)). |
+| Decision records | `.trazo/project/adr/` | This project has 32, ADR 0001 to 0032. |
+| A charter | `.trazo/project/charter/` | Goal, budget and stop rule, written first. |
+| Hooks for Claude Code | `.claude/settings.json` | They block risky commands. See [what changes in your files](in-your-repo.md), where the folder is called the overlay. |
+
+As of 2026-11-28 the project has 9 tagged releases, 178 merged pull requests since 2026-09-27, and 65 test files in `tests/`.
+
+## Install with one command
+
+Run the two commands above at the root of a git repository (you need `git`, `curl` and the [GitHub CLI](https://cli.github.com/)), then run `/kickoff` in your agent. Or paste this into your agent: "Install Trazo into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh`, run `bash install.sh install latest`, then delete `install.sh`. Tell me what it placed. Do not set secrets or variables."
+
+## Honest status
+
+- Trazo is early: about two months old, built from one project, this one.
+- Every agent acts through one GitHub account, so review status is only as trustworthy as that account ([#366](https://github.com/manoochehri/trazo/issues/366)).
+- The unattended drive is on in this repository and off by default in yours. Its first live run on 2026-11-28 made no change ([#399](https://github.com/manoochehri/trazo/issues/399), [#247](https://github.com/manoochehri/trazo/issues/247)).
+- The hooks are a backstop, not a guarantee ([known gaps](https://github.com/manoochehri/trazo/blob/main/src/overlay/hooks/README.md)).
 
 ## Common questions about Trazo
 
-**How does Trazo work with AGENTS.md?** `AGENTS.md` says how to work in your repository, such as how to build, test and which conventions to follow. Trazo decides whether an action is allowed at all, such as merging, spending money or reading a secret, and the two do not replace each other. The installer adds one marked block to `AGENTS.md` and leaves the rest of the file alone. The rule for when they disagree is on [in your repo](in-your-repo.md).
+**How does Trazo work with AGENTS.md?** `AGENTS.md` says how to work in your repository: build, test and conventions. Trazo decides whether an action is allowed, such as merging, spending money or reading a secret. The installer adds one marked block and leaves the rest of the file alone; [the rule for a disagreement](in-your-repo.md) is on its own page.
 
-**Which agents does it work with?** It works with agents that read `AGENTS.md` or that run Claude Code or Codex. It does not work with every tool that runs in VS Code.
+**Which agents does it work with?** Agents that read `AGENTS.md`, Claude Code and Codex, not every tool that runs in VS Code.
 
-| Agent | What you get | Evidence |
-|---|---|---|
-| Claude Code | The rules, the role commands such as `/work` and `/pm`, and hooks that block risky commands | `.claude/settings.json` registers the hooks in `src/overlay/hooks/` |
-| Codex | The rules and agent definitions for each role (`.codex/agents/`, `.agents/skills/`). No hooks. | Tested once by the author; see [in your repo](in-your-repo.md) for the build tested |
-| Any other agent that reads `AGENTS.md` | The rules reach it through `AGENTS.md`. The hooks do not apply, because they are Claude Code settings. | `src/adapters/AGENTS.md` |
-| Antigravity | UNVERIFIED. A session of it worked on this repository (its worktrees appear in `git worktree list`), but nothing in the repository documents or tests it, so it is not listed as supported. | none |
+| Agent | What you get |
+|---|---|
+| Claude Code | The rules, role commands such as `/work` and `/pm`, and the hooks |
+| Codex | The rules and agent definitions, no hooks; tested once by the author ([details](in-your-repo.md)) |
+| Other `AGENTS.md` readers | The rules only; the hooks are Claude Code settings and do not apply |
+| Antigravity | UNVERIFIED |
 
-Whether Antigravity works is tracked in [#433](https://github.com/manoochehri/trazo/issues/433).
-
-**Do I need VS Code?** No. The installer is a shell script, and Claude Code and Codex both run in a terminal. VS Code is one place to use them.
+**Do I need VS Code?** No. The installer is a shell script, and Claude Code and Codex run in a terminal.
 
 **What does it cost?** Trazo is free under the MIT license. Your agent provider and GitHub Actions bill you as they always do.
 
 **Does anything leave my repository?** The installer only downloads files from the Trazo repository. Nothing from your repository is sent to Trazo.
 
-**Can I remove it?** Yes. Run `bash install.sh uninstall`. It keeps `.trazo/project/`, which holds your own charter and decisions.
+**Can I remove it?** Run `bash install.sh uninstall`. It keeps `.trazo/project/`.
 
-Next: [install it](install.md). After that, [how it works](how-it-works.md) explains the loop from issue to merge, [day to day](day-to-day.md) shows what you type, [in your repo](in-your-repo.md) lists what changes in your files, and [guardrails and limits](guardrails.md) lists what agents may and may not do.
+Next: [install it](install.md), then see [how it works](how-it-works.md), [day to day](day-to-day.md) and [guardrails and limits](guardrails.md).
