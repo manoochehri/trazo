@@ -24,7 +24,7 @@ You do not need to remember commands. The main chat session, the front door, rea
 | "wrap up" | `/wrapup` updates STATUS in its own pull request |
 | "merge it" | The front door starts the merge workflow (see below) |
 
-The front door never edits repo files. A hook blocks it ([front_door_guard.py](https://github.com/manoochehri/trazo/blob/main/src/overlay/hooks/front_door_guard.py)). [ADR 0029](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0029-the-front-door.md) describes this and is still proposed.
+The front door never edits repo files. A hook blocks it ([front_door_guard.py](https://github.com/manoochehri/trazo/blob/main/src/overlay/hooks/front_door_guard.py)). [ADR 0029](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0029-the-front-door.md) describes this. The rule is in `rules.md` and in force; the ADR file's status line still reads proposed.
 
 ---
 
@@ -32,7 +32,7 @@ The front door never edits repo files. A hook blocks it ([front_door_guard.py](h
 
 1. `/work 12` starts the engineer in its own context. It builds the issue and opens a pull request into `main`.
 2. [review.yml](https://github.com/manoochehri/trazo/blob/main/.github/workflows/review.yml) runs a reviewer on each pull request into `main`. [report.yml](https://github.com/manoochehri/trazo/blob/main/.github/workflows/report.yml) posts the result as the `trazo/verdict` status.
-3. Changes to risky paths also need a security review. The rule is in [ADR 0031](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0031-review-by-path-not-every-pr.md), which is still proposed.
+3. Changes to risky paths also need a security review. The rule is in [ADR 0031](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0031-review-by-path-not-every-pr.md), which `rules.md` applies; the ADR file's status line still reads proposed.
 4. You say "merge it". The front door starts [owner-merge.yml](https://github.com/manoochehri/trazo/blob/main/.github/workflows/owner-merge.yml). It merges only when CI is green on that exact head, and the review gates pass for the paths the change touches. Otherwise it refuses and says why.
 
 The engineer never merges. The merge starts from the front door or from you.
@@ -58,7 +58,7 @@ Source: the header of [owner-merge.yml](https://github.com/manoochehri/trazo/blo
 
 - Building, tests and fixes inside an issue's scope.
 - Reviewer and security verdicts. The agents post them. You do not.
-- Reading docs-only pull requests line by line. The front door checks them against the diff and CI ([ADR 0031](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0031-review-by-path-not-every-pr.md), proposed).
+- Reading docs-only pull requests line by line. The front door checks them against the diff and CI ([ADR 0031](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/0031-review-by-path-not-every-pr.md)).
 - Implementation choices the agent can undo. It records them on the issue as a comment starting `Decided:` ([rules.md](https://github.com/manoochehri/trazo/blob/main/.trazo/rules.md) "Ask before guessing").
 - Scope, priority and acceptance criteria. The PM decides these, and escalates to you with `needs-decision` when the choice is yours.
 
@@ -138,3 +138,9 @@ Setting the repository variable `DRIVE_ENABLED` to anything but `true` stops the
 **Fix:** quit Claude Code and start a new session from the repository root.
 
 UNVERIFIED: that a running session cannot pick up new hooks without a restart. The repo has no test for it. The new session is the safe step either way.
+
+## Related pages
+
+- [How it works](how-it-works.md): the loop and the merge gate behind the stuck states above.
+- [Guardrails and limits](guardrails.md): why an action is blocked and who may unblock it.
+- [Install and upgrade](install.md): owner setup, upgrade, and starting a new session after either.

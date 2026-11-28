@@ -9,7 +9,7 @@ CLAUDE = REPO_ROOT / "src/adapters/CLAUDE.md"
 CODEX = REPO_ROOT / "src/adapters/AGENTS.md"
 CODEX_WORK = REPO_ROOT / "src/adapters/codex/skills/work/SKILL.md"
 REVIEWER = REPO_ROOT / "src/overlay/roles/reviewer.md"
-HANDBOOK_TEAM = REPO_ROOT / "handbook/team.md"
+HANDBOOK_TEAM = REPO_ROOT / "handbook/how-it-works.md"
 
 
 def _flat(path: Path) -> str:

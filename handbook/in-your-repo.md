@@ -98,5 +98,8 @@ acceptance is a governance change, and Trazo's rules decide it.
 ## Where to go next
 
 - [Install and upgrade](install.md)
+- [How it works](how-it-works.md): the loop, the roles and the merge gate
+- [Guardrails and limits](guardrails.md): what agents may do and what stays yours
+- [Day to day](day-to-day.md): running the repository
 - [Decision records](https://github.com/manoochehri/trazo/blob/main/.trazo/project/adr/README.md)
   (ADR index)

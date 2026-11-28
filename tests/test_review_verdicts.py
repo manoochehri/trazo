@@ -15,7 +15,7 @@ passes happily while another contradicts it.
 Scope is the *operative* files -- the ones an agent executes: the tagged canonical
 `.trazo/roles/` and `.trazo/skills/`, their Claude adapters, and `CLAUDE.md`. Descriptive
 prose is deliberately out:
-`handbook/playbook.md` (rewritten by #33/#40) and `.trazo/project/STATUS.md` (session status,
+the handbook pages and `.trazo/project/STATUS.md` (session status,
 replaced by `/wrapup`) may describe the old mechanism, but they instruct nothing.
 """
 

@@ -76,5 +76,5 @@ def test_hosts_and_handbook_list_the_senior_tier() -> None:
     """An agent learns the tier from these listings; a role with no listing is never routed to."""
     assert "/senior-eng" in _flat(REPO_ROOT / "src/adapters/CLAUDE.md")
     assert "trazo-senior-engineer" in _flat(REPO_ROOT / "src/adapters/AGENTS.md")
-    team = _flat(REPO_ROOT / "handbook/team.md")
+    team = _flat(REPO_ROOT / "handbook/how-it-works.md")
     assert "Senior engineer" in team and "`/senior-eng`" in team

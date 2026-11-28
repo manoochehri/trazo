@@ -39,9 +39,19 @@ HANDBOOK = REPO_ROOT / "handbook"
 LOGO = HANDBOOK / "assets" / "logo.svg"
 FAVICON = HANDBOOK / "assets" / "favicon.svg"
 
-# Every file `docs_dir` publishes. lessons.md and changelog.md are `--8<--` includes of
-# .template/, so they follow automatically and are excluded here.
-PUBLISHED = ("index.md", "guide.md", "playbook.md", "team.md", "overlay.md")
+# Every authored page `docs_dir` publishes, in nav order. changelog.md and contributing.md are
+# `--8<--` includes, so they follow their sources and are excluded here.
+PUBLISHED = (
+    "index.md",
+    "how-it-works.md",
+    "install.md",
+    "in-your-repo.md",
+    "day-to-day.md",
+    "guardrails.md",
+)
+
+# Pages retired in #411. Nothing may link to them and they must not come back.
+RETIRED = ("lessons.md", "playbook.md", "guide.md", "team.md", "agents.md", "overlay.md")
 
 # Spelling here so the scan below does not match this file's own source.
 OLD_NAME = "sem" + "illa"
@@ -94,23 +104,72 @@ def test_no_page_claims_a_flywheel_that_was_removed() -> None:
 def test_the_overlay_is_documented_and_reachable() -> None:
     """The gap that made the site wrong: `.trazo/` is the product and nothing explained
     it -- not the layout, and not the one contract a mounted repo must satisfy."""
-    overlay = HANDBOOK / "overlay.md"
-    assert overlay.exists(), "handbook/overlay.md is missing; the overlay is undocumented"
-    text = overlay.read_text(encoding="utf-8")
+    page = HANDBOOK / "in-your-repo.md"
+    assert page.exists(), "handbook/in-your-repo.md is missing; the overlay is undocumented"
+    text = page.read_text(encoding="utf-8")
 
     assert "mount-time contract" in text.lower(), "the contract is what makes mounting work"
-    assert re.search(r"hermetic", text, re.IGNORECASE), "the contract must state hermetic"
+    assert "fresh worktree" in text.lower(), "the contract must say a fresh worktree can build"
     for path in ("rules.md", "charter/", "adr/", "workstreams/"):
         assert path in text, f"the layout omits {path}"
-    assert "judgment" in text.lower(), "the judgment layer is the differentiator; say so"
-    assert "stop rule" in text.lower()
+    assert "stop rule" in (HANDBOOK / "index.md").read_text(encoding="utf-8").lower()
 
     # Reachable: in the nav, and linked from the home page.
     mkdocs = MKDOCS.read_text(encoding="utf-8")
-    assert "overlay.md" in mkdocs, "overlay.md is not in mkdocs nav, so it is unreachable"
-    assert "overlay.md" in (HANDBOOK / "index.md").read_text(encoding="utf-8"), (
+    assert "in-your-repo.md" in mkdocs, "in-your-repo.md is not in mkdocs nav, so it is unreachable"
+    assert "in-your-repo.md" in (HANDBOOK / "index.md").read_text(encoding="utf-8"), (
         "the home page must link it, or a reader never finds out the product exists"
     )
+
+
+def test_nav_is_the_new_layout_and_every_entry_exists() -> None:
+    """#402: the nav is exactly these pages in this order, each backed by a file."""
+    mkdocs = MKDOCS.read_text(encoding="utf-8")
+    nav = re.search(r"^nav:\n((?:  - .*\n)+)", mkdocs, re.MULTILINE)
+    assert nav, "no nav in mkdocs.yml"
+    entries = re.findall(r"^  - (.+?): (\S+)$", nav.group(1), re.MULTILINE)
+    assert entries == [
+        ("Home", "index.md"),
+        ("How it works", "how-it-works.md"),
+        ("Install and upgrade", "install.md"),
+        ("In your repo", "in-your-repo.md"),
+        ("Day to day", "day-to-day.md"),
+        ("Guardrails and limits", "guardrails.md"),
+        ("Changelog", "changelog.md"),
+        ("Contributing", "contributing.md"),
+    ]
+    for _, page in entries:
+        assert (HANDBOOK / page).is_file(), f"nav points at missing {page}"
+
+
+def test_retired_pages_are_gone_and_unlinked() -> None:
+    for name in RETIRED:
+        assert not (HANDBOOK / name).exists(), f"handbook/{name} was retired in #411"
+    mkdocs = MKDOCS.read_text(encoding="utf-8")
+    offenders = []
+    for path in [*HANDBOOK.glob("*.md"), REPO_ROOT / "README.md", MKDOCS]:
+        text = path.read_text(encoding="utf-8")
+        for name in RETIRED:
+            stem = name[:-3]
+            if re.search(rf"\]\((?:\.\./)?(?:handbook/)?{re.escape(name)}[)#]", text) or (
+                f"trazo/{stem}/" in text
+            ):
+                offenders.append(f"{path.name} -> {name}")
+    assert "overlay.md" not in mkdocs
+    assert not offenders, "links to retired pages:\n" + "\n".join(offenders)
+
+
+def test_the_home_page_links_the_pages_it_promises() -> None:
+    index = (HANDBOOK / "index.md").read_text(encoding="utf-8")
+    for page in (
+        "how-it-works.md",
+        "in-your-repo.md",
+        "install.md",
+        "day-to-day.md",
+        "guardrails.md",
+    ):
+        assert f"]({page})" in index, f"the home page does not link {page}"
+    assert "page pending" not in index, "a placeholder 'page pending' note is still published"
 
 
 def test_the_home_page_leads_with_the_overlay_not_the_cloud() -> None:

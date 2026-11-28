@@ -3,7 +3,7 @@
 This folder is about **Trazo itself**, not the project it is mounted on. It travels with
 the overlay so Trazo can improve from real use.
 
-**New here? Read [the guide](../handbook/guide.md).** Already running? [The playbook](../handbook/playbook.md) covers the daily loop and what to do in every common situation. Both are published at the [docs site](https://manoochehri.github.io/trazo/), built from `handbook/`.
+**New here? Read [how it works](../handbook/how-it-works.md).** Already running? [Day to day](../handbook/day-to-day.md) covers the daily loop and what to do when something is stuck. Both are published at the [docs site](https://manoochehri.github.io/trazo/), built from `handbook/`.
 
 - `VERSION`: the overlay version this project was mounted from
 - `CHANGELOG.md`: what changed in the overlay, by version
