@@ -1,8 +1,8 @@
 # Trazo
 
-**AI agents write the code. A second agent reviews it. You decide what merges.**
+**AI agents write the code. A second agent reviews it. Nothing merges until the checks pass.**
 
-Trazo is a set of rules you add to a git repository so AI coding agents work like a small team: one agent writes the code, a separate agent reviews it, and you keep the decisions that cannot be undone. It is not an editor extension and not a build service.
+Trazo is a set of rules you add to a git repository so AI coding agents work like a small team: one agent writes the code, a separate agent reviews it, and you keep the decisions that cannot be undone: money, secrets, settings and releases. It is not an editor extension and not a build service.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o install.sh
@@ -15,7 +15,7 @@ The [install page](install.md) has the details. Works with Claude Code, Codex an
 
 **A different agent reviews the work.** The reviewer, security and skeptic agents run in their own sessions, so none of them grades work it wrote. The skeptic checks every number against a written bar, and each number carries its sample size.
 
-**You decide what cannot be undone.** Merging, spending money, secrets, settings and releases stay with you. Agents handle everything a pull request can undo, and a stop rule written before any results exist says when to quit.
+**You keep what cannot be undone.** Money, secrets, repository settings and releases stay with you, and so do changes to the rules themselves. A workflow merges ordinary changes once the checks pass, without asking you, and risky ones also need a reviewer pass and a security pass.
 
 **Nothing is lost between sessions.** Plans and decisions are files and issues in your repository, not chat history. The next session reads them first ([`rules.md`](https://github.com/manoochehri/trazo/blob/main/src/overlay/rules.md), "The repo is the memory").
 
@@ -63,7 +63,7 @@ Run the two commands above at the root of a git repository (you need `git`, `cur
 
 ## Common questions about Trazo
 
-**How does Trazo work with AGENTS.md?** `AGENTS.md` says how to work in your repository: build, test and conventions. Trazo decides whether an action is allowed, such as merging, spending money or reading a secret. The installer adds one marked block and leaves the rest of the file alone; [the rule for a disagreement](in-your-repo.md) is on its own page.
+**How does Trazo work with AGENTS.md?** `AGENTS.md` says how to work in your repository: build, test and conventions. Trazo decides whether an action is allowed, such as spending money, reading a secret or changing settings. The installer adds one marked block and leaves the rest of the file alone; [the rule for a disagreement](in-your-repo.md) is on its own page.
 
 **Which agents does it work with?** Agents that read `AGENTS.md`, Claude Code and Codex, not every tool that runs in VS Code.
 

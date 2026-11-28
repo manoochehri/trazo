@@ -2,7 +2,7 @@
 
 # Trazo
 
-**Trazo is a set of rules you add to a git repository so AI coding agents work like a small team: one agent writes the code, a separate agent reviews it, and you keep the decisions that cannot be undone, such as merging, spending money and changing settings.**
+**Trazo is a set of rules you add to a git repository so AI coding agents work like a small team: one agent writes the code, a separate agent reviews it, and you keep the decisions that cannot be undone: money, secrets, settings and releases.**
 
 It is for developers who already use Claude Code (in a terminal or in VS Code) or OpenAI Codex on a real repository and want to stay in charge of what it does. Trazo is not an editor extension and not a build service. The rules are a folder named `.trazo/` and a few instruction files that you copy into the repository, and your agent reads them at the start of every session. It works with any language or framework, and your code, build and deploy setup stay as they are.
 
