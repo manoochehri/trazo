@@ -47,6 +47,7 @@ PUBLISHED = (
     "install.md",
     "in-your-repo.md",
     "day-to-day.md",
+    "automation.md",
     "guardrails.md",
 )
 
@@ -134,6 +135,7 @@ def test_nav_is_the_new_layout_and_every_entry_exists() -> None:
         ("Install and upgrade", "install.md"),
         ("In your repo", "in-your-repo.md"),
         ("Day to day", "day-to-day.md"),
+        ("Automation", "automation.md"),
         ("Guardrails and limits", "guardrails.md"),
         ("Changelog", "changelog.md"),
         ("Contributing", "contributing.md"),
