@@ -358,3 +358,39 @@ def test_the_fake_statuses_are_valid_json_for_the_script(tmp_path):
     result, merges = _run(tmp_path, FAKE_SECURITY="success")
     assert result.returncode == 0 and len(merges) == 1
     assert json.loads('{"statuses": []}') == {"statuses": []}
+
+
+# ---- issue #419: a github.token merge raises no push event, so the docs never redeployed ----
+# https://docs.github.com/en/actions/security-for-github-actions/security-guides/
+#   automatic-token-authentication
+# says events caused by GITHUB_TOKEN start no new workflow run, except workflow_dispatch and
+# repository_dispatch. UNVERIFIED on a live run: that the dispatched run deploys the merged commit.
+
+DOCS = REPO_ROOT / ".github/workflows/docs.yml"
+
+
+def _redeploy() -> dict:
+    return _load()["jobs"]["redeploy-docs"]
+
+
+def test_docs_can_be_dispatched_and_still_builds_on_push_and_pull_request():
+    wf = yaml.safe_load(DOCS.read_text(encoding="utf-8"))
+    triggers = wf.get("on", wf.get(True))
+    assert {"push", "pull_request", "workflow_dispatch"} <= set(triggers)
+
+
+def test_a_successful_merge_is_followed_by_a_docs_dispatch_with_its_own_permission():
+    job = _redeploy()
+    assert job["needs"] == "merge"
+    assert job["permissions"] == {"actions": "write"}
+    assert _load()["permissions"] == {"contents": "read"}
+    assert _job()["permissions"].get("actions") is None
+    (step,) = job["steps"]
+    assert step["run"] == 'gh workflow run docs.yml --ref "$DEFAULT_BRANCH"'
+    assert "${{" not in step["run"]
+    assert not any("uses" in s for s in job["steps"])
+
+
+def test_the_merge_still_pins_the_head_and_the_script_is_unchanged_by_the_dispatch():
+    assert '--match-head-commit "$sha"' in _script()
+    assert "workflow run" not in _script()
