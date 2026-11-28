@@ -19,19 +19,20 @@ As of 2026-11-28 the project has 9 tagged releases, more than 180 merged pull re
 Run this from the root of your repo. It needs `git`, `curl` and the [GitHub CLI](https://cli.github.com/).
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o install.sh
-bash install.sh install latest
+T=$(mktemp -d)
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o "$T/install.sh"
+bash "$T/install.sh" install latest
 ```
 
-Then run `/kickoff` in your agent. To remove Trazo, run `bash install.sh uninstall`. The details are in [Install, upgrade and uninstall](handbook/install.md).
+Then run `/kickoff` in your agent. To remove Trazo, run `bash "$T/install.sh" uninstall` in the same terminal, or download the installer to a new temporary directory as above and run it with `uninstall`. The details are in [Install, upgrade and uninstall](handbook/install.md).
 
 Or paste one of these prompts into your agent (Claude Code, Codex or any agent that reads `AGENTS.md`):
 
-> **Install:** Install Trazo into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh`, run `bash install.sh install latest`, then delete `install.sh`. Tell me what it placed and the owner-only steps it printed. Do not set secrets or variables.
+> **Install:** Install Trazo into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` into a new temporary directory outside the repository (`mktemp -d`), never into the repository, run `bash` on that file with `install latest`, and leave the repository's own files alone. Tell me what it placed and the owner-only steps it printed. Do not set secrets or variables.
 
-> **Upgrade:** Upgrade Trazo in this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` and run `bash install.sh upgrade latest --dry-run`. Show me the diff. Then run it without `--dry-run`, and delete `install.sh`. List any deny rule the upgrade removed from `.claude/settings.json`. Do not touch `.trazo/project/`.
+> **Upgrade:** Upgrade Trazo in this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` into a new temporary directory outside the repository (`mktemp -d`), never into the repository. Run `bash` on that file with `upgrade latest --dry-run` and show me the diff. Then run it without `--dry-run`. List any deny rule the upgrade removed from `.claude/settings.json`. Do not touch `.trazo/project/`.
 
-> **Uninstall:** Remove Trazo from this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh`, run `bash install.sh uninstall` (this keeps `.trazo/project/`), then delete `install.sh`. Do not use `--purge` unless I say so.
+> **Uninstall:** Remove Trazo from this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` into a new temporary directory outside the repository (`mktemp -d`), never into the repository, and run `bash` on that file with `uninstall` (this keeps `.trazo/project/`). Do not use `--purge` unless I say so.
 
 Your repo needs one command that runs its tests hermetically from a fresh checkout. Docker, nix, devcontainers or a `Makefile` all work.
 

@@ -5,8 +5,9 @@
 Trazo turns your GitHub repository and your VS Code experience into a well-managed engineering team. Your coding agents get jobs (engineer, reviewer, security, project manager and more), work through issues and pull requests, and are checked by separate agents. You keep what only a person should decide: money, secrets, settings and releases.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o install.sh
-bash install.sh install latest
+T=$(mktemp -d)
+curl -fsSL https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh -o "$T/install.sh"
+bash "$T/install.sh" install latest
 ```
 
 The [install page](install.md) has the details. Trazo works with Claude Code (which runs in [VS Code](https://code.claude.com/docs/en/vs-code) or a terminal), with Codex, and with any agent that reads `AGENTS.md`. Codex inside VS Code and Antigravity are UNVERIFIED ([#433](https://github.com/manoochehri/trazo/issues/433)). It is not an editor extension and not a build service.
@@ -54,7 +55,7 @@ As of 2026-11-28 the project has 9 tagged releases, more than 180 merged pull re
 
 ## Install with one command
 
-Run the two commands above at the root of a git repository (you need `git`, `curl` and the [GitHub CLI](https://cli.github.com/)), then run `/kickoff` in your agent. Or paste this into your agent: "Install Trazo into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh`, run `bash install.sh install latest`, then delete `install.sh`. Tell me what it placed. Do not set secrets or variables."
+Run the three commands above at the root of a git repository (you need `git`, `curl` and the [GitHub CLI](https://cli.github.com/)), then run `/kickoff` in your agent. Or paste this into your agent: "Install Trazo into this repo. Download `https://raw.githubusercontent.com/manoochehri/trazo/main/scripts/install.sh` into a new temporary directory outside the repository (`mktemp -d`), never into the repository, run `bash` on that file with `install latest`, and leave the repository's own files alone. Tell me what it placed. Do not set secrets or variables."
 
 ## Honest status
 
@@ -82,6 +83,6 @@ Run the two commands above at the root of a git repository (you need `git`, `cur
 
 **Does anything leave my repository?** The installer only downloads files from the Trazo repository. Nothing from your repository is sent to Trazo.
 
-**Can I remove it?** Run `bash install.sh uninstall`. It keeps `.trazo/project/`.
+**Can I remove it?** Yes. Download the installer to a temporary directory as above and run it with `uninstall`. It keeps `.trazo/project/`.
 
 Next: [install it](install.md), then see [how it works](how-it-works.md), [day to day](day-to-day.md) and [guardrails and limits](guardrails.md).

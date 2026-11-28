@@ -172,7 +172,7 @@ def test_readme_install_uses_latest_and_names_no_release() -> None:
         assert not tokens, f"{name} hard-codes a release number: {tokens}"
     install_block = re.search(r"```sh\n(.*?)```", text, re.DOTALL)
     assert install_block, "README has no install command block"
-    assert "install.sh install latest" in install_block.group(1), (
+    assert '"$T/install.sh" install latest' in install_block.group(1), (
         "the install command must run the installer with `latest`"
     )
     assert "upgrade latest --dry-run" in text, "the upgrade prompt must preview with `latest`"
@@ -220,3 +220,15 @@ def test_readme_links_resolve() -> None:
 def test_the_handbook_pages_the_readme_names_exist() -> None:
     for name in ("index", "how-it-works", "in-your-repo", "install", "guardrails", "day-to-day"):
         assert (HANDBOOK / f"{name}.md").exists(), f"handbook/{name}.md is missing"
+
+
+def test_install_commands_never_write_the_installer_into_the_repository() -> None:
+    """#436: a host that already tracked its own install.sh had it overwritten by the
+    documented steps. The installer is downloaded to a temporary directory, so no command
+    on the front pages may write or run install.sh from the working directory."""
+    for name, body in (("README.md", _text()), ("handbook/index.md", _handbook("index.md"))):
+        assert not re.search(r"-o\s+install\.sh\b", body), f"{name} downloads to install.sh"
+        assert not re.search(r"\bbash\s+install\.sh\b", body), f"{name} runs ./install.sh"
+        assert not re.search(r"delete `install\.sh`|rm install\.sh", body), (
+            f"{name} tells the reader to delete install.sh"
+        )
