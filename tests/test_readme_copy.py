@@ -19,7 +19,7 @@ So these assert the specific false claims rather than a general vibe:
   - the mount-time contract is stated, since it is the one thing a host must supply
   - roles are described correctly (subagent-only vs role-switch), on the handbook page
   - the documented layout matches the real one, on the handbook page
-  - the current release is the one in .template/VERSION, and no older pin remains
+  - install uses `latest` and no release number appears on the front pages
   - every link in the README resolves, and the README stays short
 """
 
@@ -126,17 +126,19 @@ def test_no_stale_name_or_removed_mechanism() -> None:
     assert "self-improving" not in low, "the old tagline: 'a self-improving template'"
 
 
-def test_the_overlay_leads_and_the_judgment_layer_is_named() -> None:
-    """A starter template fixes the empty repo you start from. The overlay mounts on the
-    one you already have, and the judgment layer is the differentiator per #0005. The
-    README's first sentence leads with the overlay; the judgment layer is named on the
-    index page, which the README links first."""
+def test_the_readme_leads_with_what_it_adds_not_a_starter_template() -> None:
+    """A starter template fixes the empty repo you start from. Trazo is added to the repo you
+    already have (#0005), and #428 requires the opening to say what it does and for whom. The
+    judgment layer is named on the index page, which the README links first."""
     text = _text()
-    lead = next((ln for ln in text.splitlines() if ln.startswith("Trazo is")), "")
-    assert lead, "README has no opening sentence that starts 'Trazo is'"
-    assert "overlay" in lead.lower(), "the lead does not say the overlay"
-    assert "template for starting" not in lead.lower(), "that is the pre-pivot pitch"
-    assert "any repo" in lead.lower(), "the whole point is a repo you already have"
+    lead = next((ln for ln in text.splitlines() if ln.startswith("**Trazo is a set of rules")), "")
+    assert lead, "README has no bold opening sentence that starts 'Trazo is a set of rules'"
+    assert "template for starting" not in text.lower(), "that is the pre-pivot pitch"
+    assert "starter template" not in lead.lower()
+    assert "AI coding agents" in lead, "the opening must say whose agent it governs"
+    assert "not an editor extension and not a build service" in text, (
+        "the README must say what Trazo is not"
+    )
     index = _handbook("index.md").lower()
     for concept in ("stop rule", "skeptic", "sample size"):
         assert concept in index, f"the judgment layer omits {concept} on the index page"
@@ -153,24 +155,26 @@ def test_the_mount_time_contract_is_stated() -> None:
     assert "install.sh" in low, "mounting an existing repo must be a documented path"
 
 
-def test_readme_install_points_at_the_current_release() -> None:
-    """#143 and #402: the install command must name the release in .template/VERSION, and
-    the status must not cite that file. An older pin anywhere in the README is a stale
-    claim, so every version token must be the current one."""
+def test_readme_install_uses_latest_and_names_no_release() -> None:
+    """#143, #402 and the owner decision on #428: a version in the docs goes stale, so every
+    install and upgrade command uses `latest`, which the installer resolves to the highest
+    release tag. No release number may appear in the README or on the Home page; the
+    changelog page is the only place for one."""
     text = _text()
-    current = _current_version()
-    assert re.fullmatch(r"\d+\.\d+\.\d+", current), f".template/VERSION is {current!r}"
     assert not re.search(r"\]\(\.?/?\.template/VERSION\)", text), (
-        "README links .template/VERSION; state the release in the text instead"
+        "README links .template/VERSION; link the changelog or releases page instead"
     )
-    tokens = set(re.findall(r"\bv\d+\.\d+\.\d+\b", text))
-    assert f"v{current}" in tokens, f"README does not name the current release v{current}"
-    stale = sorted(tokens - {f"v{current}"})
-    assert not stale, f"README pins an older release: {stale}"
+    for name, body in (("README.md", text), ("handbook/index.md", _handbook("index.md"))):
+        tokens = sorted(set(re.findall(r"\bv\d+\.\d+\.\d+\b", body)))
+        assert not tokens, f"{name} hard-codes a release number: {tokens}"
     install_block = re.search(r"```sh\n(.*?)```", text, re.DOTALL)
     assert install_block, "README has no install command block"
-    assert f"install.sh install v{current}" in install_block.group(1), (
-        "the install command must run the installer at the current release"
+    assert "install.sh install latest" in install_block.group(1), (
+        "the install command must run the installer with `latest`"
+    )
+    assert "upgrade latest --dry-run" in text, "the upgrade prompt must preview with `latest`"
+    assert "/trazo/main/scripts/install.sh" in install_block.group(1), (
+        "the installer is downloaded from main, which supports `latest`"
     )
 
 
@@ -178,14 +182,17 @@ def test_readme_status_names_what_is_unverified() -> None:
     """Trazo is early, and the drive workflow, the front-door hook shape and release
     automation have not run live. The README must say so, not imply they work."""
     text = _text()
-    status = re.search(r"^## Status\n(.*?)(?=^## )", text, re.DOTALL | re.MULTILINE)
-    assert status, "README has no Status section"
+    status = re.search(
+        r"^## Where Trazo stands today\n(.*?)(?=^## )", text, re.DOTALL | re.MULTILINE
+    )
+    assert status, "README has no 'Where Trazo stands today' section"
     body = status.group(1)
     assert "VERSION" not in body, "the status must not cite .template/VERSION"
     assert "UNVERIFIED" in body, "the status must mark what is unverified"
     low = body.lower()
     assert "drive" in low and "#399" in body, "the drive workflow and its open defect are unnamed"
     assert "front-door" in low and "hook" in low, "the front-door hook is unnamed"
+    assert "#366" in body, "the shared-account limit is unnamed"
     assert "release automation" in low, "release automation is unnamed"
 
 
