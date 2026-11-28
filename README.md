@@ -9,10 +9,10 @@ Trazo turns your GitHub repository and your VS Code experience into a well-manag
 ## What you get
 
 - Seven agent job descriptions in `.trazo/roles/`. The reviewer, security and skeptic agents are subagent-only and run in their own sessions, so none of them grades work it wrote. `/pm` and `/eng` start the project manager and engineer agents.
-- Merge rules enforced by a GitHub workflow: documentation-only changes need green CI, and risky ones also need a reviewer pass and a security pass.
+- Merge rules enforced by a GitHub workflow that the main chat agent starts once the checks pass: documentation-only changes need green CI, and risky ones also need a reviewer pass and a security pass.
 - 32 numbered decision records and a charter with a stop rule. The skeptic checks every number, and each number carries its sample size.
 
-As of 2026-11-28 the project has 9 tagged releases, 181 merged pull requests since 2026-09-27, and 65 test files. The [Home page](handbook/index.md) walks one real pull request, #329, through the checks.
+As of 2026-11-28 the project has 9 tagged releases, more than 180 merged pull requests since 2026-09-27, and 65 test files. The [Home page](handbook/index.md) walks one real pull request, #329, through the checks.
 
 ## Install
 
@@ -40,7 +40,7 @@ Your repo needs one command that runs its tests hermetically from a fresh checko
 Trazo is early: about two months old and built from one project, this one. Each of these is UNVERIFIED or open:
 
 - Every interactive agent acts through one GitHub account, so review status is only as trustworthy as that account until [#366](https://github.com/manoochehri/trazo/issues/366) lands.
-- The unattended drive (`drive.yml`) is on in this repository and off by default in yours. A watched run on 2026-11-28 made no change ([#399](https://github.com/manoochehri/trazo/issues/399)); [#247](https://github.com/manoochehri/trazo/issues/247) tracks the verification.
+- The unattended drive (`drive.yml`) is on in this repository and off by default in yours. It was triggered on a schedule from 2026-10-31 but only ran for real from 2026-11-23, when it was switched on here, and opened one pull request, #312, which was closed unmerged. A watched run on 2026-11-28 made no change and exposed a bug ([#399](https://github.com/manoochehri/trazo/issues/399)); [#247](https://github.com/manoochehri/trazo/issues/247) tracks the verification.
 - The front-door hook that blocks the main session from editing files has not been checked on every live input.
 - Release automation (`release.yml`) is Trazo's own and has not run live.
 

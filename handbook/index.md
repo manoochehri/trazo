@@ -15,7 +15,7 @@ The [install page](install.md) has the details. Trazo works with Claude Code (wh
 
 **A different agent reviews the work.** The reviewer, security and skeptic agents run in their own sessions, so none of them grades work it wrote. The skeptic checks every number against a written bar, and each number carries its sample size.
 
-**You keep what cannot be undone.** Money, secrets, repository settings and releases stay with you, and so do changes to the rules themselves. A workflow merges ordinary changes once the checks pass, without asking you, and risky ones also need a reviewer pass and a security pass.
+**You keep what cannot be undone.** That means money and production, secrets, repository and release settings, force-push or deletion on the default branch, and changes to the rules, workflows and charter themselves. The main chat agent starts a merge workflow once the checks pass, without asking you; risky changes also need a reviewer pass and a security pass.
 
 **Nothing is lost between sessions.** Plans and decisions are files and issues in your repository, not chat history. The next session reads them first ([`rules.md`](https://github.com/manoochehri/trazo/blob/main/src/overlay/rules.md), "The repo is the memory").
 
@@ -35,7 +35,7 @@ This is [#329](https://github.com/manoochehri/trazo/pull/329), which limited the
 2. The security agent read the first commit in its own session and passed it. One suggestion became a follow-up issue.
 3. The reviewer returned `merge after fixes` with `Reviewed-Head: 6126ffb`, because the block message named four of the six allowed agents.
 4. The author pushed `0dd084a` with a test that fails on the old message, and the reviewer wrote `merge`.
-5. On `0dd084a` the statuses `trazo/verdict` and `trazo/security` were `success` and CI was green. The owner merged it by hand on 2026-11-25, because the merge workflow was added later that day.
+5. On `0dd084a` the statuses `trazo/verdict` and `trazo/security` were `success` and CI was green. It was merged through the owner account on 2026-11-25, before the merge workflow existed (added later that day in #331).
 
 Today that workflow, `owner-merge.yml`, merges with `--match-head-commit`, so a later push cannot slip in. When a check is missing it stops with `it changes risky paths and trazo/verdict is missing on this head; not merging.` (the workflow's wording, not output from #329).
 
@@ -50,7 +50,7 @@ Today that workflow, `owner-merge.yml`, merges with `--match-head-commit`, so a 
 | A charter | `.trazo/project/charter/` | Goal, budget and a stop rule, written first. |
 | Hooks for Claude Code | `.claude/settings.json` | They block risky commands. See [what changes in your files](in-your-repo.md), where the folder is called the overlay. |
 
-As of 2026-11-28 the project has 9 tagged releases, 181 merged pull requests since 2026-09-27, and 65 test files in `tests/`.
+As of 2026-11-28 the project has 9 tagged releases, more than 180 merged pull requests since 2026-09-27, and 65 test files in `tests/`.
 
 ## Install with one command
 
@@ -60,7 +60,7 @@ Run the two commands above at the root of a git repository (you need `git`, `cur
 
 - Trazo is early: about two months old, built from one project, this one.
 - Every interactive agent acts through one GitHub account, so review status is only as trustworthy as that account ([#366](https://github.com/manoochehri/trazo/issues/366)).
-- The unattended drive is on in this repository and off by default in yours. It has run on a schedule since 2026-11-02 and opened one pull request, #312, which was closed unmerged. A watched run on 2026-11-28 made no change and exposed a bug ([#399](https://github.com/manoochehri/trazo/issues/399)); [#247](https://github.com/manoochehri/trazo/issues/247) tracks that verification.
+- The unattended drive is on in this repository and off by default in yours. It was triggered on a schedule from 2026-10-31 but only ran for real from 2026-11-23, when it was switched on here, and opened one pull request, #312, which was closed unmerged. A watched run on 2026-11-28 made no change and exposed a bug ([#399](https://github.com/manoochehri/trazo/issues/399)); [#247](https://github.com/manoochehri/trazo/issues/247) tracks that verification.
 - The hooks are a backstop, not a guarantee ([known gaps](https://github.com/manoochehri/trazo/blob/main/src/overlay/hooks/README.md)).
 
 ## Common questions about Trazo
