@@ -57,17 +57,44 @@ def validate(body: str) -> list[str]:
     return errors
 
 
-# Dependabot exemption (#426). Narrowest rule: the author must be the Dependabot bot, taken
-# from the pull request event's author field (never the body or branch name), and every changed
-# file must be one of the exact root-level files the ecosystems in .github/dependabot.yml
-# (uv, github-actions, docker; directory "/") can edit, changed in place. Anything else, or any
-# error reading the diff, keeps the full evidence check.
+# Dependabot exemption (#426). Narrowest rule: the pull request author must be the Dependabot
+# bot (taken from the event's author field, never the body or branch name), every commit in the
+# range must be authored by it, and every changed file must be one of the exact root-level files
+# the ecosystems in .github/dependabot.yml (uv, github-actions, docker; directory "/") edit, with
+# only a version bump in it. Each removed line must pair with an added line that is identical
+# once the version is masked; anything added-only, removed-only, re-sourced or new falls back to
+# the full evidence check, as does any error reading the diff.
 DEPENDABOT_LOGIN = "dependabot[bot]"
-MANIFEST_FILES = frozenset({"pyproject.toml", "uv.lock"})
+DEPENDABOT_EMAIL = "49699333+dependabot[bot]@users.noreply.github.com"
+PYPROJECT = "pyproject.toml"
+UV_LOCK = "uv.lock"
 DOCKERFILE = "Dockerfile"
-WORKFLOW_RE = re.compile(r"^\.github/workflows/[^/]+\.ya?ml$")
-USES_LINE_RE = re.compile(r"^\s*(?:-\s+)?uses:\s*\S+@\S+(?:\s+#.*)?$")
-FROM_LINE_RE = re.compile(r"^FROM\s+\S+.*$", re.IGNORECASE)
+WORKFLOW_RE = re.compile(r"^\.github/workflows/[^/]+\.yml$")
+
+_VER = r"\d+(?:\.\d+)*(?:(?:a|b|rc|post|dev)\d+)*"
+_OPVER_RE = re.compile(rf"(==|>=|<=|~=|>|<)({_VER})(?=\")")
+_DEP_ITEM = r'"[A-Za-z0-9][A-Za-z0-9._-]*(?:\[[A-Za-z0-9,._-]+\])?(?:==|>=|<=|~=|>|<)V"'
+PYPROJECT_SHAPE = re.compile(
+    rf"\s*(?:[A-Za-z0-9_-]+\s*=\s*\[)?\s*{_DEP_ITEM}(?:\s*,\s*{_DEP_ITEM})*\s*,?\s*\]?"
+)
+LOCK_VERSION_LINE = re.compile(rf'version = "({_VER})"')
+LOCK_VERSION_SHAPE = re.compile(r'version = "V"')
+LOCK_SPEC_SHAPE = re.compile(
+    r'\s*\{ name = "[A-Za-z0-9][A-Za-z0-9._-]*", specifier = "(?:==|>=|<=|~=|>|<)V" \},?'
+)
+# sdist and wheel entries of a package: a PyPI URL, a sha256 and size. These may change in number.
+LOCK_FILE_ENTRY = re.compile(
+    r'(?:sdist = )?\s*\{ url = "https://files\.pythonhosted\.org/packages/[0-9a-f/]+/[^"/\s]+", '
+    r'hash = "sha256:[0-9a-f]{64}", size = \d+(?:, upload-time = "[0-9TZ:.-]+")? \},?'
+)
+USES_RE = re.compile(
+    r"(?P<pre>\s*(?:-\s+)?uses:\s*)(?P<action>[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+"
+    r"(?:/[A-Za-z0-9_.-]+)*)@(?P<ref>[0-9a-f]{40}|v\d+\.\d+\.\d+)(?P<cmt>\s+#.*)?"
+)
+FROM_RE = re.compile(
+    r"FROM (?P<img>[a-z0-9][a-z0-9._/-]*)(?::[A-Za-z0-9_][A-Za-z0-9._-]*)?"
+    r"(?:@sha256:[0-9a-f]{64})?(?P<alias> AS [A-Za-z0-9_.-]+)?"
+)
 
 
 def _git(*args: str) -> str:
@@ -80,22 +107,104 @@ def _git(*args: str) -> str:
     ).stdout
 
 
-def _changed_lines_all_match(base: str, head: str, path: str, pattern: re.Pattern[str]) -> bool:
+def _hunks(base: str, head: str, path: str) -> list[tuple[list[str], list[str]]] | None:
+    """Removed and added lines per hunk, or None for anything unexpected."""
     diff = _git("diff", "--no-color", "--no-renames", "-U0", f"{base}...{head}", "--", path)
-    changed: list[str] = []
-    in_hunk = False
-    for line in diff.splitlines():
+    hunks: list[tuple[list[str], list[str]]] = []
+    for line in diff.split("\n"):
         if line.startswith("@@"):
-            in_hunk = True
-        elif in_hunk and line[:1] in "+-":
-            changed.append(line[1:])
-        elif in_hunk and line[:1] != "\\":
-            return False  # unexpected content inside a hunk: fail closed
-    return bool(changed) and all(pattern.match(line) for line in changed)
+            hunks.append(([], []))
+        elif not hunks:
+            continue  # header before the first hunk
+        elif line.startswith("-"):
+            hunks[-1][0].append(line[1:])
+        elif line.startswith("+"):
+            hunks[-1][1].append(line[1:])
+        elif line not in ("", "\\ No newline at end of file"):
+            return None
+    return hunks or None
+
+
+def _pairs(hunks, pair_ok, free_ok=None) -> bool:
+    for removed, added in hunks:
+        pair_r = [x for x in removed if not (free_ok and free_ok(x))]
+        pair_a = [x for x in added if not (free_ok and free_ok(x))]
+        if len(pair_r) != len(pair_a) or not (pair_r or removed or added):
+            return False
+        if not all(pair_ok(r, a) for r, a in zip(pair_r, pair_a, strict=True)):
+            return False
+    return True
+
+
+def _masked(line: str) -> str:
+    return _OPVER_RE.sub(r"\1V", line)
+
+
+def _pyproject_pair(old: str, new: str) -> bool:
+    a, b = _masked(old), _masked(new)
+    return old != new and a == b and PYPROJECT_SHAPE.fullmatch(a) is not None
+
+
+def _lock_pair(old: str, new: str) -> bool:
+    def mask(line: str) -> str:
+        return re.sub(rf'^version = "{_VER}"$', 'version = "V"', _masked(line))
+
+    a, b = mask(old), mask(new)
+    shape = LOCK_VERSION_SHAPE.fullmatch(a) or LOCK_SPEC_SHAPE.fullmatch(a)
+    return old != new and a == b and shape is not None
+
+
+def _workflow_pair(old: str, new: str) -> bool:
+    a, b = USES_RE.fullmatch(old), USES_RE.fullmatch(new)
+    if a is None or b is None or old == new:
+        return False
+    return a["pre"] == b["pre"] and a["action"] == b["action"]
+
+
+def _dockerfile_pair(old: str, new: str) -> bool:
+    a, b = FROM_RE.fullmatch(old), FROM_RE.fullmatch(new)
+    if a is None or b is None or old == new:
+        return False
+    return a["img"] == b["img"] and a["alias"] == b["alias"]
+
+
+def _lock_is_version_bump(hunks) -> bool:
+    """Version pairs, plus file entries whose filename carries one of those versions."""
+    is_entry = lambda x: LOCK_FILE_ENTRY.fullmatch(x) is not None  # noqa: E731
+    if not _pairs(hunks, _lock_pair, is_entry):
+        return False
+    old_versions: set[str] = set()
+    new_versions: set[str] = set()
+    for removed, added in hunks:
+        old_versions |= {m[1] for x in removed if (m := LOCK_VERSION_LINE.fullmatch(x))}
+        new_versions |= {m[1] for x in added if (m := LOCK_VERSION_LINE.fullmatch(x))}
+    if not new_versions:
+        return False
+
+    def carries(line: str, versions: set[str]) -> bool:
+        name = line.split('url = "', 1)[1].split('"', 1)[0].rsplit("/", 1)[1]
+        return any(re.search(rf"-{re.escape(v)}(?=-|\.tar|\.zip|\.whl)", name) for v in versions)
+
+    return all(carries(x, old_versions) for r, _ in hunks for x in r if is_entry(x)) and all(
+        carries(x, new_versions) for _, a in hunks for x in a if is_entry(x)
+    )
+
+
+def _file_is_version_bump(base: str, head: str, path: str) -> bool:
+    hunks = _hunks(base, head, path)
+    if hunks is None:
+        return False
+    if path == PYPROJECT:
+        return _pairs(hunks, _pyproject_pair)
+    if path == UV_LOCK:
+        return _lock_is_version_bump(hunks)
+    if path == DOCKERFILE:
+        return _pairs(hunks, _dockerfile_pair)
+    return _pairs(hunks, _workflow_pair)
 
 
 def is_dependency_only_dependabot_pr(pull_request: dict) -> bool:
-    """True only for a Dependabot-authored PR that changes nothing but dependency pins."""
+    """True only for a Dependabot-authored PR that changes nothing but dependency versions."""
     user = pull_request.get("user")
     if not isinstance(user, dict):
         return False
@@ -109,6 +218,12 @@ def is_dependency_only_dependabot_pr(pull_request: dict) -> bool:
     if not (sha.fullmatch(base) and sha.fullmatch(head)):
         return False
     try:
+        # A person with write access can push to a Dependabot branch; their commits must not
+        # inherit the exemption. (Author fields are self-declared, so this raises the bar only.)
+        authors = _git("log", "--format=%an <%ae>", f"{base}..{head}").split("\n")
+        authors = [a for a in authors if a]
+        if not authors or any(a != f"{DEPENDABOT_LOGIN} <{DEPENDABOT_EMAIL}>" for a in authors):
+            return False
         raw = _git("diff", "--raw", "-z", "--no-renames", f"{base}...{head}")
         fields = raw.split("\0")
         if fields and fields[-1] == "":
@@ -120,17 +235,11 @@ def is_dependency_only_dependabot_pr(pull_request: dict) -> bool:
             parts = meta.split()
             if len(parts) != 5 or (parts[0], parts[1], parts[4]) != (":100644", "100644", "M"):
                 return False
-            if path in MANIFEST_FILES:
-                continue
-            if path == DOCKERFILE:
-                pattern = FROM_LINE_RE
-            elif WORKFLOW_RE.fullmatch(path):
-                pattern = USES_LINE_RE
-            else:
+            if path not in (PYPROJECT, UV_LOCK, DOCKERFILE) and not WORKFLOW_RE.fullmatch(path):
                 return False
-            if not _changed_lines_all_match(base, head, path, pattern):
+            if not _file_is_version_bump(base, head, path):
                 return False
-    except (subprocess.CalledProcessError, OSError):
+    except (subprocess.CalledProcessError, OSError, ValueError):
         return False
     return True
 

