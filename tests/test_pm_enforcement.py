@@ -102,6 +102,11 @@ DENIED = [
     # gh writes outside the granted set
     "gh issue delete 3",
     "gh issue close 3 --body-file .env",
+    "gh label edit needs-decision --name foo",
+    "gh label edit drive-halt --name foo",
+    "gh label edit foo --name needs-decision",
+    "gh label create needs-decision --force",
+    "gh label create Drive-Halt --color ffffff",
     "gh issue close $(echo 3)",
     "gh pr create --fill",
     "gh pr review 3 --approve",

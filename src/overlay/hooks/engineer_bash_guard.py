@@ -263,7 +263,7 @@ def scan(command: str) -> tuple[str, list[str]]:
             i = j + 1
             continue
         if c == "\\":
-            emit(command[i : i + 2])
+            emit(" " if command[i : i + 2] == "\\\n" else command[i : i + 2])
             i += 2
             continue
         if c == '"':
@@ -299,7 +299,7 @@ def scan(command: str) -> tuple[str, list[str]]:
             i = m.end()
             continue
         elif c == "\n":
-            emit(c)
+            emit(" ; ")
             i += 1
             for delim, strip, quoted in pending:
                 body: list[str] = []
@@ -428,9 +428,11 @@ API_DENY_SEGMENTS = {
     "rulesets", "protection", "hooks", "keys", "gpg_keys", "ssh_signing_keys", "collaborators",
     "invitations", "releases", "environments", "deployments", "merges", "merge", "transfer",
     "dispatches", "actions", "codespaces", "dependabot", "secrets", "variables",
+    "rename", "rules", "topics", "pages", "forks", "check-runs", "vulnerability-alerts",
+    "interaction-limits", "reviews",
 }  # fmt: skip
 API_DENY_TOP = {
-    "orgs", "enterprises", "applications", "authorizations", "app", "installation", "admin",
+    "user", "orgs", "enterprises", "applications", "authorizations", "app", "installation", "admin",
     "teams",
 }  # fmt: skip
 # A write whose path has a computed part is allowed only under one of these collections.
@@ -542,6 +544,8 @@ def check_gh_api_write(
         return
     if not dynamic and len(segs) <= 3:
         raise Deny("`gh api` write to the repository itself (settings, rename, delete)")
+    if has_input and "statuses" not in segs:
+        raise Deny("`gh api --input` can send any body (a tag ref, a merge); use -f fields")
     scan_from = 1 if dynamic else 3
     if dynamic:
         coll = next((k for k, s in enumerate(segs) if k >= 1 and s in API_DYNAMIC_OK), None)
@@ -549,6 +553,12 @@ def check_gh_api_write(
             raise Deny(
                 "a `gh api` write with a computed part must name an issues, pulls, "
                 "statuses, milestones or labels collection"
+            )
+        after = segs[coll + 1 :]
+        if any(MARK in x for x in after) and not (segs[coll] == "statuses" and len(after) == 1):
+            raise Deny(
+                "a `gh api` write may not compute any part of its path after the collection "
+                "(a variable can spell `5/merge`); write the path out"
             )
     for s in segs[scan_from:]:
         if s in API_DENY_SEGMENTS:
@@ -726,6 +736,10 @@ def check_git(argv: list[str]) -> None:
     if any(a in {"--all", "--mirror", "--tags", "--follow-tags"} for a in rest):
         raise Deny("`git push --all/--mirror/--tags` would push the default branch or a tag")
     words = [a for a in rest if not a.startswith("-")]
+    forced = any(a in {"-f", "--force"} or a.startswith("--force-with-lease") for a in rest)
+    if forced and (len(words) < 2 or any(w.rpartition(":")[2] == "HEAD" for w in words[1:])):
+        # the branch is whatever is checked out, possibly the default one: name it
+        raise Deny("a force-push must name the branch it pushes (not none, not HEAD)")
     if len(words) > 1 and words[1] == "tag":
         raise Deny("tags are cut by the release workflow, not pushed from a session")
     for ref in words[1:]:  # words[0] is the remote
@@ -784,7 +798,9 @@ def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Patter
                 raise Deny(f"`{' '.join(prefix)}` is denied by settings.json")
     home_claude = glob_to_regex(HOME_CLAUDE_GLOB).pattern
     previous = ""
-    for word in argv[1:]:
+    for raw_word in argv[1:]:
+        # `-F body=@.env` and `curl -d @.env` read the named file: scan the path, not the `@`
+        word = re.sub(r"(^|=)@", r"\1", raw_word)
         if previous not in TEXT_FLAGS and not PLACEHOLDER.search(word):
             project_claude = PROJECT_CLAUDE.fullmatch(word) is not None
             # Prose that mentions a `.claude` path, and the memory notes, are not reads of the
@@ -796,7 +812,7 @@ def check_argv(argv: list[str], prefixes: list[list[str]], paths: list[re.Patter
             )
             if any(p.search(word) for p in paths if not (skip_claude and p.pattern == home_claude)):
                 raise Deny(f"{word!r} names a secret path")
-        previous = word
+        previous = raw_word
 
 
 def check(command: str, prefixes: list[list[str]], paths: list[re.Pattern[str]]) -> None:
@@ -806,8 +822,16 @@ def check(command: str, prefixes: list[list[str]], paths: list[re.Pattern[str]])
         for inner in spans:
             check(inner, prefixes, paths)
         protected_env = False
-        for argv in segments(clean):
+        parsed = segments(clean)
+        stdin_text = any(a in {"<<", "<<<"} for argv in parsed for a in argv)
+        for argv in parsed:
             normalized = strip_wrappers(argv)
+            lead = argv[: len(argv) - len(normalized)]
+            if any(os.path.basename(w) == "xargs" for w in lead):
+                target = os.path.basename(normalized[0]) if normalized else ""
+                if stdin_text or target in {"gh", "git", "eval", *SHELLS}:
+                    # stdin becomes the arguments (`pr merge 5`): they cannot be judged
+                    raise Deny("`xargs` may not build `gh`, `git` or shell arguments from stdin")
             if protected_env and normalized and os.path.basename(normalized[0]) == "gh":
                 args = gh_args(normalized)
                 if bare_words(args)[:1] == ["workflow"]:

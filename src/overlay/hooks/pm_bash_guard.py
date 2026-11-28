@@ -240,6 +240,8 @@ def check_gh_write(key: tuple[str, str], args: list[str]) -> None:
         a = args[i]
         i += 1
         if not a.startswith("-"):
+            if key[0] == "label" and a.strip().lower() in STOP_LABELS:
+                raise Deny(f"the PM may not redefine {a!r}; only the owner changes the stop labels")
             if a.startswith(("/", "~")) or ".." in a.split("/"):
                 raise Deny("gh argument is not a plain issue number or URL")
             continue
@@ -255,6 +257,8 @@ def check_gh_write(key: tuple[str, str], args: list[str]) -> None:
             i += 1
         else:
             raise Deny(f"{name} needs a value")
+        if key[0] == "label" and name in {"--name", "-n"} and value.strip().lower() in STOP_LABELS:
+            raise Deny(f"the PM may not rename a label to {value!r}")
         if name == "--remove-label":
             lifted = {v.strip().lower() for v in value.split(",")} & STOP_LABELS
             if lifted:

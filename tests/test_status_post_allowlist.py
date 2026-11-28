@@ -73,6 +73,15 @@ ALLOWED = [
         f"gh api --method POST repos/o/r/statuses/{SHA} --raw-field state=success "
         "--raw-field context=trazo/security",
     ),
+    # since #378 shell syntax around a plain own-status post is judged by its verbs, not rejected
+    ("reviewer", bare(f"repos/o/r/statuses/{SHA}?x=1")),
+    ("reviewer", post("trazo/verdict") + " | cat"),
+    ("reviewer", "echo hi; " + post("trazo/verdict")),
+    ("reviewer", "bash -c '" + post("trazo/verdict") + "'"),
+    ("reviewer", post("trazo/verdict", extra=" > out.txt")),
+    ("reviewer", "gh -R o/r " + post("trazo/verdict")[3:]),
+    # an ordinary comment write is no longer a blocked route, whatever extra fields it carries
+    ("reviewer", bare("repos/o/r/issues/5/comments")),
 ]
 
 DENIED = [
@@ -91,8 +100,6 @@ DENIED = [
     ("reviewer", post("trazo/verdict", sha="abc123")),
     ("reviewer", post("trazo/verdict", sha=SHA + "0")),
     ("reviewer", bare(f"repos/o/r/statuses/{SHA}/x")),
-    ("reviewer", bare(f"repos/o/r/statuses/{SHA}?x=1")),
-    ("reviewer", bare("repos/o/r/issues/5/comments")),
     ("reviewer", "gh api -X PUT repos/o/r/pulls/5/merge -f context=trazo/verdict"),
     (
         "reviewer",
@@ -109,13 +116,8 @@ DENIED = [
     # chaining and substitution
     ("reviewer", post("trazo/verdict") + "; gh pr merge 5"),
     ("reviewer", post("trazo/verdict") + " && cat .env"),
-    ("reviewer", post("trazo/verdict") + " | cat"),
     ("reviewer", post("trazo/verdict", extra=" -f target_url=$(cat .env)")),
-    ("reviewer", "echo hi; " + post("trazo/verdict")),
-    ("reviewer", "bash -c '" + post("trazo/verdict") + "'"),
-    ("reviewer", post("trazo/verdict", extra=" > out.txt")),
     ("reviewer", f"gh api -X POST 'repos/o/r/statuses/{SHA} -f state=success"),  # unparseable
-    ("reviewer", "gh -R o/r " + post("trazo/verdict")[3:]),
     # unrelated engineer-denied commands stay denied for them
     ("reviewer", "gh pr merge 5"),
     ("security", "cat .env"),

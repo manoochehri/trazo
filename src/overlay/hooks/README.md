@@ -108,8 +108,20 @@ shell fed from a pipe, here-string or heredoc, and `eval "$(...)"`; writes (redi
 `cp|mv|rm|touch|install|ln|sed -i|dd of=|git mv|git rm`) to `.claude/` and `.trazo/`, except
 `.trazo/project/` (its `charter/` and `SKEPTIC_BAR.md` stay denied) and `.claude/worktrees/`;
 and any word naming a protected path (`.env`, `secrets/`, keys, `~/.ssh`, `~/.claude`, ...).
-`.env.example`-style placeholders are readable. Known gaps: the working directory is not tracked
-(`cd .claude && echo x > y`), and an endpoint or path built by a variable cannot be judged.
+`.env.example`-style placeholders are readable. After the security review of the first head: a
+`gh api` write may not compute any part of its path after the collection (a variable can spell
+`5/merge`), `--input` is denied on every write except a status post, `-F body=@file` is scanned
+as the named path, `xargs` may not build `gh`, `git` or shell arguments (and nothing may feed
+`xargs` from a heredoc or here-string), an unquoted newline separates commands, and writes to
+`user`, `rename`, `rules`, `topics`, `pages`, `forks`, `check-runs`, `vulnerability-alerts`,
+`interaction-limits` and `reviews` endpoints are denied. The PM may not create or edit a label
+named `needs-decision` or `drive-halt`. A force-push must name its branch: `git push -f`
+with no refspec and `git push --force origin HEAD` are denied.
+
+Known gaps: the working directory is not tracked (`cd .claude && echo x > y`); an endpoint or
+path built by a variable cannot be judged; a plain `git push` or `git push origin HEAD` (no force)
+while `main` is checked out is not judged, because the branch is unknown to the parser (the ruleset
+rejects it); and `gh api -X DELETE` on an issue, comment or other non-blocklisted object passes.
 
 One source: it reads the protected commands (`Bash(<prefix> *)`) and paths (`Read(<glob>)`) from
 `permissions.deny` in `.claude/settings.json`, so adding a rule there extends the guard. If that
