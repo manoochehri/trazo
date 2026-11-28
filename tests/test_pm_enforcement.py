@@ -276,6 +276,9 @@ MILESTONE_ALLOWED = [
     f"gh api -X PATCH {MS}/12 -f state=closed",
     f"gh api -X PATCH {MS}/12 -f title=x -f description=y -f due_on={DUE} -f state=open",
     f"gh api -X PATCH {MS}/7 -F description=goal",
+    f"gh api -X POST {MS} -f title=x -f description=--input",
+    f"gh api -X PATCH {MS}/7 -f 'description=-X DELETE'",
+    f"gh api -X POST {MS} -f 'title=-X DELETE'",
 ]
 MILESTONE_DENIED = [
     f"gh api -X DELETE {MS}/12",
@@ -342,6 +345,18 @@ MILESTONE_DENIED = [
     f"gh api -X PATCH {MS}/12 -f state=deleted",
     f"gh api -X POST {MS} -f title=x --jq .number",
     f"gh api -X POST {MS} -f title=x -f title=x extra/path",
+    # a trailing newline (quoted, so it reaches the word) in any part
+    f"gh api -X POST '{MS}\n' -f title=x",
+    f"gh api -X PATCH '{MS}/12\n' -f state=closed",
+    f"gh api -X PATCH '{MS}/1\n2' -f state=closed",
+    f"gh api -X 'POST\n' {MS} -f title=x",
+    f"gh api -X 'PATCH\n' {MS}/12 -f state=closed",
+    f"gh api -X POST {MS} -f 'title=x\n'",
+    f"gh api -X POST {MS} -f 'title\n=x'",
+    f"gh api -X PATCH {MS}/12 -f 'state=closed\n'",
+    # a flag-looking word outside a field value is still a flag
+    f"gh api -X POST {MS} -f title=x --input",
+    f"gh api -X POST {MS} -f -X",
     # any other gh api write stays denied
     "gh api -X POST repos/o/r/issues -f title=x",
     "gh api -X PATCH repos/o/r/issues/5 -f state=closed",

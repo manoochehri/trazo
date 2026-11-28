@@ -109,7 +109,7 @@ GH_WRITE = {
 MILESTONE_FIELDS = {"title", "description", "due_on", "state"}
 MILESTONE_STATES = {"open", "closed"}
 MILESTONE_ENDPOINT = re.compile(
-    r"^repos/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/milestones(?:/([0-9]+))?$"
+    r"repos/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/milestones(?:/([0-9]+))?"
 )
 STOP_LABELS = {"needs-decision", "drive-halt"}  # the owner and the halt switch lift these
 
@@ -295,6 +295,8 @@ def check_gh_api_milestone(args: list[str]) -> None:
                 key, eq, val = value.partition("=")
                 if not eq or key not in MILESTONE_FIELDS:
                     raise Deny("a milestone write may set only title, description, due_on, state")
+                if "\n" in value or "\r" in value:
+                    raise Deny("a `gh api` field may not contain a line break")
                 if val.startswith("@"):
                     raise Deny("a `gh api` field value may not be read from a file (@)")
                 fields.append((key, val))
@@ -304,7 +306,7 @@ def check_gh_api_milestone(args: list[str]) -> None:
             endpoint = a
         else:
             raise Deny("`gh api` milestone write takes one endpoint")
-    match = MILESTONE_ENDPOINT.match(endpoint or "")
+    match = MILESTONE_ENDPOINT.fullmatch(endpoint or "")
     if not match or {".", ".."} & set(match.groups()[:2]):
         raise Deny("a milestone write targets repos/<owner>/<repo>/milestones[/<number>], literal")
     number = match.group(3)
