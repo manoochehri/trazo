@@ -37,7 +37,9 @@ repos/<o>/<r>/milestones` or `gh api -X PATCH repos/<o>/<r>/milestones/<number>`
 Every part is literal: the path is matched raw (no `%` encoding, trailing slash, `..`, query,
 variable or substitution), the method is the uppercase word after a bare `-X` (`-X=PATCH`, `-iX`,
 `--method` and lowercase are denied), and `--input`, `@file` values, extra fields, other flags and
-any other `gh api` write (including DELETE) are denied.
+any other `gh api` write (including DELETE) are denied. A field word containing a newline or
+carriage return is denied too, so the PM cannot put a line break in a milestone title or
+description through this route.
 
 The allowlist is not host-extendable: a PM that needs more should file an issue for the engineer.
 

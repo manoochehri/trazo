@@ -330,8 +330,6 @@ def check_gh(args: list[str]) -> None:
         if any(a.partition("=")[0] not in GH_API_FLAGS for a in flags):
             check_gh_api_milestone(args)  # the only write; denies anything else
             return
-        if any(a.partition("=")[0] not in GH_API_FLAGS for a in flags):
-            raise Deny("`gh api` is read-only here (--jq and --paginate only)")
         if (
             len(endpoints) < 1
             or not GH_API_ENDPOINT.match(endpoints[0])
