@@ -17,7 +17,8 @@ Allowed: read-only `git` and `gh` with known flags, `gh issue create|comment|edi
 and `gh label create|edit` with a fixed flag set (#378), and stdin-only
 filters after a pipe. No file arguments to filters, no `--body-file`
 (the PM has no file-write tool, so any path is a secret or repo content), no `gh auth`, no
-`gh api` beyond `repos/<o>/<r>/...`, no glob characters, no absolute or `..` paths for git.
+`gh api` beyond `repos/<o>/<r>/...` reads and the milestone create/edit (#396), no glob
+characters, no absolute or `..` paths for git.
 """
 
 import json
@@ -104,6 +105,12 @@ GH_WRITE = {
         {"--remove-milestone"},
     ),
 }  # fmt: skip
+# The one `gh api` write the PM has (#396): create or edit a milestone, nothing else.
+MILESTONE_FIELDS = {"title", "description", "due_on", "state"}
+MILESTONE_STATES = {"open", "closed"}
+MILESTONE_ENDPOINT = re.compile(
+    r"^repos/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/milestones(?:/([0-9]+))?$"
+)
 STOP_LABELS = {"needs-decision", "drive-halt"}  # the owner and the halt switch lift these
 
 # Words that are free text or a program, not paths: not scanned for secret paths.
@@ -265,6 +272,52 @@ def check_gh_write(key: tuple[str, str], args: list[str]) -> None:
                 raise Deny(f"the PM may not remove {sorted(lifted)}; only the owner lifts them")
 
 
+def check_gh_api_milestone(args: list[str]) -> None:
+    """`gh api -X POST repos/<o>/<r>/milestones` or `-X PATCH .../milestones/<number>`, with
+    only title, description, due_on and state as `-f`/`-F key=value`. Every part is literal
+    and exact: no `--input`, no `@file` value, no encoded or computed path, no other flag
+    (`-X=PATCH`, `-iX`, `--method` and lowercase methods all fall out as unknown shapes)."""
+    method, endpoint, fields = None, None, []
+    i = 1  # args[0] is "api"
+    while i < len(args):
+        a = args[i]
+        i += 1
+        if a in {"-X", "-f", "-F"}:
+            if i >= len(args):
+                raise Deny(f"{a} needs a value")
+            value = args[i]
+            i += 1
+            if a == "-X":
+                if method is not None:
+                    raise Deny("`gh api` takes one -X method")
+                method = value
+            else:
+                key, eq, val = value.partition("=")
+                if not eq or key not in MILESTONE_FIELDS:
+                    raise Deny("a milestone write may set only title, description, due_on, state")
+                if val.startswith("@"):
+                    raise Deny("a `gh api` field value may not be read from a file (@)")
+                fields.append((key, val))
+        elif a.startswith("-"):
+            raise Deny(f"`gh api` flag {a} is not granted to the PM for a milestone write")
+        elif endpoint is None:
+            endpoint = a
+        else:
+            raise Deny("`gh api` milestone write takes one endpoint")
+    match = MILESTONE_ENDPOINT.match(endpoint or "")
+    if not match or {".", ".."} & set(match.groups()[:2]):
+        raise Deny("a milestone write targets repos/<owner>/<repo>/milestones[/<number>], literal")
+    number = match.group(3)
+    if (method, bool(number)) not in {("POST", False), ("PATCH", True)}:
+        raise Deny("milestones: -X POST on the collection or -X PATCH on a numbered milestone")
+    keys = [k for k, _ in fields]
+    if len(set(keys)) != len(keys) or not fields or (method == "POST" and "title" not in keys):
+        raise Deny("a milestone write needs unique fields (and a title to create)")
+    state = dict(fields).get("state")
+    if state is not None and state not in MILESTONE_STATES:
+        raise Deny("a milestone state is open or closed")
+
+
 def check_gh(args: list[str]) -> None:
     if len(args) < 2 or args[0].startswith("-"):
         raise Deny("unrecognised gh command")
@@ -272,6 +325,9 @@ def check_gh(args: list[str]) -> None:
     if cmd == "api":
         endpoints = [a for a in args[1:] if not a.startswith("-")]
         flags = [a for a in args[1:] if a.startswith("-")]
+        if any(a.partition("=")[0] not in GH_API_FLAGS for a in flags):
+            check_gh_api_milestone(args)  # the only write; denies anything else
+            return
         if any(a.partition("=")[0] not in GH_API_FLAGS for a in flags):
             raise Deny("`gh api` is read-only here (--jq and --paginate only)")
         if (

@@ -265,6 +265,117 @@ ALLOWED = [
 ]
 
 
+# Issue #396: the one `gh api` write the PM has is a milestone create or edit.
+MS = "repos/o/r/milestones"
+DUE = "2026-12-31T00:00:00Z"
+MILESTONE_ALLOWED = [
+    f"gh api -X POST {MS} -f title=v0.7.0",
+    f"gh api -X POST {MS} -f title=v0.7.0 -f description='the goal; scope' -f due_on={DUE}",
+    f"gh api -X POST {MS} -F title=v0.7.0 -F state=open",
+    f"gh api {MS} -X POST -f title=v0.7.0",
+    f"gh api -X PATCH {MS}/12 -f state=closed",
+    f"gh api -X PATCH {MS}/12 -f title=x -f description=y -f due_on={DUE} -f state=open",
+    f"gh api -X PATCH {MS}/7 -F description=goal",
+]
+MILESTONE_DENIED = [
+    f"gh api -X DELETE {MS}/12",
+    f"gh api -X POST {MS} --input body.json",
+    f"gh api -X POST {MS} -f title=x --input body.json",
+    f"gh api -X PATCH {MS}/12 --input=body.json",
+    f"gh api -X POST {MS} -F title=@notes.md",
+    f"gh api -X POST {MS} -f title=@notes.md",
+    f"gh api -X POST {MS} -F description=@-",
+    f"gh api -X PATCH {MS}/12 -F description=@.env",
+    # encoded and traversing paths (PR 384)
+    "gh api -X POST repos/o/r/milestones%2f12/../../hooks -f title=x",
+    f"gh api -X PATCH {MS}%2f12 -f state=closed",
+    f"gh api -X PATCH {MS}%252f12 -f state=closed",
+    "gh api -X PATCH repos/o/r/milestones/..%2fhooks -f state=closed",
+    "gh api -X PATCH repos/o/r/milestones/..%2f12 -f state=closed",
+    "gh api -X PATCH repos/o/r/milestones/../hooks -f state=closed",
+    f"gh api -X PATCH {MS}/%31%32 -f state=closed",
+    "gh api -X POST repos/../r/milestones -f title=x",
+    "gh api -X POST repos/o/../milestones -f title=x",
+    f"gh api -X POST {MS}/ -f title=x",
+    f"gh api -X PATCH {MS}/12/ -f state=closed",
+    f"gh api -X PATCH {MS}/12/merge -f state=closed",
+    f"gh api -X PATCH {MS}/12?x=1 -f state=closed",
+    f"gh api -X PATCH {MS}/12#x -f state=closed",
+    "gh api -X POST /repos/o/r/milestones -f title=x",
+    "gh api -X POST https://api.github.com/repos/o/r/milestones -f title=x",
+    "gh api -X POST 'repos/{owner}/{repo}/milestones' -f title=x",
+    "gh api -X POST repos/o/r/milestones/12 -f title=x",
+    f"gh api -X PATCH {MS} -f state=closed",
+    # method spellings and clusters
+    f"gh api -x POST {MS} -f title=x",
+    f"gh api -X post {MS} -f title=x",
+    f"gh api -X patch {MS}/12 -f state=closed",
+    f"gh api -X=PATCH {MS}/12 -f state=closed",
+    f"gh api -X=POST {MS} -f title=x",
+    f"gh api -iX POST {MS} -f title=x",
+    f"gh api -iXPATCH {MS}/12 -f state=closed",
+    f"gh api -XPOST {MS} -f title=x",
+    f"gh api --method POST {MS} -f title=x",
+    f"gh api --method=PATCH {MS}/12 -f state=closed",
+    f"gh api -X PUT {MS}/12 -f state=closed",
+    f"gh api -X POST -X PATCH {MS}/12 -f state=closed",
+    f"gh api -X GET {MS}",
+    f"gh api -X POST {MS} -H 'X-HTTP-Method-Override: DELETE' -f title=x",
+    f"gh api -X POST {MS} --hostname evil.example -f title=x",
+    # a milestone number as a variable or computed part
+    "gh api -X PATCH repos/o/r/milestones/$N -f state=closed",
+    'gh api -X PATCH "repos/o/r/milestones/$N" -f state=closed',
+    'gh api -X PATCH "repos/o/r/milestones/${N}" -f state=closed',
+    "gh api -X PATCH 'repos/o/r/milestones/$N' -f state=closed",
+    "gh api -X PATCH repos/o/r/milestones/$(echo 1) -f state=closed",
+    f"gh api -X PATCH {MS}/1 -f state=$S",
+    f'gh api -X POST {MS} -f title="$(fly deploy)"',
+    # fields outside the granted four, or malformed
+    f"gh api -X POST {MS} -f title=x -f creator=y",
+    f"gh api -X POST {MS} -f title=x -f html_url=y",
+    f"gh api -X PATCH {MS}/12 -f number=3",
+    f"gh api -X POST {MS} -f title",
+    f"gh api -X POST {MS} -f description=y",
+    f"gh api -X POST {MS}",
+    f"gh api -X PATCH {MS}/12",
+    f"gh api -X POST {MS} -f title=a -f title=b",
+    f"gh api -X PATCH {MS}/12 -f state=deleted",
+    f"gh api -X POST {MS} -f title=x --jq .number",
+    f"gh api -X POST {MS} -f title=x -f title=x extra/path",
+    # any other gh api write stays denied
+    "gh api -X POST repos/o/r/issues -f title=x",
+    "gh api -X PATCH repos/o/r/issues/5 -f state=closed",
+    "gh api -X POST repos/o/r/labels -f name=x",
+    "gh api -X POST repos/o/r/git/refs -f ref=refs/tags/x -f sha=abc",
+    "gh api -X PATCH repos/o/r -f name=x",
+    "gh api -X POST repos/o/r/milestones/12/labels -f title=x",
+    "gh api -X PATCH repos/o/r/milestones/12/hooks -f title=x",
+    "gh api -X POST repos/o/r/hooks -f title=x",
+    "gh api -X POST repos/o/r/rulesets -f title=x",
+    "gh api -X PUT repos/o/r/branches/main/protection -f title=x",
+    "gh api -X POST user/keys -f title=x",
+    "gh api -X POST graphql -f query=x",
+    f"gh api -X POST {MS} -f title=x | sh",
+    f"gh api -X POST {MS} -f title=x; gh pr merge 3",
+    f"gh api -X POST {MS} -f title=x\nfly deploy",
+]
+
+
+@pytest.mark.parametrize("command", MILESTONE_DENIED)
+def test_pm_hook_blocks_milestone_probes(project: Path, command: str) -> None:
+    result = _run(project, command)
+    assert result.returncode == 2, (
+        f"{command!r} was not blocked (exit {result.returncode}): {result.stderr}"
+    )
+    assert result.stderr.strip()
+
+
+@pytest.mark.parametrize("command", MILESTONE_ALLOWED)
+def test_pm_hook_allows_milestone_create_and_edit(project: Path, command: str) -> None:
+    result = _run(project, command)
+    assert result.returncode == 0, f"{command!r} was blocked: {result.stderr}"
+
+
 @pytest.mark.parametrize("command", DENIED)
 def test_pm_hook_blocks(project: Path, command: str) -> None:
     result = _run(project, command)
